@@ -6,6 +6,30 @@
 
 ---
 
+## 🚀 Ripartenza rapida (leggere per primo)
+
+**Dove siamo (giugno 2026):** app funzionante e testata su iPhone fisico + simulatore. Implementato:
+mappa multi-sorgente (OpenTopoMap/SwissTopo/IGN/OSM) + overlay sentieri; **GPS**; **disegno multi-traccia**
+con **snap-to-trail** (BRouter, catena profili `hiking-mountain → trekking`, routing per-segmento con retry);
+**dislivelli + profilo altimetrico interattivo** (scrubbing → punto evidenziato in mappa); **numeri sentieri
+CAI** (Overpass) sia come chip sia come **banda sotto il grafico**; **persistenza locale** (drift/SQLite);
+lista tracciati ordinabile/ricercabile; **export/import GPX**; UI con palette blu, font **Lato**, **barra
+flottante in basso** (bussola-nord / mia posizione / **+** / lista / impostazioni), logo+splash.
+
+**Cosa resta (in ordine di priorità):**
+- **Step 5** — fix **IGN** (layer WMTS dà 404) + valutazione estetica mappe (stile GaiaGPS; es. CyclOSM/Thunderforest/Mapbox).
+- **Step 6** — **download aree offline** (tile mappa + DEM Terrarium via FMTC) — §6.1 / Fase 1.F.
+- **Rimandati:** sync **Google Drive** (analisi pronta, vedi §6.5 + cronologia); **bundling font** come asset (ora `google_fonts` scarica a runtime).
+
+**Come eseguire / testare:** vedi `CLAUDE.md` §8 (avvio simulatore, `flutter run`, drift codegen, rigenerazione icone/splash).
+In breve: `xcrun simctl boot <UDID iPhone> && open -a Simulator` poi `flutter run -d <UDID>`. L'hot reload via
+segnale **non** funziona in sessioni non interattive: dopo una modifica si rilancia `flutter run` (build in cache, ~10-20s).
+
+**Convenzioni di lavoro (preferenze utente):** committare in autonomia a ogni step verificato (`flutter analyze` pulito
++ `flutter test` verde); tenere aggiornati ROADMAP.md e CLAUDE.md a ogni iterazione.
+
+---
+
 ## Prossimi step (priorità decisa dall'utente)
 
 1. ✅ **Correzioni grafiche minori — riordino bottoni (FATTO):** rimossa l'AppBar → controlli flottanti identici in fullscreen e non. Bussola top-sx; FAB "Disegna" bottom-dx. Top-dx: riga [scelta mappa][lista tracciati], sotto fullscreen, sotto bottone menu (posizione attuale + mostra/nascondi sentieri). **Lista tracciati**: ordinamento per data/alfabetico + ricerca sul titolo (`createdAt` aggiunto a `DrawnTrack`).

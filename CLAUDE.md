@@ -202,7 +202,7 @@ test/
 
 ---
 
-## 8. Comandi
+## 8. Comandi ed esecuzione
 
 ```bash
 flutter pub get              # installa dipendenze
@@ -213,6 +213,31 @@ flutter analyze              # linting/analisi statica
 flutter build apk            # build Android
 flutter build ipa            # build iOS (richiede Xcode + account Apple)
 dart format .                # formattazione
+```
+
+### Ambiente (stato attuale macOS)
+- **Flutter 3.44.2** (stabile). ⚠️ Il `dart` sul PATH è quello di Homebrew (diverso da quello di Flutter):
+  per i tool usare **`flutter pub run ...`**, NON `dart run ...` (altrimenti "Flutter SDK not available").
+- Dispositivi noti: **simulatore iPhone 17** UDID `C94F3071-053C-4B09-AE5F-12A1156FE0C7`;
+  **iPhone fisico** id `00008150-001C25243C20401C` (via cavo; firma: team Apple ID già configurato in Xcode,
+  bundle id `com.mattiacuratitoli.sentei`).
+
+### Avviare il simulatore e l'app
+```bash
+xcrun simctl boot C94F3071-053C-4B09-AE5F-12A1156FE0C7   # avvia il simulatore (se spento)
+open -a Simulator
+flutter run -d C94F3071-053C-4B09-AE5F-12A1156FE0C7      # build + install + run
+# Sul telefono fisico: collegare via cavo, poi: flutter run -d 00008150-001C25243C20401C
+```
+> **Hot reload:** in una sessione interattiva si usa `r`. In esecuzioni NON interattive (output reindirizzato)
+> il segnale di reload **termina** il processo: dopo una modifica Dart **rilanciare `flutter run`** (build in cache, ~10–20s).
+> Le modifiche a **plugin nativi** (es. geolocator, drift, file_selector) richiedono un rebuild completo (pod install).
+
+### Codegen e asset
+```bash
+flutter pub run build_runner build           # rigenera drift (lib/data/storage/app_database.g.dart)
+flutter pub run flutter_launcher_icons       # rigenera icone app (sorgente: branding/appstore.png)
+flutter pub run flutter_native_splash:create # rigenera splash (sorgente: branding/splash.png)
 ```
 
 ---
@@ -248,3 +273,35 @@ dart format .                # formattazione
 - SwissTopo e IGN sono **gratuite ma per uso non commerciale / con condizioni**: se in futuro
   l'app diventasse a pagamento, **rivedere le licenze**.
 - **Sentèi** è un progetto personale ispirato a GaiaGPS, **non** ne riusa codice o dati proprietari.
+
+---
+
+## 12. Stato di avanzamento (snapshot — giugno 2026)
+
+> Dettaglio e prossimi passi in `docs/ROADMAP.md` (vedi "🚀 Ripartenza rapida" in cima).
+
+**Implementato e testato (iPhone + simulatore):**
+- **Mappa** multi-sorgente + overlay sentieri; **GPS** (`geolocator`); bussola, scelta mappa e toggle sentieri in Impostazioni.
+- **Disegno multi-traccia** con **snap-to-trail**: BRouter pubblico, **routing per-segmento** con retry e
+  **catena profili `hiking-mountain → trekking`** (alcuni segmenti alpini mandano in crisi i profili `hiking-*`);
+  fallback a linea retta solo se tutto fallisce.
+- **Dislivello D+/D-** (DEM Terrarium, smoothing deadband) + **profilo altimetrico** con scrubbing
+  (evidenzia il punto in mappa) e **banda numeri sentiero CAI** sull'asse X.
+- **Numeri sentieri** via **Overpass** (relazioni `route=hiking`): elenco (chip) + per-tratto (`TrailSegment`).
+- **Persistenza locale** `drift`/SQLite (`data/storage/`), lista tracciati ordinabile/ricercabile, **export/import GPX** (`gpx`, `file_selector`, `share_plus`).
+- **UI:** palette blu (seed `#1565C0`), font **Lato**, **barra flottante in basso**, logo+splash (sorgenti in `branding/`).
+
+**Pacchetti chiave aggiunti rispetto a §3:** `flutter_map_dragmarker`, `image`, `http`, `geolocator`,
+`drift`+`drift_flutter`, `gpx`, `file_selector`, `share_plus`, `path_provider`, `google_fonts`,
+dev: `drift_dev`, `build_runner`, `flutter_launcher_icons`, `flutter_native_splash`.
+
+**Servizi/architettura principali:**
+`data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/overpass_trail_service.dart`
+(numeri sentiero) · `data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository) ·
+`data/gpx/gpx_service.dart` · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`,
+calcolo+salvataggio al "Fine", provider DB) · `features/map/map_screen.dart` (UI mappa + barra).
+
+**Da fare (priorità):**
+1. **Fix IGN** (WMTS Géoplateforme dà 404) + estetica mappe (stile GaiaGPS).
+2. **Download aree offline** (FMTC: tile + DEM) — §6.1.
+3. *Rimandati:* sync **Google Drive** (§6.5); **bundling font** offline.
