@@ -15,6 +15,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final base = ref.watch(selectedBaseSourceProvider);
+    final trailsOn = ref.watch(trailsOverlayEnabledProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Impostazioni')),
@@ -36,6 +37,20 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () =>
                   ref.read(selectedBaseSourceProvider.notifier).select(s),
             ),
+          const Divider(),
+          const ListTile(
+            title:
+                Text('Sentieri', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          SwitchListTile(
+            secondary:
+                Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
+            title: const Text('Mostra sentieri segnati'),
+            subtitle: const Text('Overlay Waymarked Trails sulla mappa'),
+            value: trailsOn,
+            onChanged: (_) =>
+                ref.read(trailsOverlayEnabledProvider.notifier).toggle(),
+          ),
           const Divider(),
           const ListTile(
             leading: Icon(Icons.info_outline),

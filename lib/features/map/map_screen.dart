@@ -354,8 +354,8 @@ class _WaypointMarkers extends ConsumerWidget {
 }
 
 
-/// Barra flottante in basso (stile dock iOS): bussola(menu) · mappe · + · tracce · impostazioni.
-class _BottomBar extends ConsumerWidget {
+/// Barra flottante in basso (stile dock iOS): nord · posizione · + · tracce · impostazioni.
+class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onOrientNorth,
     required this.onLocate,
@@ -371,10 +371,8 @@ class _BottomBar extends ConsumerWidget {
   final VoidCallback onSettings;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final base = ref.watch(selectedBaseSourceProvider);
-    final trailsOn = ref.watch(trailsOverlayEnabledProvider);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -388,60 +386,15 @@ class _BottomBar extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Bussola → menu (orienta, posizione, sentieri).
-              PopupMenuButton<String>(
-                tooltip: 'Bussola e posizione',
+              IconButton(
+                tooltip: 'Orienta a nord',
                 icon: const Icon(Icons.explore_outlined),
-                onSelected: (v) {
-                  if (v == 'north') onOrientNorth();
-                  if (v == 'locate') onLocate();
-                  if (v == 'trails') {
-                    ref.read(trailsOverlayEnabledProvider.notifier).toggle();
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'north',
-                    child: ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.navigation_outlined),
-                      title: Text('Orienta a nord'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'locate',
-                    child: ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.my_location),
-                      title: Text('La mia posizione'),
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'trails',
-                    child: ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                          trailsOn ? Icons.hiking : Icons.hiking_outlined),
-                      title: Text(
-                          trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
-                    ),
-                  ),
-                ],
+                onPressed: onOrientNorth,
               ),
-              // Mappe → selettore sorgente.
-              PopupMenuButton<MapSource>(
-                tooltip: 'Sorgente mappa',
-                icon: const Icon(Icons.layers_outlined),
-                initialValue: base,
-                onSelected: (s) =>
-                    ref.read(selectedBaseSourceProvider.notifier).select(s),
-                itemBuilder: (_) => [
-                  for (final s in MapSources.bases)
-                    PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
-                ],
+              IconButton(
+                tooltip: 'La mia posizione',
+                icon: const Icon(Icons.my_location),
+                onPressed: onLocate,
               ),
               // + centrale (colore primario, in evidenza).
               _PlusButton(onTap: onNewTrack),
