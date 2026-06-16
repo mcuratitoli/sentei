@@ -184,6 +184,7 @@ class DrawRouteControls extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: ElevationProfileChart(
                   profile: shownMetrics.profile,
+                  trailSegments: shownMetrics.trailSegments,
                   cursor: ref.watch(profileCursorProvider),
                   onCursor: (s) =>
                       ref.read(profileCursorProvider.notifier).set(s),

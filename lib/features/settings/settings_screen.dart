@@ -55,7 +55,7 @@ class SettingsScreen extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Sentèi'),
-            subtitle: Text('App escursionismo — Alpi del Nord Italia'),
+            subtitle: Text('App escursionismo'),
           ),
           const ListTile(
             leading: Icon(Icons.cloud_off),

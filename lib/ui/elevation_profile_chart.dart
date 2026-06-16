@@ -4,19 +4,24 @@ import '../domain/models/elevation_profile.dart';
 
 /// Grafico del profilo altimetrico: area riempita quota vs distanza, con
 /// scrubbing — trascinando il dito/cursore si evidenzia un punto e lo si
-/// notifica via [onCursor] (per evidenziarlo in mappa).
+/// notifica via [onCursor] (per evidenziarlo in mappa). Sotto l'asse X mostra
+/// i **numeri dei sentieri** (ref CAI) attraversati in ciascun tratto.
 ///
 /// Widget di presentazione: nessuna dipendenza da Riverpod.
 class ElevationProfileChart extends StatelessWidget {
   const ElevationProfileChart({
     super.key,
     required this.profile,
+    this.trailSegments = const [],
     this.cursor,
     this.onCursor,
-    this.height = 140,
+    this.height = 150,
   });
 
   final ElevationProfile profile;
+
+  /// Tratti percorsi sui vari sentieri (per le etichette sull'asse X).
+  final List<TrailSegment> trailSegments;
 
   /// Campione attualmente evidenziato (disegnato con linea + pallino).
   final ProfileSample? cursor;
@@ -59,9 +64,12 @@ class ElevationProfileChart extends StatelessWidget {
             child: CustomPaint(
               painter: _ProfilePainter(
                 profile: profile,
+                trailSegments: trailSegments,
                 color: scheme.primary,
-                cursor: cursor,
                 cursorColor: scheme.error,
+                bandColor: scheme.secondaryContainer,
+                bandTextColor: scheme.onSecondaryContainer,
+                cursor: cursor,
               ),
               size: Size.infinite,
             ),
@@ -89,28 +97,39 @@ class ElevationProfileChart extends StatelessWidget {
 class _ProfilePainter extends CustomPainter {
   _ProfilePainter({
     required this.profile,
+    required this.trailSegments,
     required this.color,
     required this.cursorColor,
+    required this.bandColor,
+    required this.bandTextColor,
     this.cursor,
   });
 
   final ElevationProfile profile;
+  final List<TrailSegment> trailSegments;
   final Color color;
   final Color cursorColor;
+  final Color bandColor;
+  final Color bandTextColor;
   final ProfileSample? cursor;
+
+  static const double _bandHeight = 18;
 
   @override
   void paint(Canvas canvas, Size size) {
     final samples = profile.samples;
     if (samples.length < 2 || profile.totalDistance <= 0) return;
 
+    final hasBands = trailSegments.isNotEmpty;
+    final chartH = size.height - (hasBands ? _bandHeight : 0);
+
     final eleRange = (profile.maxElevation - profile.minElevation).abs();
-    final span = eleRange < 1 ? 1.0 : eleRange; // evita divisione per ~0
+    final span = eleRange < 1 ? 1.0 : eleRange;
 
     double dxFor(double distance) =>
         distance / profile.totalDistance * size.width;
     double dyFor(double elevation) =>
-        size.height - (elevation - profile.minElevation) / span * size.height;
+        chartH - (elevation - profile.minElevation) / span * chartH;
 
     final line = Path()
       ..moveTo(dxFor(samples.first.distanceMeters),
@@ -120,8 +139,8 @@ class _ProfilePainter extends CustomPainter {
     }
 
     final area = Path.from(line)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
+      ..lineTo(size.width, chartH)
+      ..lineTo(0, chartH)
       ..close();
 
     canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.18));
@@ -133,13 +152,45 @@ class _ProfilePainter extends CustomPainter {
         ..strokeWidth = 2,
     );
 
+    // Banda dei numeri sentiero sotto l'asse X.
+    if (hasBands) {
+      final top = chartH + 1;
+      for (final seg in trailSegments) {
+        final x0 = dxFor(seg.fromMeters);
+        final x1 = dxFor(seg.toMeters);
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTRB(x0 + 1, top, x1 - 1, size.height),
+          const Radius.circular(4),
+        );
+        canvas.drawRRect(rect, Paint()..color = bandColor);
+        // Etichetta ref se c'è spazio.
+        final tp = TextPainter(
+          text: TextSpan(
+            text: seg.ref,
+            style: TextStyle(
+                color: bandTextColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        if (tp.width <= (x1 - x0) - 4) {
+          tp.paint(
+            canvas,
+            Offset((x0 + x1) / 2 - tp.width / 2,
+                top + (_bandHeight - tp.height) / 2),
+          );
+        }
+      }
+    }
+
     final c = cursor;
     if (c != null) {
       final x = dxFor(c.distanceMeters);
       final y = dyFor(c.elevation);
       canvas.drawLine(
         Offset(x, 0),
-        Offset(x, size.height),
+        Offset(x, chartH),
         Paint()
           ..color = cursorColor.withValues(alpha: 0.6)
           ..strokeWidth = 1.5,
@@ -150,5 +201,8 @@ class _ProfilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ProfilePainter old) =>
-      old.profile != profile || old.color != color || old.cursor != cursor;
+      old.profile != profile ||
+      old.color != color ||
+      old.cursor != cursor ||
+      old.trailSegments != trailSegments;
 }

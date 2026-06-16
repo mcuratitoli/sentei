@@ -1,5 +1,20 @@
 import 'package:latlong2/latlong.dart';
 
+/// Tratto del percorso percorso su un dato sentiero (ref CAI), espresso in
+/// distanza cumulata da..a (metri). Serve a mostrare i numeri sentiero lungo
+/// l'asse X del profilo altimetrico.
+class TrailSegment {
+  const TrailSegment({
+    required this.fromMeters,
+    required this.toMeters,
+    required this.ref,
+  });
+
+  final double fromMeters;
+  final double toMeters;
+  final String ref;
+}
+
 /// Un campione del profilo altimetrico: quota e posizione a una certa distanza
 /// cumulata lungo il percorso.
 class ProfileSample {

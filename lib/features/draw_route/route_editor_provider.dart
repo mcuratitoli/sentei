@@ -235,11 +235,16 @@ class Tracks extends Notifier<TracksState> {
       metrics = null;
     }
 
-    List<String> refs = const [];
+    // Numeri sentiero per tratto (per il grafico) + elenco unico (per i chip).
+    List<TrailSegment> segments = const [];
     try {
-      refs = await ref.read(trailServiceProvider).trailRefsAlong(path);
+      segments = await ref.read(trailServiceProvider).trailSegmentsAlong(path);
     } catch (_) {
-      refs = const [];
+      segments = const [];
+    }
+    final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
+    if (metrics != null && segments.isNotEmpty) {
+      metrics = metrics.copyWith(trailSegments: segments);
     }
 
     // La traccia potrebbe essere stata eliminata nel frattempo.

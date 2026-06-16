@@ -68,6 +68,10 @@ class TracksRepository {
             'ln': s.position.longitude,
           }
       ],
+      'seg': [
+        for (final t in m.trailSegments)
+          {'f': t.fromMeters, 't': t.toMeters, 'r': t.ref}
+      ],
     });
   }
 
@@ -82,6 +86,14 @@ class TracksRepository {
           position: LatLng((s['la'] as num).toDouble(), (s['ln'] as num).toDouble()),
         ),
     ];
+    final segments = [
+      for (final s in (m['seg'] as List? ?? const []))
+        TrailSegment(
+          fromMeters: (s['f'] as num).toDouble(),
+          toMeters: (s['t'] as num).toDouble(),
+          ref: s['r'] as String,
+        ),
+    ];
     return TrackMetrics(
       distanceMeters: (m['d'] as num).toDouble(),
       elevation: ElevationGainLoss(
@@ -94,6 +106,7 @@ class TracksRepository {
         maxElevation: (m['max'] as num).toDouble(),
         totalDistance: (m['tot'] as num).toDouble(),
       ),
+      trailSegments: segments,
     );
   }
 

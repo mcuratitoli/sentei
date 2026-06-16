@@ -11,11 +11,22 @@ class TrackMetrics {
     required this.distanceMeters,
     required this.elevation,
     required this.profile,
+    this.trailSegments = const [],
   });
 
   final double distanceMeters;
   final ElevationGainLoss elevation;
   final ElevationProfile profile;
+
+  /// Tratti del percorso attribuiti a un sentiero (ref CAI), per distanza.
+  final List<TrailSegment> trailSegments;
+
+  TrackMetrics copyWith({List<TrailSegment>? trailSegments}) => TrackMetrics(
+        distanceMeters: distanceMeters,
+        elevation: elevation,
+        profile: profile,
+        trailSegments: trailSegments ?? this.trailSegments,
+      );
 
   static const empty = TrackMetrics(
     distanceMeters: 0,
