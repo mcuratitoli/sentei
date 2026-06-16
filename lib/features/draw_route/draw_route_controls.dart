@@ -69,14 +69,22 @@ class DrawRouteControls extends ConsumerWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                TextButton.icon(
+                FilledButton.icon(
+                  onPressed: () =>
+                      ref.read(routeEditorProvider.notifier).toggleDrawing(),
+                  icon: Icon(
+                      editor.drawing ? Icons.check : Icons.edit_location_alt),
+                  label: Text(editor.drawing ? 'Fine' : 'Disegna'),
+                ),
+                IconButton(
+                  tooltip: 'Annulla ultimo punto',
                   onPressed: editor.waypoints.isEmpty
                       ? null
                       : () => ref.read(routeEditorProvider.notifier).undo(),
                   icon: const Icon(Icons.undo),
-                  label: const Text('Annulla'),
                 ),
-                TextButton.icon(
+                IconButton(
+                  tooltip: 'Pulisci tracciato',
                   onPressed: editor.waypoints.isEmpty
                       ? null
                       : () {
@@ -84,7 +92,6 @@ class DrawRouteControls extends ConsumerWidget {
                           ref.read(routeMetricsProvider.notifier).reset();
                         },
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Pulisci'),
                 ),
                 const Spacer(),
                 FilledButton.tonalIcon(

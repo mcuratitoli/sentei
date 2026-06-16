@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
 import '../../data/map_sources/map_source.dart';
 import '../../data/map_sources/map_sources.dart';
+import '../draw_route/direction_arrows.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
@@ -87,6 +88,7 @@ class MapScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+              const DirectionArrows(),
               if (editor.waypoints.isNotEmpty) const _WaypointMarkers(),
               _AttributionBox(sources: attributions),
             ],
@@ -102,11 +104,17 @@ class MapScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
-        icon: Icon(editor.drawing ? Icons.check : Icons.edit_location_alt),
-        label: Text(editor.drawing ? 'Fine' : 'Disegna'),
-      ),
+      // Il FAB compare solo nello stato iniziale; durante il disegno (o con
+      // waypoint presenti) il toggle Disegna/Fine vive nel pannello controlli,
+      // così non copre il pulsante "Dislivello".
+      floatingActionButton: (editor.drawing || editor.waypoints.isNotEmpty)
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () =>
+                  ref.read(routeEditorProvider.notifier).toggleDrawing(),
+              icon: const Icon(Icons.edit_location_alt),
+              label: const Text('Disegna'),
+            ),
     );
   }
 }
@@ -121,29 +129,49 @@ class _WaypointMarkers extends ConsumerWidget {
     final waypoints = ref.watch(routeEditorProvider).waypoints;
     final scheme = Theme.of(context).colorScheme;
 
+    const start = Color(0xFF2E7D32); // verde: partenza
+    const end = Color(0xFFC62828); // rosso: arrivo
+    final last = waypoints.length - 1;
+
     return DragMarkers(
       markers: [
         for (var i = 0; i < waypoints.length; i++)
           DragMarker(
             key: ValueKey('waypoint-$i'),
             point: waypoints[i],
-            size: const Size(28, 28),
+            size: const Size(30, 30),
             // Commit solo a fine drag: evita di ri-instradare a ogni frame.
             onDragEnd: (_, latLng) =>
                 ref.read(routeEditorProvider.notifier).movePoint(i, latLng),
             onLongPress: (_) =>
                 ref.read(routeEditorProvider.notifier).removePoint(i),
             builder: (context, point, isDragging) {
-              final isEndpoint = i == 0 || i == waypoints.length - 1;
+              final isStart = i == 0;
+              final isEnd = i == last && last > 0;
+              final fill = isStart
+                  ? start
+                  : isEnd
+                      ? end
+                      : scheme.surface;
+              final icon = isStart
+                  ? Icons.play_arrow
+                  : isEnd
+                      ? Icons.flag
+                      : null;
               return Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isEndpoint ? scheme.primary : scheme.surface,
-                  border: Border.all(color: scheme.primary, width: 2),
+                  color: fill,
+                  border: Border.all(
+                      color: isStart || isEnd ? Colors.white : scheme.primary,
+                      width: 2),
                   boxShadow: isDragging
                       ? [const BoxShadow(blurRadius: 6, color: Colors.black38)]
-                      : null,
+                      : const [BoxShadow(blurRadius: 2, color: Colors.black26)],
                 ),
+                child: icon == null
+                    ? null
+                    : Icon(icon, size: 16, color: Colors.white),
               );
             },
           ),
