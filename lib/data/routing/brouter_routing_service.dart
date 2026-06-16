@@ -17,7 +17,7 @@ class BRouterRoutingService implements RoutingService {
     http.Client? client,
     this.baseUrl = 'https://brouter.de/brouter',
     this.timeout = const Duration(seconds: 20),
-    this.profiles = const ['hiking-mountain', 'hiking-mountain', 'trekking'],
+    this.profiles = const ['hiking-mountain', 'trekking'],
     this.retryDelay = const Duration(milliseconds: 400),
   }) : _client = client ?? http.Client();
 

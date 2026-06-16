@@ -148,8 +148,13 @@ test/
     + `filtered ascend` + quota per punto. Implementazione: `data/routing/brouter_routing_service.dart`
     dietro l'interfaccia `domain/services/routing_service.dart`. **Fallback a linea retta** su errore.
   - *Offline (Fase 2):* stesso motore **BRouter** embedded (segment files) — coerenza con l'online.
+  - *Catena profili:* `hiking-mountain → trekking`. Alcuni segmenti alpini fanno esplodere la
+    ricerca dei profili `hiking-*` (il server pubblico li uccide col watchdog ~8s); `trekking`
+    li calcola comunque seguendo i sentieri. Fallback a linea retta solo se entrambi falliscono.
   - *Alternative valutate:* GraphHopper/Valhalla/OpenRouteService (richiedono API key) — tenute di
     riserva se la reliability del servizio pubblico BRouter non basta.
+- **Numeri sentieri (ref CAI):** non disponibili da BRouter → recuperati via **Overpass API**
+  (`OverpassTrailService`, relazioni `route=hiking` vicine al percorso → tag `ref`), mostrati come chip.
 
 ### 6.3 Calcolo distanza/dislivello
 - Distanza: haversine cumulativo su punti densificati (interpolazione ogni ~10-25 m).

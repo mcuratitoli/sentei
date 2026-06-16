@@ -75,6 +75,8 @@ class DrawRouteControls extends ConsumerWidget {
                   ),
               ],
             ),
+            // Numeri dei sentieri attraversati (solo in vista selezionata).
+            if (!drawing && track != null) _TrailTags(trackId: track.id),
             if (drawing) ...[
               Row(
                 children: [
@@ -170,6 +172,54 @@ class DrawRouteControls extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Chip con i numeri dei sentieri (ref CAI) attraversati dalla traccia.
+class _TrailTags extends ConsumerWidget {
+  const _TrailTags({required this.trackId});
+
+  final String trackId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final refs = ref.watch(trailRefsProvider(trackId));
+    return refs.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Row(children: [
+          SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 8),
+          Text('Sentieri…', style: TextStyle(fontSize: 12)),
+        ]),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (list) => list.isEmpty
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Icon(Icons.signpost_outlined, size: 16),
+                  for (final r in list)
+                    Chip(
+                      label: Text(r),
+                      labelStyle: const TextStyle(fontSize: 12),
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }

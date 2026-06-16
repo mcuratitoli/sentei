@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
 import '../../data/offline/terrarium_http_fetcher.dart';
 import '../../data/routing/brouter_routing_service.dart';
+import '../../data/trails/overpass_trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
@@ -224,6 +225,19 @@ final routedPathProvider =
     }
   }
   return path;
+});
+
+/// Servizio Overpass per i numeri dei sentieri (ref CAI).
+final trailServiceProvider =
+    Provider<OverpassTrailService>((ref) => OverpassTrailService());
+
+/// Numeri dei sentieri (ref) attraversati dal percorso instradato di una
+/// traccia. Best-effort (lista vuota su errore).
+final trailRefsProvider =
+    FutureProvider.family<List<String>, String>((ref, id) async {
+  final path = await ref.watch(routedPathProvider(id).future);
+  if (path.length < 2) return const [];
+  return ref.watch(trailServiceProvider).trailRefsAlong(path);
 });
 
 /// Distanza (m) del percorso instradato della traccia attiva.

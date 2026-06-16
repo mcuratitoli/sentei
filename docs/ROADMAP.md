@@ -43,7 +43,7 @@
 
 ✅ **Flusso disegno/selezione (feedback 5° test):** (1) frecce singole (rimosso il doppio layer bianco); (2) **stati percorso**: disegno → "Fine" → deselezionato; **tap sulla traccia = seleziona** (card modifica/elimina/dislivello), tap fuori = deseleziona (`PathGeometry.distanceToPath` per l'hit); FAB "Disegna/Modifica" sempre in basso a destra quando nulla è selezionato; (3) **Dislivello come toggle** (apre/chiude il grafico); (4) rimosso il conteggio punti; (5) **nome del percorso** (`RouteEditorState.name` + campo testo).
 
-⏭️ **(6) Tag numeri sentieri CAI:** rinviato. Verificato che **BRouter non espone il `ref`** dei sentieri nei WayTags. Approcci possibili: profilo BRouter custom che conserva `ref`/`osmc:symbol`, oppure query **Overpass** delle relazioni `route=hiking` lungo il tracciato. Da valutare in un'iterazione dedicata.
+✅ **(6) Tag numeri sentieri CAI — FATTO:** `OverpassTrailService` interroga **Overpass API** (POST + User-Agent) per le relazioni `route=hiking` vicine ai punti del percorso e ne estrae il `ref` (es. "203", "203E"). `trailRefsProvider.family` (best-effort, lista vuota su errore); chip mostrati nella card in vista selezionata. Catena profili routing ridotta a `hiking-mountain → trekking`.
 
 ✅ **Multi-traccia (feedback 6° test):** stato refattorizzato in `TracksState`/`Tracks` (lista `DrawnTrack`), con `editingId`/`selectedId`. Flusso: **Disegna** crea una nuova traccia → punti → **Fine** (deseleziona, si possono crearne altre) → **tap su una traccia** la seleziona (card). Ogni traccia ha **nome** (editabile solo in crea/modifica), **colore** (selettore in crea/modifica) e snap. Routing per-traccia (`routedPathProvider.family`). Dislivello: icona cambia, testo resta "Dislivello".
 
