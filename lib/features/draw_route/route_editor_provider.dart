@@ -24,7 +24,9 @@ const List<Color> kTrackPalette = [
   Color(0xFF00897B), // teal
 ];
 
-/// Una traccia disegnata dall'utente (waypoint + nome + colore + snap).
+/// Una traccia disegnata: i waypoint di controllo + i dati **calcolati e
+/// memorizzati** al termine del disegno (percorso instradato, metriche, sentieri),
+/// così non vanno ricalcolati a ogni selezione.
 class DrawnTrack {
   const DrawnTrack({
     required this.id,
@@ -32,6 +34,9 @@ class DrawnTrack {
     this.name = '',
     this.color = const Color(0xFF2E6E4E),
     this.snapToTrail = true,
+    this.routedPath = const [],
+    this.metrics,
+    this.trailRefs = const [],
   });
 
   final String id;
@@ -40,6 +45,15 @@ class DrawnTrack {
   final Color color;
   final bool snapToTrail;
 
+  /// Geometria che segue i sentieri, calcolata al "Fine".
+  final List<LatLng> routedPath;
+
+  /// Distanza + D+/D- + profilo, calcolati al "Fine" (null se non disponibili).
+  final TrackMetrics? metrics;
+
+  /// Numeri dei sentieri (ref CAI) attraversati, calcolati al "Fine".
+  final List<String> trailRefs;
+
   bool get canCompute => waypoints.length >= 2;
 
   DrawnTrack copyWith({
@@ -47,6 +61,9 @@ class DrawnTrack {
     String? name,
     Color? color,
     bool? snapToTrail,
+    List<LatLng>? routedPath,
+    TrackMetrics? metrics,
+    List<String>? trailRefs,
   }) =>
       DrawnTrack(
         id: id,
@@ -54,27 +71,39 @@ class DrawnTrack {
         name: name ?? this.name,
         color: color ?? this.color,
         snapToTrail: snapToTrail ?? this.snapToTrail,
+        routedPath: routedPath ?? this.routedPath,
+        metrics: metrics ?? this.metrics,
+        trailRefs: trailRefs ?? this.trailRefs,
+      );
+
+  /// Azzera i dati calcolati (quando i waypoint cambiano in modifica).
+  DrawnTrack clearedComputed() => DrawnTrack(
+        id: id,
+        waypoints: waypoints,
+        name: name,
+        color: color,
+        snapToTrail: snapToTrail,
       );
 }
 
-/// Stato dell'editor multi-traccia: tutte le tracce + quella in modifica
-/// (`editingId`) e quella selezionata (`selectedId`).
+/// Stato dell'editor multi-traccia.
 class TracksState {
   const TracksState({
     this.tracks = const [],
     this.editingId,
     this.selectedId,
+    this.saving = false,
   });
 
   final List<DrawnTrack> tracks;
   final String? editingId;
   final String? selectedId;
 
+  /// Calcolo+salvataggio in corso dopo il "Fine".
+  final bool saving;
+
   bool get drawing => editingId != null;
-
-  /// Traccia "attiva" (in modifica o selezionata) a cui si riferisce la card.
   String? get activeId => editingId ?? selectedId;
-
   bool get showCard => editingId != null || selectedId != null;
 
   DrawnTrack? byId(String? id) {
@@ -89,7 +118,31 @@ class TracksState {
   DrawnTrack? get active => byId(activeId);
 }
 
-/// Editor multi-traccia (1.B): crea/modifica più tracce, selezione, snap.
+/// Instrada [wp] **segmento per segmento** (un tratto non instradabile degrada
+/// solo quel segmento a linea retta). Snap disattivo → spezzata tra i waypoint.
+Future<List<LatLng>> routeAlong(
+    RoutingService service, List<LatLng> wp, bool snap) async {
+  if (wp.length < 2 || !snap) return wp;
+  final path = <LatLng>[wp.first];
+  for (var i = 0; i < wp.length - 1; i++) {
+    final to = wp[i + 1];
+    try {
+      final seg = await service.route([wp[i], to]);
+      if (seg.geometry.length >= 2) {
+        path.addAll(seg.geometry.skip(1));
+      } else {
+        path.add(to);
+      }
+    } on RoutingException catch (e) {
+      debugPrint('[routing] seg $i → retta: ${e.message}');
+      path.add(to);
+    }
+  }
+  return path;
+}
+
+/// Editor multi-traccia (1.B): crea/modifica più tracce, selezione, snap, e al
+/// "Fine" calcola+memorizza percorso/metriche/sentieri (1.D, in-memory).
 class Tracks extends Notifier<TracksState> {
   int _counter = 0;
 
@@ -100,44 +153,84 @@ class Tracks extends Notifier<TracksState> {
 
   Color _nextColor() => kTrackPalette[state.tracks.length % kTrackPalette.length];
 
-  /// Avvia il disegno di una NUOVA traccia.
   void startNewDrawing() {
     final track = DrawnTrack(id: _newId(), color: _nextColor());
     state = TracksState(
       tracks: [...state.tracks, track],
       editingId: track.id,
-      selectedId: null,
     );
   }
 
-  /// Entra in modifica della traccia selezionata.
   void editSelected() {
     if (state.selectedId == null) return;
-    state = TracksState(
-      tracks: state.tracks,
-      editingId: state.selectedId,
-      selectedId: null,
-    );
+    state = TracksState(tracks: state.tracks, editingId: state.selectedId);
   }
 
-  /// Termina il disegno; scarta la traccia se ha meno di 2 punti.
-  void finishDrawing() {
+  /// Termina il disegno: scarta tracce < 2 punti; altrimenti calcola e
+  /// memorizza percorso instradato + metriche + numeri sentieri.
+  Future<void> finishDrawing() async {
     final id = state.editingId;
     if (id == null) return;
     final track = state.byId(id);
-    final tracks = (track != null && track.waypoints.length < 2)
-        ? state.tracks.where((t) => t.id != id).toList()
-        : state.tracks;
-    state = TracksState(tracks: tracks, editingId: null, selectedId: null);
+    if (track == null) return;
+
+    if (track.waypoints.length < 2) {
+      state = TracksState(
+        tracks: state.tracks.where((t) => t.id != id).toList(),
+      );
+      return;
+    }
+
+    // Deseleziona (si possono disegnare altre tracce); il calcolo prosegue in
+    // background e i dati restano memorizzati per quando la traccia verrà
+    // selezionata.
+    state = TracksState(tracks: state.tracks, saving: true);
+
+    final path =
+        await routeAlong(ref.read(routingServiceProvider), track.waypoints,
+            track.snapToTrail);
+
+    TrackMetrics? metrics;
+    try {
+      metrics = await const TrackMetricsCalculator()
+          .compute(path, ref.read(elevationServiceProvider));
+    } catch (_) {
+      metrics = null;
+    }
+
+    List<String> refs = const [];
+    try {
+      refs = await ref.read(trailServiceProvider).trailRefsAlong(path);
+    } catch (_) {
+      refs = const [];
+    }
+
+    // La traccia potrebbe essere stata eliminata nel frattempo.
+    if (state.byId(id) == null) {
+      state = TracksState(
+          tracks: state.tracks,
+          editingId: state.editingId,
+          selectedId: state.selectedId);
+      return;
+    }
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id)
+            t.copyWith(routedPath: path, metrics: metrics, trailRefs: refs)
+          else
+            t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+    );
   }
 
   void select(String id) =>
-      state = TracksState(tracks: state.tracks, editingId: null, selectedId: id);
+      state = TracksState(tracks: state.tracks, selectedId: id);
 
-  void deselect() =>
-      state = TracksState(tracks: state.tracks, editingId: null, selectedId: null);
+  void deselect() => state = TracksState(tracks: state.tracks);
 
-  /// Elimina una traccia (default: quella attiva).
   void remove([String? id]) {
     final target = id ?? state.activeId;
     if (target == null) return;
@@ -148,6 +241,8 @@ class Tracks extends Notifier<TracksState> {
     );
   }
 
+  /// Modifica la traccia in editing; ogni cambio ai waypoint azzera i dati
+  /// calcolati (verranno rifatti al prossimo "Fine").
   void _updateEditing(DrawnTrack Function(DrawnTrack) f) {
     final id = state.editingId;
     if (id == null) return;
@@ -160,30 +255,35 @@ class Tracks extends Notifier<TracksState> {
 
   void setName(String name) => _updateEditing((t) => t.copyWith(name: name));
   void setColor(Color c) => _updateEditing((t) => t.copyWith(color: c));
-  void toggleSnap() =>
-      _updateEditing((t) => t.copyWith(snapToTrail: !t.snapToTrail));
+  void toggleSnap() => _updateEditing(
+      (t) => t.clearedComputed().copyWith(snapToTrail: !t.snapToTrail));
 
-  void addPoint(LatLng p) =>
-      _updateEditing((t) => t.copyWith(waypoints: [...t.waypoints, p]));
+  void addPoint(LatLng p) => _updateEditing(
+      (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
 
   void undo() => _updateEditing((t) => t.waypoints.isEmpty
       ? t
-      : t.copyWith(waypoints: t.waypoints.sublist(0, t.waypoints.length - 1)));
+      : t
+          .clearedComputed()
+          .copyWith(waypoints: t.waypoints.sublist(0, t.waypoints.length - 1)));
 
   void movePoint(int index, LatLng p) => _updateEditing((t) {
         if (index < 0 || index >= t.waypoints.length) return t;
-        return t.copyWith(waypoints: [...t.waypoints]..[index] = p);
+        return t
+            .clearedComputed()
+            .copyWith(waypoints: [...t.waypoints]..[index] = p);
       });
 
   void removePoint(int index) => _updateEditing((t) {
         if (index < 0 || index >= t.waypoints.length) return t;
-        return t.copyWith(waypoints: [...t.waypoints]..removeAt(index));
+        return t
+            .clearedComputed()
+            .copyWith(waypoints: [...t.waypoints]..removeAt(index));
       });
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
 
-/// Id della traccia attiva (in modifica o selezionata).
 final activeTrackIdProvider =
     Provider<String?>((ref) => ref.watch(tracksProvider).activeId);
 
@@ -191,88 +291,50 @@ final activeTrackIdProvider =
 final routingServiceProvider =
     Provider<RoutingService>((ref) => BRouterRoutingService());
 
-/// Percorso instradato (lungo i sentieri) di una specifica traccia.
-///
-/// Instrada **segmento per segmento** (coppie di waypoint consecutivi): se un
-/// singolo segmento non è instradabile, ricade su linea retta SOLO per quel
-/// tratto, lasciando snappati gli altri (prima un singolo punto problematico
-/// rendeva retto l'intero percorso). Snap disattivo → spezzata tra i waypoint.
-final routedPathProvider =
-    FutureProvider.family<List<LatLng>, String>((ref, id) async {
-  final track = ref.watch(tracksProvider).byId(id);
-  if (track == null) return const [];
-  final wp = track.waypoints;
-  if (wp.length < 2 || !track.snapToTrail) return wp;
-
-  final service = ref.watch(routingServiceProvider);
-  final path = <LatLng>[wp.first];
-  for (var i = 0; i < wp.length - 1; i++) {
-    final from = wp[i], to = wp[i + 1];
-    try {
-      final seg = await service.route([from, to]);
-      // La geometria parte ~from: salto il primo punto per non duplicare la
-      // giunzione col segmento precedente.
-      if (seg.geometry.length >= 2) {
-        path.addAll(seg.geometry.skip(1));
-      } else {
-        path.add(to);
-      }
-    } on RoutingException catch (e) {
-      debugPrint('[routing] seg $i FALLBACK retto '
-          '(${from.latitude},${from.longitude} -> ${to.latitude},${to.longitude}): '
-          '${e.message}');
-      path.add(to); // fallback retto solo per questo segmento
-    }
-  }
-  return path;
-});
-
 /// Servizio Overpass per i numeri dei sentieri (ref CAI).
 final trailServiceProvider =
     Provider<OverpassTrailService>((ref) => OverpassTrailService());
 
-/// Numeri dei sentieri (ref) attraversati dal percorso instradato di una
-/// traccia. Best-effort (lista vuota su errore).
-final trailRefsProvider =
-    FutureProvider.family<List<String>, String>((ref, id) async {
-  final path = await ref.watch(routedPathProvider(id).future);
-  if (path.length < 2) return const [];
-  return ref.watch(trailServiceProvider).trailRefsAlong(path);
-});
-
-/// Distanza (m) del percorso instradato della traccia attiva.
-final routeDistanceProvider = Provider<double>((ref) {
-  final id = ref.watch(activeTrackIdProvider);
-  if (id == null) return 0;
-  final path = ref.watch(routedPathProvider(id)).value ?? const <LatLng>[];
-  return const PathGeometry().totalDistance(path);
-});
-
-/// Servizio elevazione (online di default; in 1.F si aggancia la cache FMTC).
 final elevationServiceProvider = Provider<ElevationService>(
   (ref) => TerrariumElevationService(fetchTile: httpTerrariumFetcher()),
 );
 
-/// Metriche (distanza + D+/D- + profilo) della traccia attiva.
-///
-/// Quando una traccia è **selezionata** (non in disegno) il calcolo parte in
-/// automatico, così cliccando un percorso si vedono subito distanza e D+/D-.
-/// In disegno il calcolo è on-demand ([compute], dal tasto Dislivello).
+/// Percorso instradato **in tempo reale** della traccia in modifica (anteprima
+/// durante il disegno). Le tracce finalizzate usano `DrawnTrack.routedPath`.
+final livePathProvider = FutureProvider.family<List<LatLng>, String>((ref, id) async {
+  final track = ref.watch(tracksProvider).byId(id);
+  if (track == null) return const [];
+  return routeAlong(ref.watch(routingServiceProvider), track.waypoints,
+      track.snapToTrail);
+});
+
+/// Distanza (m) della traccia attiva: usa i dati memorizzati se presenti,
+/// altrimenti l'anteprima live (durante il disegno).
+final routeDistanceProvider = Provider<double>((ref) {
+  final track = ref.watch(tracksProvider).active;
+  if (track == null) return 0;
+  if (track.metrics != null) return track.metrics!.distanceMeters;
+  if (track.routedPath.length >= 2) {
+    return const PathGeometry().totalDistance(track.routedPath);
+  }
+  final live = ref.watch(livePathProvider(track.id)).value ?? const <LatLng>[];
+  return const PathGeometry().totalDistance(live);
+});
+
+/// Metriche calcolate **on-demand durante il disegno** (tasto Dislivello).
+/// In vista selezionata si usano invece quelle memorizzate sulla traccia.
 class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
   @override
   Future<TrackMetrics?> build() async {
-    final st = ref.watch(tracksProvider);
-    if (st.drawing || st.selectedId == null) return null;
-    final path = await ref.watch(routedPathProvider(st.selectedId!).future);
-    if (path.length < 2) return null;
-    final service = ref.read(elevationServiceProvider);
-    return const TrackMetricsCalculator().compute(path, service);
+    ref.watch(activeTrackIdProvider); // reset al cambio traccia
+    return null;
   }
 
   Future<void> compute() async {
-    final id = ref.read(activeTrackIdProvider);
-    if (id == null) return;
-    final path = ref.read(routedPathProvider(id)).value ?? const <LatLng>[];
+    final track = ref.read(tracksProvider).active;
+    if (track == null) return;
+    final path = ref.read(livePathProvider(track.id)).value ??
+        (track.routedPath.length >= 2 ? track.routedPath : const <LatLng>[]);
     if (path.length < 2) {
       state = const AsyncData(null);
       return;
@@ -283,13 +345,14 @@ class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
       return const TrackMetricsCalculator().compute(path, service);
     });
   }
+
+  void reset() => state = const AsyncData(null);
 }
 
 final routeMetricsProvider =
     AsyncNotifierProvider<RouteMetrics, TrackMetrics?>(RouteMetrics.new);
 
 /// Visibilità del grafico del profilo (toggle dal tasto Dislivello).
-/// Si azzera quando cambia la traccia attiva.
 class ProfileVisible extends Notifier<bool> {
   @override
   bool build() {

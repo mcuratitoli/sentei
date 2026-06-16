@@ -96,8 +96,9 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 - ⏭️ **Residuo**: fetcher tile → cache offline FMTC (1.F); validare la soglia smoothing con tracce reali; cablare in `track_detail` (1.B/1.D).
 
 ### 1.D — Persistenza locale
-- `drift` + `sqlite3` per metadati tracciati; file GPX su filesystem (`path_provider`).
-- Repository tracciati (`data/storage/`); alimentare `tracks_list` e `track_detail`.
+- 🟡 **Cache in-memory dei dati calcolati (FATTO):** al "Fine" si calcola **una volta** percorso instradato + metriche (D+/D-/profilo) + numeri sentieri e si **memorizzano su `DrawnTrack`**; selezionare/deselezionare non ricalcola più (prima "frullava" a ogni riselezione, con esiti incoerenti per i kill del server). `livePathProvider` solo per l'anteprima in modifica.
+- ⏭️ **Persistenza su disco (drift):** `drift` + `sqlite3` per metadati tracciati; file GPX su filesystem (`path_provider`). Repository tracciati (`data/storage/`); alimentare `tracks_list` e `track_detail`. *(prossimo step)*
+- ⏭️ **Sync cloud (Google Drive):** vedi §note sotto — login Google account + archiviazione ordinata.
 
 ### 1.E — GPX import/export (§6.4)
 - Pacchetto `gpx`. Export `<trk>` + waypoint con quota/nome. Import robusto (tag mancanti, multi-segmento).

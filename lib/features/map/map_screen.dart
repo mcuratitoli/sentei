@@ -53,7 +53,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     String? nearestId;
     var best = double.infinity;
     for (final t in tracks) {
-      final path = ref.read(routedPathProvider(t.id)).value ?? const <LatLng>[];
+      final path = t.routedPath.length >= 2
+          ? t.routedPath
+          : (ref.read(livePathProvider(t.id)).value ?? const <LatLng>[]);
       if (path.length < 2) continue;
       final d = const PathGeometry().distanceToPath(point, path);
       if (d < best) {
@@ -252,7 +254,10 @@ class _TracksLayer extends ConsumerWidget {
     final st = ref.watch(tracksProvider);
     final polylines = <Polyline>[];
     for (final t in st.tracks) {
-      final path = ref.watch(routedPathProvider(t.id)).value ?? const <LatLng>[];
+      // Tracce finalizzate: percorso memorizzato. In modifica: anteprima live.
+      final path = t.routedPath.length >= 2
+          ? t.routedPath
+          : (ref.watch(livePathProvider(t.id)).value ?? const <LatLng>[]);
       if (path.length < 2) continue;
       polylines.add(Polyline(
         points: path,

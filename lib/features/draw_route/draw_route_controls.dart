@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
+import '../../domain/services/track_metrics.dart';
 import '../../ui/elevation_profile_chart.dart';
 import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
 ///
-/// Due modalità: **disegno/modifica** (nome, colore, snap, aggiungi/annulla
-/// punti, Fine) e **selezionata** (nome in sola lettura, modifica/elimina/
-/// dislivello). Visibile solo quando una traccia è in card (`showCard`).
+/// In **modifica/creazione**: nome, colore, snap, aggiungi/annulla punti, Fine,
+/// dislivello live on-demand. In **vista selezionata**: dati memorizzati al
+/// "Fine" (distanza, D+/D-, profilo, numeri sentieri), modifica/elimina.
 class DrawRouteControls extends ConsumerWidget {
   const DrawRouteControls({super.key});
 
@@ -20,16 +21,21 @@ class DrawRouteControls extends ConsumerWidget {
 
     final track = st.active;
     final drawing = st.drawing;
+    final saving = st.saving;
     final distance = ref.watch(routeDistanceProvider);
-    final metrics = ref.watch(routeMetricsProvider);
-    final routing = track != null &&
-        ref.watch(routedPathProvider(track.id)).isLoading;
+    final liveMetrics = ref.watch(routeMetricsProvider);
     final canCompute = track?.canCompute ?? false;
+
+    // In modifica le metriche sono live (on-demand); in selezione, memorizzate.
+    final TrackMetrics? shownMetrics =
+        drawing ? liveMetrics.value : track?.metrics;
+    final metricsLoading = drawing && liveMetrics.isLoading;
+
     final profileVisible = ref.watch(profileVisibleProvider);
-    final showingChart = profileVisible && metrics.value != null;
+    final showingChart = profileVisible && shownMetrics != null;
 
     void toggleProfile() {
-      if (metrics.value == null && !metrics.isLoading) {
+      if (shownMetrics == null && !metricsLoading) {
         ref.read(routeMetricsProvider.notifier).compute();
         ref.read(profileVisibleProvider.notifier).show();
       } else {
@@ -45,7 +51,6 @@ class DrawRouteControls extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Nome: editabile solo in modifica/creazione.
             if (drawing)
               const _NameField()
             else
@@ -65,24 +70,31 @@ class DrawRouteControls extends ConsumerWidget {
                   value: Format.distance(distance),
                 ),
                 const SizedBox(width: 16),
-                _GainLoss(metrics: metrics),
-                const Spacer(),
-                if (routing)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                _GainLoss(metrics: shownMetrics),
               ],
             ),
-            // Numeri dei sentieri attraversati (solo in vista selezionata).
-            if (!drawing && track != null) _TrailTags(trackId: track.id),
+            if (saving)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Row(children: [
+                  SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text('Calcolo dislivello e sentieri…',
+                      style: TextStyle(fontSize: 12)),
+                ]),
+              )
+            else if (!drawing && (track?.trailRefs.isNotEmpty ?? false))
+              _TrailTags(refs: track!.trailRefs),
             if (drawing) ...[
               Row(
                 children: [
-                  Icon(track?.snapToTrail ?? true
-                      ? Icons.route
-                      : Icons.timeline,
+                  Icon(
+                      (track?.snapToTrail ?? true)
+                          ? Icons.route
+                          : Icons.timeline,
                       size: 18),
                   const SizedBox(width: 6),
                   const Text('Segui sentieri'),
@@ -101,8 +113,8 @@ class DrawRouteControls extends ConsumerWidget {
               children: [
                 // Dislivello a sinistra.
                 FilledButton.tonalIcon(
-                  onPressed: !canCompute ? null : toggleProfile,
-                  icon: metrics.isLoading
+                  onPressed: !canCompute || saving ? null : toggleProfile,
+                  icon: metricsLoading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
@@ -130,45 +142,35 @@ class DrawRouteControls extends ConsumerWidget {
                 ] else ...[
                   IconButton(
                     tooltip: 'Elimina percorso',
-                    onPressed: () {
-                      ref.read(tracksProvider.notifier).remove();
-                      ref.read(profileCursorProvider.notifier).set(null);
-                    },
+                    onPressed: saving
+                        ? null
+                        : () {
+                            ref.read(tracksProvider.notifier).remove();
+                            ref.read(profileCursorProvider.notifier).set(null);
+                          },
                     icon: const Icon(Icons.delete_outline),
                   ),
                   FilledButton.icon(
-                    onPressed: () =>
-                        ref.read(tracksProvider.notifier).editSelected(),
+                    onPressed: saving
+                        ? null
+                        : () =>
+                            ref.read(tracksProvider.notifier).editSelected(),
                     icon: const Icon(Icons.edit),
                     label: const Text('Modifica'),
                   ),
                 ],
               ],
             ),
-            if (showingChart)
-              metrics.maybeWhen(
-                data: (m) => m == null || m.profile.isEmpty
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ElevationProfileChart(
-                          profile: m.profile,
-                          cursor: ref.watch(profileCursorProvider),
-                          onCursor: (s) =>
-                              ref.read(profileCursorProvider.notifier).set(s),
-                        ),
-                      ),
-                orElse: () => const SizedBox.shrink(),
+            if (showingChart && !shownMetrics.profile.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ElevationProfileChart(
+                  profile: shownMetrics.profile,
+                  cursor: ref.watch(profileCursorProvider),
+                  onCursor: (s) =>
+                      ref.read(profileCursorProvider.notifier).set(s),
+                ),
               ),
-            metrics.maybeWhen(
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text('Quota non disponibile: $e',
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error)),
-              ),
-              orElse: () => const SizedBox.shrink(),
-            ),
           ],
         ),
       ),
@@ -177,49 +179,31 @@ class DrawRouteControls extends ConsumerWidget {
 }
 
 /// Chip con i numeri dei sentieri (ref CAI) attraversati dalla traccia.
-class _TrailTags extends ConsumerWidget {
-  const _TrailTags({required this.trackId});
+class _TrailTags extends StatelessWidget {
+  const _TrailTags({required this.refs});
 
-  final String trackId;
+  final List<String> refs;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final refs = ref.watch(trailRefsProvider(trackId));
-    return refs.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Row(children: [
-          SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 8),
-          Text('Sentieri…', style: TextStyle(fontSize: 12)),
-        ]),
-      ),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (list) => list.isEmpty
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 2,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Icon(Icons.signpost_outlined, size: 16),
-                  for (final r in list)
-                    Chip(
-                      label: Text(r),
-                      labelStyle: const TextStyle(fontSize: 12),
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                    ),
-                ],
-              ),
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Icon(Icons.signpost_outlined, size: 16),
+          for (final r in refs)
+            Chip(
+              label: Text(r),
+              labelStyle: const TextStyle(fontSize: 12),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
             ),
+        ],
+      ),
     );
   }
 }
@@ -329,24 +313,21 @@ class _Metric extends StatelessWidget {
 class _GainLoss extends StatelessWidget {
   const _GainLoss({required this.metrics});
 
-  final AsyncValue<dynamic> metrics;
+  final TrackMetrics? metrics;
 
   @override
   Widget build(BuildContext context) {
-    return metrics.maybeWhen(
-      data: (m) => m == null
-          ? const SizedBox.shrink()
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.trending_up, size: 18),
-                Text(' ${Format.meters(m.elevation.gain)}'),
-                const SizedBox(width: 8),
-                const Icon(Icons.trending_down, size: 18),
-                Text(' ${Format.meters(m.elevation.loss)}'),
-              ],
-            ),
-      orElse: () => const SizedBox.shrink(),
+    final m = metrics;
+    if (m == null) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.trending_up, size: 18),
+        Text(' ${Format.meters(m.elevation.gain)}'),
+        const SizedBox(width: 8),
+        const Icon(Icons.trending_down, size: 18),
+        Text(' ${Format.meters(m.elevation.loss)}'),
+      ],
     );
   }
 }
