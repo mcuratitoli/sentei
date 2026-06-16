@@ -39,6 +39,8 @@
 
 ✅ **Rifiniture disegno (feedback 3° test):** (1) zoom non ruota più la mappa (`enableMultiFingerGestureRace` + `rotationThreshold`); (2) **tap su un nodo lo elimina**; (3) bottone **bussola "nord in alto"** (appare quando ruotata); (4) frecce direzione più grandi/contrastate; (5) **scrubbing del profilo altimetrico** → evidenzia il punto corrispondente in mappa (`profileCursorProvider`, `ProfileSample.position`).
 
+✅ **Fase 1.A — posizione GPS + rifiniture (feedback 4° test):** `geolocator` + `LocationService`; bottone **"La mia posizione"** (centra + marker blu), permessi iOS/Android. **Bussola** ridisegnata (ago rosso/grigio sempre visibile, tap → nord su). **Frecce** con bordo bianco netto + key anti-fantasma dopo rimozione nodo. **Modalità fullscreen** (`fullscreenProvider`): nasconde app bar e pannelli, FAB disegno sempre disponibile.
+
 📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_map_dragmarker ^8.0.3`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
 
 ---
@@ -60,9 +62,10 @@
 
 Ordine consigliato (ogni feature: modello → repository → servizio → UI, con **test sulla logica geo**).
 
-### 1.A — Posizione GPS
-- Pacchetto `geolocator` (foreground). Permessi iOS (`Info.plist`) + Android (`AndroidManifest`).
-- Marker posizione + bottone "centra su di me".
+### 1.A — Posizione GPS ✅
+- ✅ `geolocator` (foreground) + permessi iOS (`Info.plist`) / Android (`AndroidManifest`).
+- ✅ `LocationService` + `userLocationProvider` (stream posizione); marker blu + bottone "La mia posizione" (centra).
+- ⏭️ Background location → Fase 2.
 
 ### 1.B — Disegno tracciato manuale ✅
 - ✅ Tap-to-add waypoint, **undo**, drag dei punti (`flutter_map_dragmarker`), long-press per eliminare.

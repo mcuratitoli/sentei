@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants.dart';
+import '../../data/location/location_service.dart';
 import '../../data/map_sources/map_source.dart';
 import '../../data/map_sources/map_sources.dart';
 import '../draw_route/direction_arrows.dart';
@@ -17,7 +18,7 @@ import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
 
 /// Schermata mappa principale: visualizzazione + disegno tracciato con
-/// snap-to-trail (1.B + §6.2).
+/// snap-to-trail (1.B + §6.2) + posizione GPS (1.A).
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -37,6 +38,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.dispose();
   }
 
+  Future<void> _locate() async {
+    try {
+      final pos = await ref.read(userLocationProvider.notifier).locate();
+      _mapController.move(pos, 15);
+    } on LocationException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final base = ref.watch(selectedBaseSourceProvider);
@@ -44,6 +57,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final editor = ref.watch(routeEditorProvider);
     final routedPath = ref.watch(routedPathProvider);
     final cursor = ref.watch(profileCursorProvider);
+    final userPos = ref.watch(userLocationProvider);
+    final fullscreen = ref.watch(fullscreenProvider);
 
     final attributions = <MapSource>[
       base,
@@ -51,34 +66,39 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppConstants.appDisplayName),
-        actions: [
-          IconButton(
-            tooltip: editor.snapToTrail
-                ? 'Snap ai sentieri: ON'
-                : 'Snap ai sentieri: OFF',
-            icon: Icon(editor.snapToTrail ? Icons.route : Icons.timeline),
-            color: editor.snapToTrail
-                ? Theme.of(context).colorScheme.primary
-                : null,
-            onPressed: () => ref.read(routeEditorProvider.notifier).toggleSnap(),
-          ),
-          IconButton(
-            tooltip: 'Sentieri',
-            icon: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
-            onPressed: () =>
-                ref.read(trailsOverlayEnabledProvider.notifier).toggle(),
-          ),
-          IconButton(
-            tooltip: 'Tracciati salvati',
-            icon: const Icon(Icons.list_alt),
-            onPressed: () =>
-                Navigator.of(context).pushNamed(TracksListScreen.routePath),
-          ),
-          _SourceMenu(selected: base),
-        ],
-      ),
+      appBar: fullscreen
+          ? null
+          : AppBar(
+              title: const Text(AppConstants.appDisplayName),
+              actions: [
+                IconButton(
+                  tooltip: editor.snapToTrail
+                      ? 'Snap ai sentieri: ON'
+                      : 'Snap ai sentieri: OFF',
+                  icon:
+                      Icon(editor.snapToTrail ? Icons.route : Icons.timeline),
+                  color: editor.snapToTrail
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  onPressed: () =>
+                      ref.read(routeEditorProvider.notifier).toggleSnap(),
+                ),
+                IconButton(
+                  tooltip: 'Sentieri',
+                  icon:
+                      Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
+                  onPressed: () =>
+                      ref.read(trailsOverlayEnabledProvider.notifier).toggle(),
+                ),
+                IconButton(
+                  tooltip: 'Tracciati salvati',
+                  icon: const Icon(Icons.list_alt),
+                  onPressed: () => Navigator.of(context)
+                      .pushNamed(TracksListScreen.routePath),
+                ),
+                _SourceMenu(selected: base),
+              ],
+            ),
       body: Stack(
         children: [
           FlutterMap(
@@ -114,6 +134,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ],
                 ),
               const DirectionArrows(),
+              if (userPos != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: userPos,
+                      width: 22,
+                      height: 22,
+                      child: const _UserLocationDot(),
+                    ),
+                  ],
+                ),
               if (cursor != null)
                 MarkerLayer(
                   markers: [
@@ -135,62 +166,123 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               alignment: Alignment.topCenter,
               child: LinearProgressIndicator(),
             ),
-          Positioned(
-            top: 12,
-            left: 12,
-            child: _NorthButton(controller: _mapController),
+          // Pulsanti flottanti: bussola (sx), localizza + fullscreen (dx).
+          SafeArea(
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: _Compass(controller: _mapController),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _MapButton(
+                          icon: fullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                          tooltip: fullscreen
+                              ? 'Esci da schermo intero'
+                              : 'Schermo intero',
+                          onPressed: () =>
+                              ref.read(fullscreenProvider.notifier).toggle(),
+                        ),
+                        const SizedBox(height: 8),
+                        _MapButton(
+                          icon: Icons.my_location,
+                          tooltip: 'La mia posizione',
+                          highlighted: userPos != null,
+                          onPressed: _locate,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: const SafeArea(child: DrawRouteControls()),
-          ),
+          if (!fullscreen)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: const SafeArea(child: DrawRouteControls()),
+            ),
         ],
       ),
-      // Il FAB compare solo nello stato iniziale; durante il disegno (o con
-      // waypoint presenti) il toggle Disegna/Fine vive nel pannello controlli,
-      // così non copre il pulsante "Dislivello".
-      floatingActionButton: (editor.drawing || editor.waypoints.isNotEmpty)
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () =>
-                  ref.read(routeEditorProvider.notifier).toggleDrawing(),
-              icon: const Icon(Icons.edit_location_alt),
-              label: const Text('Disegna'),
-            ),
+      floatingActionButton: _buildFab(editor, fullscreen),
     );
+  }
+
+  Widget? _buildFab(RouteEditorState editor, bool fullscreen) {
+    // In fullscreen il pannello (col toggle Fine) è nascosto: serve comunque un
+    // modo per entrare/uscire dal disegno → FAB sempre presente.
+    if (fullscreen) {
+      return FloatingActionButton(
+        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
+        child: Icon(editor.drawing ? Icons.check : Icons.edit_location_alt),
+      );
+    }
+    // Stato iniziale: il FAB avvia il disegno; poi il toggle vive nel pannello.
+    if (!editor.drawing && editor.waypoints.isEmpty) {
+      return FloatingActionButton.extended(
+        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
+        icon: const Icon(Icons.edit_location_alt),
+        label: const Text('Disegna'),
+      );
+    }
+    return null;
   }
 }
 
-/// Pallino di evidenziazione del punto scrubbed sul profilo altimetrico.
-class _CursorDot extends StatelessWidget {
-  const _CursorDot({required this.color});
+/// Bottone tondo piccolo per i controlli mappa.
+class _MapButton extends StatelessWidget {
+  const _MapButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.highlighted = false,
+  });
 
-  final Color color;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: IconButton(
+        iconSize: 20,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        icon: Icon(icon,
+            color: highlighted ? scheme.primary : scheme.onSurface),
       ),
     );
   }
 }
 
-/// Bottone bussola: appare quando la mappa è ruotata e riporta il nord in alto.
-class _NorthButton extends StatefulWidget {
-  const _NorthButton({required this.controller});
+/// Bussola che indica sempre il nord; al tap riporta il nord in alto.
+class _Compass extends StatefulWidget {
+  const _Compass({required this.controller});
 
   final MapController controller;
 
   @override
-  State<_NorthButton> createState() => _NorthButtonState();
+  State<_Compass> createState() => _CompassState();
 }
 
-class _NorthButtonState extends State<_NorthButton> {
+class _CompassState extends State<_Compass> {
   double _rotation = 0;
   StreamSubscription<MapEvent>? _sub;
 
@@ -212,20 +304,94 @@ class _NorthButtonState extends State<_NorthButton> {
 
   @override
   Widget build(BuildContext context) {
-    if (_rotation.abs() < 0.5) return const SizedBox.shrink();
-    return SafeArea(
-      child: Material(
-        color: Theme.of(context).colorScheme.surface,
-        shape: const CircleBorder(),
-        elevation: 3,
-        child: IconButton(
-          tooltip: 'Nord in alto',
-          onPressed: () => widget.controller.rotate(0),
-          icon: Transform.rotate(
-            angle: -_rotation * math.pi / 180.0,
-            child: const Icon(Icons.navigation, color: Colors.red),
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => widget.controller.rotate(0),
+        child: Tooltip(
+          message: 'Nord in alto',
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: CustomPaint(
+              painter: _CompassPainter(rotationDeg: _rotation),
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CompassPainter extends CustomPainter {
+  _CompassPainter({required this.rotationDeg});
+
+  final double rotationDeg;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2 - 8;
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(-rotationDeg * math.pi / 180.0);
+
+    const half = 5.0;
+    // Ago nord (rosso).
+    final north = Path()
+      ..moveTo(0, -r)
+      ..lineTo(-half, 0)
+      ..lineTo(half, 0)
+      ..close();
+    canvas.drawPath(north, Paint()..color = const Color(0xFFD32F2F));
+    // Ago sud (grigio).
+    final south = Path()
+      ..moveTo(0, r)
+      ..lineTo(-half, 0)
+      ..lineTo(half, 0)
+      ..close();
+    canvas.drawPath(south, Paint()..color = const Color(0xFF9E9E9E));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CompassPainter old) => old.rotationDeg != rotationDeg;
+}
+
+/// Pallino blu della posizione utente.
+class _UserLocationDot extends StatelessWidget {
+  const _UserLocationDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF1E88E5),
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
+      ),
+    );
+  }
+}
+
+/// Pallino di evidenziazione del punto scrubbed sul profilo altimetrico.
+class _CursorDot extends StatelessWidget {
+  const _CursorDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
       ),
     );
   }

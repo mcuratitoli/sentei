@@ -10,7 +10,7 @@ import 'route_editor_provider.dart';
 /// Frecce discrete lungo la traccia che indicano il senso di marcia.
 ///
 /// Vengono posizionate a intervalli di [intervalMeters] lungo il percorso
-/// instradato, orientate secondo la direzione locale. Volutamente poco invasive.
+/// instradato, orientate secondo la direzione locale.
 class DirectionArrows extends ConsumerWidget {
   const DirectionArrows({super.key, this.intervalMeters = 350});
 
@@ -41,13 +41,12 @@ class DirectionArrows extends ConsumerWidget {
           height: 30,
           child: Transform.rotate(
             angle: bearingDeg * math.pi / 180.0,
-            child: Icon(
-              Icons.navigation,
-              size: 24,
-              color: color,
-              shadows: const [
-                Shadow(blurRadius: 3, color: Colors.white),
-                Shadow(blurRadius: 1, color: Colors.white),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Bordo bianco netto (icona leggermente più grande dietro).
+                const Icon(Icons.navigation, size: 26, color: Colors.white),
+                Icon(Icons.navigation, size: 20, color: color),
               ],
             ),
           ),
@@ -55,6 +54,11 @@ class DirectionArrows extends ConsumerWidget {
       );
     }
 
-    return MarkerLayer(markers: markers);
+    // Key legata al percorso: forza un rebuild pulito quando cambia (evita
+    // marker "fantasma" residui dopo rimozione/spostamento di un nodo).
+    return MarkerLayer(
+      key: ValueKey('arrows-${path.length}-${markers.length}'),
+      markers: markers,
+    );
   }
 }
