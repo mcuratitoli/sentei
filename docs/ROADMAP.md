@@ -49,7 +49,7 @@
 
 ✅ **Routing robusto + rifiniture card (feedback 7°/8° test):** routing **per-segmento** (BRouter coppia per coppia) → un punto non instradabile degrada **solo quel segmento** a linea retta. **Causa segmenti retti diagnosticata via log**: il server pubblico brouter.de a volte uccide il calcolo (`operation killed by thread-priority-watchdog after 8s`) sotto carico → aggiunto **retry** (3 tentativi + backoff) oltre a timeout. Card: tasto **Dislivello a sinistra**, Fine/Modifica a destra; alla **selezione** di una traccia distanza + D+/D- compaiono in automatico (grafico profilo come toggle separato).
 
-> Nota: se i kill del server pubblico restano frequenti, valutare un'istanza BRouter self-hosted o un backend alternativo (GraphHopper/ORS con key).
+> **Root cause + fix definitivo:** alcuni segmenti in alta quota mandano in crisi i profili `hiking-*` (la ricerca esplode → il server li uccide), mentre il profilo **`trekking`** li calcola in ~1.5 s. Implementata **catena di profili**: `hiking-mountain` (×2 per i fail transitori) → `trekking`. Linea retta solo se anche trekking fallisce. Se in futuro servisse più controllo: istanza BRouter self-hosted o backend con API key.
 
 ⏭️ **Frecce di direzione: RIMOSSE temporaneamente** — "impazzivano" (marker fantasma) dopo aggiunta/rimozione nodi + pan mappa. Da **ristudiare** con un approccio diverso (es. layer dipinto su canvas proiettato con `MapCamera`, anziché `MarkerLayer`), così da non avere problemi di reconciliation dei marker.
 

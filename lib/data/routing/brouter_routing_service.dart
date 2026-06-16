@@ -16,21 +16,20 @@ class BRouterRoutingService implements RoutingService {
   BRouterRoutingService({
     http.Client? client,
     this.baseUrl = 'https://brouter.de/brouter',
-    this.defaultProfile = 'hiking-mountain',
     this.timeout = const Duration(seconds: 20),
-    this.maxAttempts = 3,
-    this.retryDelay = const Duration(milliseconds: 500),
+    this.profiles = const ['hiking-mountain', 'hiking-mountain', 'trekking'],
+    this.retryDelay = const Duration(milliseconds: 400),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;
-  final String defaultProfile;
   final Duration timeout;
 
-  /// Tentativi totali per richiesta. Il server pubblico BRouter a volte uccide
-  /// il calcolo ("operation killed by thread-priority-watchdog") sotto carico:
-  /// un nuovo tentativo spesso riesce.
-  final int maxAttempts;
+  /// Profili provati **in ordine**. Il server pubblico BRouter a volte uccide
+  /// il calcolo ("operation killed by thread-priority-watchdog"): si ritenta e,
+  /// se i profili `hiking-*` falliscono (ricerca troppo costosa in alta quota),
+  /// si ripiega su `trekking`, che resta sui sentieri ma è più leggero.
+  final List<String> profiles;
   final Duration retryDelay;
 
   @override
@@ -41,26 +40,26 @@ class BRouterRoutingService implements RoutingService {
 
     final lonlats =
         waypoints.map((p) => '${p.longitude},${p.latitude}').join('|');
-    final uri = Uri.parse(baseUrl).replace(queryParameters: {
-      'lonlats': lonlats,
-      'profile': profile ?? defaultProfile,
-      'alternativeidx': '0',
-      'format': 'geojson',
-    });
+    final chain = profile != null ? [profile] : profiles;
 
     RoutingException last = const RoutingException('routing non riuscito');
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    for (var i = 0; i < chain.length; i++) {
+      final uri = Uri.parse(baseUrl).replace(queryParameters: {
+        'lonlats': lonlats,
+        'profile': chain[i],
+        'alternativeidx': '0',
+        'format': 'geojson',
+      });
       try {
         final res = await _client.get(uri).timeout(timeout);
         if (res.statusCode == 200) return parseGeoJson(res.body);
-        last = RoutingException('BRouter HTTP ${res.statusCode}: '
-            '${res.body.trim()}');
+        last = RoutingException('HTTP ${res.statusCode}: ${res.body.trim()}');
       } catch (e) {
         last = RoutingException('Rete/timeout: $e');
       }
-      if (attempt < maxAttempts) {
-        debugPrint('[routing] tentativo $attempt fallito (${last.message}), '
-            'ritento…');
+      if (i < chain.length - 1) {
+        debugPrint('[routing] profilo "${chain[i]}" fallito (${last.message}), '
+            'provo "${chain[i + 1]}"…');
         await Future<void>.delayed(retryDelay);
       }
     }
