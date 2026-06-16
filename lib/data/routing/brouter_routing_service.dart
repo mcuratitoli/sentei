@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -16,11 +17,13 @@ class BRouterRoutingService implements RoutingService {
     http.Client? client,
     this.baseUrl = 'https://brouter.de/brouter',
     this.defaultProfile = 'hiking-mountain',
+    this.timeout = const Duration(seconds: 20),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;
   final String defaultProfile;
+  final Duration timeout;
 
   @override
   Future<RouteResult> route(List<LatLng> waypoints, {String? profile}) async {
@@ -39,11 +42,16 @@ class BRouterRoutingService implements RoutingService {
 
     final http.Response res;
     try {
-      res = await _client.get(uri);
+      res = await _client.get(uri).timeout(timeout);
     } catch (e) {
-      throw RoutingException('Rete non disponibile: $e');
+      developer.log('BRouter request fallita: $e',
+          name: 'routing', error: e);
+      throw RoutingException('Rete/timeout: $e');
     }
     if (res.statusCode != 200) {
+      developer.log(
+          'BRouter HTTP ${res.statusCode} per $lonlats -> ${res.body.trim()}',
+          name: 'routing');
       throw RoutingException('BRouter HTTP ${res.statusCode}: ${res.body}');
     }
 

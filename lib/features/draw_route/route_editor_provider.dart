@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:ui' show Color;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -190,21 +191,37 @@ final routingServiceProvider =
     Provider<RoutingService>((ref) => BRouterRoutingService());
 
 /// Percorso instradato (lungo i sentieri) di una specifica traccia.
-/// Fallback a spezzata su errore di routing o snap disattivo.
+///
+/// Instrada **segmento per segmento** (coppie di waypoint consecutivi): se un
+/// singolo segmento non è instradabile, ricade su linea retta SOLO per quel
+/// tratto, lasciando snappati gli altri (prima un singolo punto problematico
+/// rendeva retto l'intero percorso). Snap disattivo → spezzata tra i waypoint.
 final routedPathProvider =
     FutureProvider.family<List<LatLng>, String>((ref, id) async {
   final track = ref.watch(tracksProvider).byId(id);
   if (track == null) return const [];
-  if (track.waypoints.length < 2 || !track.snapToTrail) {
-    return track.waypoints;
+  final wp = track.waypoints;
+  if (wp.length < 2 || !track.snapToTrail) return wp;
+
+  final service = ref.watch(routingServiceProvider);
+  final path = <LatLng>[wp.first];
+  for (var i = 0; i < wp.length - 1; i++) {
+    try {
+      final seg = await service.route([wp[i], wp[i + 1]]);
+      // La geometria parte ~wp[i]: salto il primo punto per non duplicare la
+      // giunzione col segmento precedente.
+      if (seg.geometry.length >= 2) {
+        path.addAll(seg.geometry.skip(1));
+      } else {
+        path.add(wp[i + 1]);
+      }
+    } on RoutingException catch (e) {
+      developer.log('Segmento $i non instradabile → linea retta: ${e.message}',
+          name: 'routing');
+      path.add(wp[i + 1]); // fallback retto solo per questo segmento
+    }
   }
-  try {
-    final result =
-        await ref.watch(routingServiceProvider).route(track.waypoints);
-    return result.geometry;
-  } on RoutingException {
-    return track.waypoints;
-  }
+  return path;
 });
 
 /// Distanza (m) del percorso instradato della traccia attiva.
@@ -220,13 +237,20 @@ final elevationServiceProvider = Provider<ElevationService>(
   (ref) => TerrariumElevationService(fetchTile: httpTerrariumFetcher()),
 );
 
-/// Metriche (distanza + D+/D- + profilo) della traccia attiva, su richiesta.
-/// Si azzera automaticamente quando cambia la traccia attiva.
+/// Metriche (distanza + D+/D- + profilo) della traccia attiva.
+///
+/// Quando una traccia è **selezionata** (non in disegno) il calcolo parte in
+/// automatico, così cliccando un percorso si vedono subito distanza e D+/D-.
+/// In disegno il calcolo è on-demand ([compute], dal tasto Dislivello).
 class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
   @override
   Future<TrackMetrics?> build() async {
-    ref.watch(activeTrackIdProvider); // reset al cambio di traccia attiva
-    return null;
+    final st = ref.watch(tracksProvider);
+    if (st.drawing || st.selectedId == null) return null;
+    final path = await ref.watch(routedPathProvider(st.selectedId!).future);
+    if (path.length < 2) return null;
+    final service = ref.read(elevationServiceProvider);
+    return const TrackMetricsCalculator().compute(path, service);
   }
 
   Future<void> compute() async {
@@ -243,12 +267,26 @@ class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
       return const TrackMetricsCalculator().compute(path, service);
     });
   }
-
-  void reset() => state = const AsyncData(null);
 }
 
 final routeMetricsProvider =
     AsyncNotifierProvider<RouteMetrics, TrackMetrics?>(RouteMetrics.new);
+
+/// Visibilità del grafico del profilo (toggle dal tasto Dislivello).
+/// Si azzera quando cambia la traccia attiva.
+class ProfileVisible extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(activeTrackIdProvider);
+    return false;
+  }
+
+  void toggle() => state = !state;
+  void show() => state = true;
+}
+
+final profileVisibleProvider =
+    NotifierProvider<ProfileVisible, bool>(ProfileVisible.new);
 
 /// Punto del profilo "scrubbed" sul grafico, da evidenziare in mappa.
 class ProfileCursor extends Notifier<ProfileSample?> {

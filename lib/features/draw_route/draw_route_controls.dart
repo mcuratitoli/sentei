@@ -24,12 +24,17 @@ class DrawRouteControls extends ConsumerWidget {
     final metrics = ref.watch(routeMetricsProvider);
     final routing = track != null &&
         ref.watch(routedPathProvider(track.id)).isLoading;
-    final showingProfile = metrics.value != null;
     final canCompute = track?.canCompute ?? false;
+    final profileVisible = ref.watch(profileVisibleProvider);
+    final showingChart = profileVisible && metrics.value != null;
 
-    void hideProfile() {
-      ref.read(routeMetricsProvider.notifier).reset();
-      ref.read(profileCursorProvider.notifier).set(null);
+    void toggleProfile() {
+      if (metrics.value == null && !metrics.isLoading) {
+        ref.read(routeMetricsProvider.notifier).compute();
+        ref.read(profileVisibleProvider.notifier).show();
+      } else {
+        ref.read(profileVisibleProvider.notifier).toggle();
+      }
     }
 
     return Card(
@@ -92,13 +97,21 @@ class DrawRouteControls extends ConsumerWidget {
             const SizedBox(height: 4),
             Row(
               children: [
+                // Dislivello a sinistra.
+                FilledButton.tonalIcon(
+                  onPressed: !canCompute ? null : toggleProfile,
+                  icon: metrics.isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(showingChart ? Icons.unfold_less : Icons.terrain),
+                  label: const Text('Dislivello'),
+                ),
+                const Spacer(),
+                // Azioni primarie a destra.
                 if (drawing) ...[
-                  FilledButton.icon(
-                    onPressed: () =>
-                        ref.read(tracksProvider.notifier).finishDrawing(),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Fine'),
-                  ),
                   IconButton(
                     tooltip: 'Annulla ultimo punto',
                     onPressed: (track?.waypoints.isEmpty ?? true)
@@ -106,53 +119,46 @@ class DrawRouteControls extends ConsumerWidget {
                         : () => ref.read(tracksProvider.notifier).undo(),
                     icon: const Icon(Icons.undo),
                   ),
+                  FilledButton.icon(
+                    onPressed: () =>
+                        ref.read(tracksProvider.notifier).finishDrawing(),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Fine'),
+                  ),
                 ] else ...[
+                  IconButton(
+                    tooltip: 'Elimina percorso',
+                    onPressed: () {
+                      ref.read(tracksProvider.notifier).remove();
+                      ref.read(profileCursorProvider.notifier).set(null);
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                  ),
                   FilledButton.icon(
                     onPressed: () =>
                         ref.read(tracksProvider.notifier).editSelected(),
                     icon: const Icon(Icons.edit),
                     label: const Text('Modifica'),
                   ),
-                  IconButton(
-                    tooltip: 'Elimina percorso',
-                    onPressed: () {
-                      ref.read(tracksProvider.notifier).remove();
-                      hideProfile();
-                    },
-                    icon: const Icon(Icons.delete_outline),
-                  ),
                 ],
-                const Spacer(),
-                FilledButton.tonalIcon(
-                  onPressed: !canCompute || metrics.isLoading
-                      ? null
-                      : showingProfile
-                          ? hideProfile
-                          : () =>
-                              ref.read(routeMetricsProvider.notifier).compute(),
-                  icon: metrics.isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(showingProfile ? Icons.unfold_less : Icons.terrain),
-                  label: const Text('Dislivello'),
-                ),
               ],
             ),
-            metrics.maybeWhen(
-              data: (m) => m == null || m.profile.isEmpty
-                  ? const SizedBox.shrink()
-                  : Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: ElevationProfileChart(
-                        profile: m.profile,
-                        cursor: ref.watch(profileCursorProvider),
-                        onCursor: (s) =>
-                            ref.read(profileCursorProvider.notifier).set(s),
+            if (showingChart)
+              metrics.maybeWhen(
+                data: (m) => m == null || m.profile.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ElevationProfileChart(
+                          profile: m.profile,
+                          cursor: ref.watch(profileCursorProvider),
+                          onCursor: (s) =>
+                              ref.read(profileCursorProvider.notifier).set(s),
+                        ),
                       ),
-                    ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+            metrics.maybeWhen(
               error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('Quota non disponibile: $e',
