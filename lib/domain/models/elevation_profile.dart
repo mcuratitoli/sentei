@@ -1,14 +1,22 @@
 import 'package:latlong2/latlong.dart';
 
-/// Un campione del profilo altimetrico: quota a una certa distanza cumulata.
+/// Un campione del profilo altimetrico: quota e posizione a una certa distanza
+/// cumulata lungo il percorso.
 class ProfileSample {
-  const ProfileSample({required this.distanceMeters, required this.elevation});
+  const ProfileSample({
+    required this.distanceMeters,
+    required this.elevation,
+    required this.position,
+  });
 
   /// Distanza dall'inizio del percorso (metri).
   final double distanceMeters;
 
   /// Quota (metri).
   final double elevation;
+
+  /// Coordinata corrispondente sul percorso (per evidenziare il punto in mappa).
+  final LatLng position;
 }
 
 /// Profilo altimetrico completo di un percorso, pronto per il rendering e con
@@ -49,7 +57,8 @@ class ElevationProfile {
       if (i > 0) cumulative += distance(points[i - 1], points[i]);
       final e = elevations[i];
       if (e == null) continue;
-      samples.add(ProfileSample(distanceMeters: cumulative, elevation: e));
+      samples.add(ProfileSample(
+          distanceMeters: cumulative, elevation: e, position: points[i]));
       if (e < min) min = e;
       if (e > max) max = e;
     }

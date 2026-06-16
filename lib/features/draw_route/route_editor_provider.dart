@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
 import '../../data/offline/terrarium_http_fetcher.dart';
 import '../../data/routing/brouter_routing_service.dart';
+import '../../domain/models/elevation_profile.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/routing_service.dart';
@@ -133,3 +134,15 @@ class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
 
 final routeMetricsProvider =
     AsyncNotifierProvider<RouteMetrics, TrackMetrics?>(RouteMetrics.new);
+
+/// Punto del profilo attualmente "scrubbed" dall'utente sul grafico: serve a
+/// evidenziarlo in mappa. `null` quando non si sta scorrendo il profilo.
+class ProfileCursor extends Notifier<ProfileSample?> {
+  @override
+  ProfileSample? build() => null;
+
+  void set(ProfileSample? sample) => state = sample;
+}
+
+final profileCursorProvider =
+    NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);

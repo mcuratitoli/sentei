@@ -90,6 +90,7 @@ class DrawRouteControls extends ConsumerWidget {
                       : () {
                           ref.read(routeEditorProvider.notifier).clear();
                           ref.read(routeMetricsProvider.notifier).reset();
+                          ref.read(profileCursorProvider.notifier).set(null);
                         },
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -114,7 +115,12 @@ class DrawRouteControls extends ConsumerWidget {
                   ? const SizedBox.shrink()
                   : Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: ElevationProfileChart(profile: m.profile),
+                      child: ElevationProfileChart(
+                        profile: m.profile,
+                        cursor: ref.watch(profileCursorProvider),
+                        onCursor: (s) =>
+                            ref.read(profileCursorProvider.notifier).set(s),
+                      ),
                     ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 4),

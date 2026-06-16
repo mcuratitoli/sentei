@@ -37,11 +37,19 @@ class DirectionArrows extends ConsumerWidget {
       markers.add(
         Marker(
           point: path[i],
-          width: 20,
-          height: 20,
+          width: 30,
+          height: 30,
           child: Transform.rotate(
             angle: bearingDeg * math.pi / 180.0,
-            child: Icon(Icons.navigation, size: 16, color: color.withValues(alpha: 0.75)),
+            child: Icon(
+              Icons.navigation,
+              size: 24,
+              color: color,
+              shadows: const [
+                Shadow(blurRadius: 3, color: Colors.white),
+                Shadow(blurRadius: 1, color: Colors.white),
+              ],
+            ),
           ),
         ),
       );

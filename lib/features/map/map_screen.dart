@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
@@ -15,18 +18,32 @@ import 'map_providers.dart';
 
 /// Schermata mappa principale: visualizzazione + disegno tracciato con
 /// snap-to-trail (1.B + §6.2).
-class MapScreen extends ConsumerWidget {
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
   static const String routeName = 'map';
   static const String routePath = '/';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MapScreen> createState() => _MapScreenState();
+}
+
+class _MapScreenState extends ConsumerState<MapScreen> {
+  final MapController _mapController = MapController();
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final base = ref.watch(selectedBaseSourceProvider);
     final trailsOn = ref.watch(trailsOverlayEnabledProvider);
     final editor = ref.watch(routeEditorProvider);
     final routedPath = ref.watch(routedPathProvider);
+    final cursor = ref.watch(profileCursorProvider);
 
     final attributions = <MapSource>[
       base,
@@ -65,11 +82,19 @@ class MapScreen extends ConsumerWidget {
       body: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             options: MapOptions(
               initialCenter: AppConstants.defaultCenter,
               initialZoom: AppConstants.defaultZoom,
               minZoom: AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
+              // Lo zoom non deve ruotare la mappa: con la "gesture race" attiva
+              // pinch-zoom e rotazione si escludono a vicenda, e la rotazione
+              // richiede un gesto più deciso (soglia più alta).
+              interactionOptions: const InteractionOptions(
+                enableMultiFingerGestureRace: true,
+                rotationThreshold: 30,
+              ),
               onTap: editor.drawing
                   ? (_, point) =>
                       ref.read(routeEditorProvider.notifier).addPoint(point)
@@ -89,6 +114,18 @@ class MapScreen extends ConsumerWidget {
                   ],
                 ),
               const DirectionArrows(),
+              if (cursor != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: cursor.position,
+                      width: 22,
+                      height: 22,
+                      child: _CursorDot(
+                          color: Theme.of(context).colorScheme.error),
+                    ),
+                  ],
+                ),
               if (editor.waypoints.isNotEmpty) const _WaypointMarkers(),
               _AttributionBox(sources: attributions),
             ],
@@ -98,6 +135,11 @@ class MapScreen extends ConsumerWidget {
               alignment: Alignment.topCenter,
               child: LinearProgressIndicator(),
             ),
+          Positioned(
+            top: 12,
+            left: 12,
+            child: _NorthButton(controller: _mapController),
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: const SafeArea(child: DrawRouteControls()),
@@ -119,8 +161,78 @@ class MapScreen extends ConsumerWidget {
   }
 }
 
+/// Pallino di evidenziazione del punto scrubbed sul profilo altimetrico.
+class _CursorDot extends StatelessWidget {
+  const _CursorDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
+      ),
+    );
+  }
+}
+
+/// Bottone bussola: appare quando la mappa è ruotata e riporta il nord in alto.
+class _NorthButton extends StatefulWidget {
+  const _NorthButton({required this.controller});
+
+  final MapController controller;
+
+  @override
+  State<_NorthButton> createState() => _NorthButtonState();
+}
+
+class _NorthButtonState extends State<_NorthButton> {
+  double _rotation = 0;
+  StreamSubscription<MapEvent>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.controller.mapEventStream.listen((e) {
+      if (e.camera.rotation != _rotation) {
+        setState(() => _rotation = e.camera.rotation);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_rotation.abs() < 0.5) return const SizedBox.shrink();
+    return SafeArea(
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        shape: const CircleBorder(),
+        elevation: 3,
+        child: IconButton(
+          tooltip: 'Nord in alto',
+          onPressed: () => widget.controller.rotate(0),
+          icon: Transform.rotate(
+            angle: -_rotation * math.pi / 180.0,
+            child: const Icon(Icons.navigation, color: Colors.red),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Marker trascinabili per i waypoint. Drag (commit a rilascio) per spostare,
-/// long-press per eliminare.
+/// tap per eliminare.
 class _WaypointMarkers extends ConsumerWidget {
   const _WaypointMarkers();
 
@@ -128,7 +240,6 @@ class _WaypointMarkers extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final waypoints = ref.watch(routeEditorProvider).waypoints;
     final scheme = Theme.of(context).colorScheme;
-
     const start = Color(0xFF2E7D32); // verde: partenza
     const end = Color(0xFFC62828); // rosso: arrivo
     final last = waypoints.length - 1;
@@ -143,8 +254,8 @@ class _WaypointMarkers extends ConsumerWidget {
             // Commit solo a fine drag: evita di ri-instradare a ogni frame.
             onDragEnd: (_, latLng) =>
                 ref.read(routeEditorProvider.notifier).movePoint(i, latLng),
-            onLongPress: (_) =>
-                ref.read(routeEditorProvider.notifier).removePoint(i),
+            // Tap per eliminare un nodo piazzato per errore.
+            onTap: (_) => ref.read(routeEditorProvider.notifier).removePoint(i),
             builder: (context, point, isDragging) {
               final isStart = i == 0;
               final isEnd = i == last && last > 0;
