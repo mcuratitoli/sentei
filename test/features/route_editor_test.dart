@@ -5,51 +5,99 @@ import 'package:sentei/features/draw_route/route_editor_provider.dart';
 
 void main() {
   late ProviderContainer container;
-  RouteEditor editor() => container.read(routeEditorProvider.notifier);
+  Tracks notifier() => container.read(tracksProvider.notifier);
+  TracksState state() => container.read(tracksProvider);
 
   setUp(() => container = ProviderContainer());
   tearDown(() => container.dispose());
 
-  test('addPoint / undo / clear', () {
-    editor().addPoint(const LatLng(45, 7));
-    editor().addPoint(const LatLng(45.01, 7));
-    expect(container.read(routeEditorProvider).waypoints.length, 2);
-
-    editor().undo();
-    expect(container.read(routeEditorProvider).waypoints.length, 1);
-
-    editor().clear();
-    expect(container.read(routeEditorProvider).waypoints, isEmpty);
+  test('startNewDrawing crea una traccia in modifica', () {
+    notifier().startNewDrawing();
+    expect(state().tracks.length, 1);
+    expect(state().drawing, isTrue);
+    expect(state().editing, isNotNull);
   });
 
-  test('movePoint aggiorna la coordinata', () {
-    editor().addPoint(const LatLng(45, 7));
-    editor().movePoint(0, const LatLng(46, 8));
-    expect(
-        container.read(routeEditorProvider).waypoints.first, const LatLng(46, 8));
+  test('addPoint / undo agiscono sulla traccia in modifica', () {
+    notifier()
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7))
+      ..addPoint(const LatLng(45.01, 7));
+    expect(state().editing!.waypoints.length, 2);
+
+    notifier().undo();
+    expect(state().editing!.waypoints.length, 1);
   });
 
-  test('removePoint elimina per indice', () {
-    editor()
+  test('finishDrawing scarta tracce con meno di 2 punti', () {
+    notifier()
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7))
+      ..finishDrawing();
+    expect(state().tracks, isEmpty);
+    expect(state().drawing, isFalse);
+  });
+
+  test('finishDrawing mantiene tracce valide e deseleziona', () {
+    notifier()
+      ..startNewDrawing()
       ..addPoint(const LatLng(45, 7))
       ..addPoint(const LatLng(45.01, 7))
-      ..addPoint(const LatLng(45.02, 7));
-    editor().removePoint(1);
-    final pts = container.read(routeEditorProvider).waypoints;
-    expect(pts.length, 2);
-    expect(pts[1], const LatLng(45.02, 7));
+      ..finishDrawing();
+    expect(state().tracks.length, 1);
+    expect(state().showCard, isFalse);
   });
 
-  test('toggleSnap inverte lo snap-to-trail', () {
-    expect(container.read(routeEditorProvider).snapToTrail, isTrue);
-    editor().toggleSnap();
-    expect(container.read(routeEditorProvider).snapToTrail, isFalse);
+  test('più tracce coesistono; select/deselect/editSelected', () {
+    notifier()
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7))
+      ..addPoint(const LatLng(45.01, 7))
+      ..finishDrawing();
+    final firstId = state().tracks.first.id;
+
+    notifier()
+      ..startNewDrawing()
+      ..addPoint(const LatLng(46, 8))
+      ..addPoint(const LatLng(46.01, 8))
+      ..finishDrawing();
+    expect(state().tracks.length, 2);
+
+    notifier().select(firstId);
+    expect(state().selectedId, firstId);
+    expect(state().activeId, firstId);
+
+    notifier().editSelected();
+    expect(state().editingId, firstId);
+    expect(state().selectedId, isNull);
+
+    notifier().deselect();
+    expect(state().showCard, isFalse);
   });
 
-  test('canCompute richiede almeno 2 punti', () {
-    editor().addPoint(const LatLng(45, 7));
-    expect(container.read(routeEditorProvider).canCompute, isFalse);
-    editor().addPoint(const LatLng(45.01, 7));
-    expect(container.read(routeEditorProvider).canCompute, isTrue);
+  test('setName / setColor / toggleSnap sulla traccia in modifica', () {
+    notifier()
+      ..startNewDrawing()
+      ..setName('Giro del lago')
+      ..setColor(kTrackPalette[2]);
+    expect(state().editing!.name, 'Giro del lago');
+    expect(state().editing!.color, kTrackPalette[2]);
+
+    final snap = state().editing!.snapToTrail;
+    notifier().toggleSnap();
+    expect(state().editing!.snapToTrail, !snap);
+  });
+
+  test('remove elimina la traccia attiva', () {
+    notifier()
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7))
+      ..addPoint(const LatLng(45.01, 7))
+      ..finishDrawing();
+    final id = state().tracks.first.id;
+    notifier().select(id);
+    notifier().remove();
+    expect(state().tracks, isEmpty);
+    expect(state().showCard, isFalse);
   });
 }

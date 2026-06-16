@@ -13,13 +13,12 @@ import '../../data/location/location_service.dart';
 import '../../data/map_sources/map_source.dart';
 import '../../data/map_sources/map_sources.dart';
 import '../../domain/services/path_geometry.dart';
-import '../draw_route/direction_arrows.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
 
-/// Schermata mappa principale: visualizzazione + disegno tracciato con
+/// Schermata mappa principale: visualizzazione + disegno multi-traccia con
 /// snap-to-trail (1.B + §6.2) + posizione GPS (1.A).
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -40,23 +39,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.dispose();
   }
 
-  /// Tap sulla mappa fuori dal disegno: seleziona il percorso se il tap è
-  /// vicino alla traccia, altrimenti deseleziona.
+  /// Tap fuori dal disegno: seleziona la traccia più vicina (entro soglia),
+  /// altrimenti deseleziona.
   void _handleMapTap(LatLng point) {
-    final notifier = ref.read(routeEditorProvider.notifier);
-    final path = ref.read(routedPathProvider).value ?? const <LatLng>[];
-    if (path.length >= 2) {
-      final zoom = _mapController.camera.zoom;
-      final metersPerPixel =
-          156543.03392 * math.cos(point.latitude * math.pi / 180.0) /
-              math.pow(2, zoom);
-      final threshold = 22 * metersPerPixel; // ~22 px di tolleranza
-      if (const PathGeometry().distanceToPath(point, path) <= threshold) {
-        notifier.select();
-        return;
+    final notifier = ref.read(tracksProvider.notifier);
+    final tracks = ref.read(tracksProvider).tracks;
+    final zoom = _mapController.camera.zoom;
+    final metersPerPixel = 156543.03392 *
+        math.cos(point.latitude * math.pi / 180.0) /
+        math.pow(2, zoom);
+    final threshold = 22 * metersPerPixel; // ~22 px di tolleranza
+
+    String? nearestId;
+    var best = double.infinity;
+    for (final t in tracks) {
+      final path = ref.read(routedPathProvider(t.id)).value ?? const <LatLng>[];
+      if (path.length < 2) continue;
+      final d = const PathGeometry().distanceToPath(point, path);
+      if (d < best) {
+        best = d;
+        nearestId = t.id;
       }
     }
-    notifier.deselect();
+    if (nearestId != null && best <= threshold) {
+      notifier.select(nearestId);
+    } else {
+      notifier.deselect();
+    }
   }
 
   Future<void> _locate() async {
@@ -75,8 +84,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final base = ref.watch(selectedBaseSourceProvider);
     final trailsOn = ref.watch(trailsOverlayEnabledProvider);
-    final editor = ref.watch(routeEditorProvider);
-    final routedPath = ref.watch(routedPathProvider);
+    final tracks = ref.watch(tracksProvider);
     final cursor = ref.watch(profileCursorProvider);
     final userPos = ref.watch(userLocationProvider);
     final fullscreen = ref.watch(fullscreenProvider);
@@ -93,21 +101,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               title: const Text(AppConstants.appDisplayName),
               actions: [
                 IconButton(
-                  tooltip: editor.snapToTrail
-                      ? 'Snap ai sentieri: ON'
-                      : 'Snap ai sentieri: OFF',
-                  icon:
-                      Icon(editor.snapToTrail ? Icons.route : Icons.timeline),
-                  color: editor.snapToTrail
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                  onPressed: () =>
-                      ref.read(routeEditorProvider.notifier).toggleSnap(),
-                ),
-                IconButton(
                   tooltip: 'Sentieri',
-                  icon:
-                      Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
+                  icon: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
                   onPressed: () =>
                       ref.read(trailsOverlayEnabledProvider.notifier).toggle(),
                 ),
@@ -129,16 +124,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               initialZoom: AppConstants.defaultZoom,
               minZoom: AppConstants.minZoom,
               maxZoom: AppConstants.maxZoom,
-              // Lo zoom non deve ruotare la mappa: con la "gesture race" attiva
-              // pinch-zoom e rotazione si escludono a vicenda, e la rotazione
-              // richiede un gesto più deciso (soglia più alta).
+              // Lo zoom non deve ruotare la mappa (gesture race + soglia alta).
               interactionOptions: const InteractionOptions(
                 enableMultiFingerGestureRace: true,
                 rotationThreshold: 30,
               ),
               onTap: (_, point) {
-                if (editor.drawing) {
-                  ref.read(routeEditorProvider.notifier).addPoint(point);
+                if (tracks.drawing) {
+                  ref.read(tracksProvider.notifier).addPoint(point);
                 } else {
                   _handleMapTap(point);
                 }
@@ -147,17 +140,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             children: [
               base.toTileLayer(),
               if (trailsOn) MapSources.waymarkedTrailsHiking.toTileLayer(),
-              if ((routedPath.value?.length ?? 0) >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: routedPath.value!,
-                      strokeWidth: 4,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
-                ),
-              const DirectionArrows(),
+              const _TracksLayer(),
+              const _EndpointMarkers(),
+              if (tracks.drawing) const _WaypointMarkers(),
               if (userPos != null)
                 MarkerLayer(
                   markers: [
@@ -181,21 +166,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ],
                 ),
-              // In modifica: marker trascinabili/eliminabili. Altrimenti solo
-              // partenza/arrivo statici (così un tap fuori non li cancella).
-              if (editor.drawing)
-                const _WaypointMarkers()
-              else if (editor.waypoints.isNotEmpty)
-                const _EndpointMarkers(),
               _AttributionBox(sources: attributions),
             ],
           ),
-          if (routedPath.isLoading)
-            const Align(
-              alignment: Alignment.topCenter,
-              child: LinearProgressIndicator(),
-            ),
-          // Pulsanti flottanti: bussola (sx), localizza + fullscreen (dx).
           SafeArea(
             child: Stack(
               children: [
@@ -244,32 +217,145 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
         ],
       ),
-      floatingActionButton: _buildFab(editor, fullscreen),
+      floatingActionButton: _buildFab(tracks, fullscreen),
     );
   }
 
-  Widget? _buildFab(RouteEditorState editor, bool fullscreen) {
-    final notifier = ref.read(routeEditorProvider.notifier);
-    // In fullscreen il pannello (con i tasti Fine/Modifica) è nascosto: il FAB
-    // fa da toggle disegno.
+  Widget? _buildFab(TracksState tracks, bool fullscreen) {
+    final notifier = ref.read(tracksProvider.notifier);
     if (fullscreen) {
       return FloatingActionButton(
-        onPressed: () =>
-            editor.drawing ? notifier.finishDrawing() : notifier.startDrawing(),
-        child: Icon(editor.drawing ? Icons.check : Icons.edit_location_alt),
+        onPressed: () => tracks.drawing
+            ? notifier.finishDrawing()
+            : notifier.startNewDrawing(),
+        child: Icon(tracks.drawing ? Icons.check : Icons.edit_location_alt),
       );
     }
-    // "Disegna" sempre in basso a destra quando nessun percorso è selezionato
-    // e non si sta disegnando (stato iniziale o percorso deselezionato).
-    if (!editor.showCard) {
+    // "Disegna" sempre in basso a destra quando nessuna traccia è in card.
+    if (!tracks.showCard) {
       return FloatingActionButton.extended(
-        onPressed: notifier.startDrawing,
+        onPressed: notifier.startNewDrawing,
         icon: const Icon(Icons.edit_location_alt),
-        label: Text(editor.hasRoute ? 'Modifica' : 'Disegna'),
+        label: const Text('Disegna'),
       );
     }
-    // Card visibile (disegno o selezionato): i tasti sono nella card.
-    return null;
+    return null; // card visibile → i tasti sono nella card
+  }
+}
+
+/// Polilinee di tutte le tracce (ognuna nel suo colore; la attiva più spessa).
+class _TracksLayer extends ConsumerWidget {
+  const _TracksLayer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final st = ref.watch(tracksProvider);
+    final polylines = <Polyline>[];
+    for (final t in st.tracks) {
+      final path = ref.watch(routedPathProvider(t.id)).value ?? const <LatLng>[];
+      if (path.length < 2) continue;
+      polylines.add(Polyline(
+        points: path,
+        strokeWidth: t.id == st.activeId ? 6 : 4,
+        color: t.color,
+      ));
+    }
+    return PolylineLayer(polylines: polylines);
+  }
+}
+
+/// Marker statici di partenza/arrivo per le tracce non in modifica.
+class _EndpointMarkers extends ConsumerWidget {
+  const _EndpointMarkers();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final st = ref.watch(tracksProvider);
+    final markers = <Marker>[];
+    for (final t in st.tracks) {
+      if (t.id == st.editingId || t.waypoints.isEmpty) continue;
+      markers.add(_dot(t.waypoints.first, const Color(0xFF2E7D32),
+          Icons.play_arrow));
+      if (t.waypoints.length > 1) {
+        markers.add(_dot(t.waypoints.last, const Color(0xFFC62828), Icons.flag));
+      }
+    }
+    return MarkerLayer(markers: markers);
+  }
+
+  Marker _dot(LatLng p, Color color, IconData icon) => Marker(
+        point: p,
+        width: 28,
+        height: 28,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [BoxShadow(blurRadius: 2, color: Colors.black26)],
+          ),
+          child: Icon(icon, size: 16, color: Colors.white),
+        ),
+      );
+}
+
+/// Marker trascinabili per i waypoint della traccia in modifica.
+/// Drag (commit a rilascio) per spostare, tap per eliminare.
+class _WaypointMarkers extends ConsumerWidget {
+  const _WaypointMarkers();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final editing = ref.watch(tracksProvider).editing;
+    if (editing == null) return const SizedBox.shrink();
+    final waypoints = editing.waypoints;
+    final scheme = Theme.of(context).colorScheme;
+    const start = Color(0xFF2E7D32);
+    const end = Color(0xFFC62828);
+    final last = waypoints.length - 1;
+
+    return DragMarkers(
+      markers: [
+        for (var i = 0; i < waypoints.length; i++)
+          DragMarker(
+            key: ValueKey('waypoint-${editing.id}-$i'),
+            point: waypoints[i],
+            size: const Size(30, 30),
+            onDragEnd: (_, latLng) =>
+                ref.read(tracksProvider.notifier).movePoint(i, latLng),
+            onTap: (_) => ref.read(tracksProvider.notifier).removePoint(i),
+            builder: (context, point, isDragging) {
+              final isStart = i == 0;
+              final isEnd = i == last && last > 0;
+              final fill = isStart
+                  ? start
+                  : isEnd
+                      ? end
+                      : scheme.surface;
+              final icon = isStart
+                  ? Icons.play_arrow
+                  : isEnd
+                      ? Icons.flag
+                      : null;
+              return Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: fill,
+                  border: Border.all(
+                      color: isStart || isEnd ? Colors.white : scheme.primary,
+                      width: 2),
+                  boxShadow: isDragging
+                      ? [const BoxShadow(blurRadius: 6, color: Colors.black38)]
+                      : const [BoxShadow(blurRadius: 2, color: Colors.black26)],
+                ),
+                child: icon == null
+                    ? null
+                    : Icon(icon, size: 16, color: Colors.white),
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 
@@ -349,9 +435,7 @@ class _CompassState extends State<_Compass> {
           child: SizedBox(
             width: 40,
             height: 40,
-            child: CustomPaint(
-              painter: _CompassPainter(rotationDeg: _rotation),
-            ),
+            child: CustomPaint(painter: _CompassPainter(rotationDeg: _rotation)),
           ),
         ),
       ),
@@ -373,14 +457,12 @@ class _CompassPainter extends CustomPainter {
     canvas.rotate(-rotationDeg * math.pi / 180.0);
 
     const half = 5.0;
-    // Ago nord (rosso).
     final north = Path()
       ..moveTo(0, -r)
       ..lineTo(-half, 0)
       ..lineTo(half, 0)
       ..close();
     canvas.drawPath(north, Paint()..color = const Color(0xFFD32F2F));
-    // Ago sud (grigio).
     final south = Path()
       ..moveTo(0, r)
       ..lineTo(-half, 0)
@@ -426,101 +508,6 @@ class _CursorDot extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
       ),
-    );
-  }
-}
-
-/// Marker trascinabili per i waypoint. Drag (commit a rilascio) per spostare,
-/// tap per eliminare.
-class _WaypointMarkers extends ConsumerWidget {
-  const _WaypointMarkers();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final waypoints = ref.watch(routeEditorProvider).waypoints;
-    final scheme = Theme.of(context).colorScheme;
-    const start = Color(0xFF2E7D32); // verde: partenza
-    const end = Color(0xFFC62828); // rosso: arrivo
-    final last = waypoints.length - 1;
-
-    return DragMarkers(
-      markers: [
-        for (var i = 0; i < waypoints.length; i++)
-          DragMarker(
-            key: ValueKey('waypoint-$i'),
-            point: waypoints[i],
-            size: const Size(30, 30),
-            // Commit solo a fine drag: evita di ri-instradare a ogni frame.
-            onDragEnd: (_, latLng) =>
-                ref.read(routeEditorProvider.notifier).movePoint(i, latLng),
-            // Tap per eliminare un nodo piazzato per errore.
-            onTap: (_) => ref.read(routeEditorProvider.notifier).removePoint(i),
-            builder: (context, point, isDragging) {
-              final isStart = i == 0;
-              final isEnd = i == last && last > 0;
-              final fill = isStart
-                  ? start
-                  : isEnd
-                      ? end
-                      : scheme.surface;
-              final icon = isStart
-                  ? Icons.play_arrow
-                  : isEnd
-                      ? Icons.flag
-                      : null;
-              return Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: fill,
-                  border: Border.all(
-                      color: isStart || isEnd ? Colors.white : scheme.primary,
-                      width: 2),
-                  boxShadow: isDragging
-                      ? [const BoxShadow(blurRadius: 6, color: Colors.black38)]
-                      : const [BoxShadow(blurRadius: 2, color: Colors.black26)],
-                ),
-                child: icon == null
-                    ? null
-                    : Icon(icon, size: 16, color: Colors.white),
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
-/// Marker statici di partenza (verde) e arrivo (rosso), mostrati quando il
-/// percorso non è in modifica.
-class _EndpointMarkers extends ConsumerWidget {
-  const _EndpointMarkers();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final waypoints = ref.watch(routeEditorProvider).waypoints;
-    if (waypoints.isEmpty) return const SizedBox.shrink();
-
-    Marker dot(LatLng p, Color color, IconData icon) => Marker(
-          point: p,
-          width: 28,
-          height: 28,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [BoxShadow(blurRadius: 2, color: Colors.black26)],
-            ),
-            child: Icon(icon, size: 16, color: Colors.white),
-          ),
-        );
-
-    return MarkerLayer(
-      markers: [
-        dot(waypoints.first, const Color(0xFF2E7D32), Icons.play_arrow),
-        if (waypoints.length > 1)
-          dot(waypoints.last, const Color(0xFFC62828), Icons.flag),
-      ],
     );
   }
 }
