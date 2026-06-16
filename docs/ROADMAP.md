@@ -17,15 +17,19 @@
 - Modelli di dominio stub (`Track`, `TrackPoint`).
 - **Toolchain aggiornata**: Flutter **3.44.2** (giugno 2026). `flutter analyze` pulito.
 
-🟡 **Fase 1.C — logica geo (parzialmente fatto):**
+✅ **Fase 1.C — logica geo (completa, lato dominio):**
 - `PathGeometry` (`domain/services/path_geometry.dart`): distanza haversine cumulativa + densificazione a passo.
 - `ElevationCalculator` (`domain/services/elevation_calculator.dart`): D+/D- con filtro a soglia (deadband) anti-rumore DEM.
 - `Terrarium.decodeElevation` (`data/offline/terrarium.dart`): decoder pixel→quota.
-- `ElevationService` (`domain/services/elevation_service.dart`): **interfaccia** per il campionamento quota (impl. tile rinviata a 1.F).
-- 17 test verdi (`test/domain/`).
-- **Manca**: implementazione concreta `ElevationService` (download/decode tile, in 1.F) e widget profilo altimetrico (`ui/`).
+- `TileMath` (`core/util/tile_math.dart`): coordinate↔tile/pixel Web Mercator.
+- `ElevationService` (interfaccia) + `TerrariumElevationService` (`data/offline/`): campionamento quota da tile, fetcher iniettabile + cache LRU. Fetcher HTTP di default in `terrarium_http_fetcher.dart`.
+- `ElevationProfile` (`domain/models/`): builder distanze cumulate + min/max.
+- `ElevationProfileChart` (`ui/`): widget grafico profilo (CustomPainter).
+- `TrackMetricsCalculator` (`domain/services/track_metrics.dart`): orchestratore distanza + D+/D- + profilo in una chiamata.
+- **28 test verdi** (`test/domain/`).
+- **Manca per "chiudere" 1.C nell'app**: agganciare il fetcher alla cache offline FMTC (→ 1.F) e mostrare metriche+grafico in `track_detail` (dipende da 1.B/1.D).
 
-📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `url_launcher ^6.3.x`.
+📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
 
 ---
 
@@ -55,12 +59,14 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 - Provider Riverpod per lo stato del tracciato in editing.
 - Polilinea su `flutter_map` (`PolylineLayer` + `MarkerLayer`).
 
-### 1.C — Calcolo distanza + dislivello + profilo (cuore dell'app, §6.3)
-- **Distanza**: haversine cumulativo su punti densificati (interpolazione ~10–25 m). `latlong2`.
-- **Elevazione**: decoder Terrarium custom → `elevation = (R*256 + G + B/256) - 32768`.
-- **Dislivello D+/D-**: campionamento lungo il path + **smoothing** (soglia ~5–10 m) per non gonfiare il D+ col rumore DEM.
-- **Widget profilo altimetrico** in `ui/`.
-- 🔴 **Tutto deterministico e coperto da test** (`test/domain/`).
+### 1.C — Calcolo distanza + dislivello + profilo (cuore dell'app, §6.3) ✅ (lato logica)
+- ✅ **Distanza**: haversine cumulativo su punti densificati. `PathGeometry`.
+- ✅ **Elevazione**: decoder Terrarium + campionamento da tile (`TerrariumElevationService`).
+- ✅ **Dislivello D+/D-**: filtro a soglia deadband (default 8 m) anti-rumore DEM. `ElevationCalculator`.
+- ✅ **Widget profilo altimetrico** (`ui/elevation_profile_chart.dart`) + builder `ElevationProfile`.
+- ✅ **Orchestratore** `TrackMetricsCalculator` (un'unica chiamata: distanza + D+/D- + profilo).
+- ✅ **Tutto deterministico e coperto da test** (28 test in `test/domain/`).
+- ⏭️ **Residuo**: fetcher tile → cache offline FMTC (1.F); validare la soglia smoothing con tracce reali; cablare in `track_detail` (1.B/1.D).
 
 ### 1.D — Persistenza locale
 - `drift` + `sqlite3` per metadati tracciati; file GPX su filesystem (`path_provider`).
@@ -108,8 +114,9 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 
 - [x] **Aggiornare Flutter?** Fatto: bump a 3.44.2 in Fase 0 (Riverpod 2→3, flutter_map 7→8, go_router→17 migrati).
 - [x] **State management**: Riverpod ✓ (API `Notifier`/`NotifierProvider`).
-- [ ] **Algoritmo smoothing dislivello**: soglia fissa vs filtro (es. media mobile / Douglas-Peucker su quota) — validare con tracce GPX reali.
-- [ ] **Densificazione path**: passo fisso (10/25 m) vs adattivo alla pendenza.
+- [~] **Algoritmo smoothing dislivello**: implementato filtro a soglia deadband (default 8 m). Da **validare con tracce GPX reali** ed eventualmente affinare (media mobile / soglia adattiva).
+- [ ] **Densificazione path**: passo fisso 15 m di default — valutare passo adattivo alla pendenza.
+- [ ] **Zoom DEM**: campionamento Terrarium a z13 di default — verificare precisione D+ vs z14/15 sulle Alpi.
 - [ ] **Modello sync cloud**: solo file vs indice; gestione conflitti oltre "last write wins"?
 - [ ] **IGN SCAN 25** topografico utilizzabile o ripiegare su Plan IGN.
 - [ ] **Routing offline BRouter**: confermare fattibilità prima di impegnarsi (F2).

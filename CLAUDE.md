@@ -51,9 +51,11 @@ latlong2:                    # coordinate / distanze
 geolocator:                  # posizione GPS (foreground; background in fase 2)
 proj4dart:                   # eventuali conversioni di proiezione (WMTS)
 
-# Tracciati
+# Tracciati & elevazione
 gpx:                         # parsing/generazione file GPX
-# (decoder Terrarium custom per l'elevazione — vedi §6)
+image:                       # decodifica PNG tile Terrarium (lettura pixel)
+http:                        # fetch tile Terrarium (online; offline via FMTC in 1.F)
+# (decoder Terrarium custom per l'elevazione — vedi §6; implementato)
 
 # Persistenza
 drift + sqlite3:             # DB metadati tracciati
@@ -66,7 +68,8 @@ google_sign_in + googleapis: # Google Drive (Android/iOS)
 share_plus / file_picker:    # condivisione/import GPX via "File"
 
 # UI/stato
-riverpod (o bloc):           # state management (scegliere — vedi §10)
+flutter_riverpod:            # state management (scelto — §10), API Notifier
+go_router:                   # routing
 ```
 
 > Verificare sempre l'ultima versione stabile su pub.dev e la compatibilità con la
@@ -216,13 +219,14 @@ dart format .                # formattazione
 
 ## 10. Questioni aperte (da decidere durante lo sviluppo)
 
-- [ ] **State management:** `riverpod` (consigliato) vs `bloc`. Decidere in Fase 0.
+- [x] **State management:** **Riverpod** scelto (API `Notifier`/`NotifierProvider`) + `go_router`.
+- [x] **Toolchain:** Flutter aggiornato a **3.44.2** in Fase 0 (Riverpod 2→3, flutter_map 7→8, go_router→17).
 - [ ] **Bundle id** definitivo (proposta: `com.mattiacuratitoli.sentei`). Nome app: `Sentèi` (display), `sentei` (tecnico) ✓.
 - [ ] **IGN SCAN 25:** verificare se la licenza topografica dettagliata è utilizzabile o se usare Plan IGN.
 - [ ] **Routing offline:** confermare fattibilità BRouter embedded in Flutter (Fase 2).
 - [ ] **Apple Developer Program** (99€/anno) necessario per iCloud + distribuzione iOS reale.
 - [ ] **Google Cloud project** + OAuth consent per Google Drive.
-- [ ] Strategia di **smoothing del dislivello** (soglia/algoritmo) da validare con tracce reali.
+- [~] **Smoothing del dislivello:** implementato filtro a soglia deadband (default 8 m, `ElevationCalculator`). Da **validare con tracce reali**; zoom DEM Terrarium a z13 da verificare.
 
 ---
 
