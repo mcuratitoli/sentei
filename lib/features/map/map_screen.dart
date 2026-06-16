@@ -96,6 +96,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (trailsOn) MapSources.waymarkedTrailsHiking,
     ];
 
+    // Lavoro in corso: calcolo percorso (a ogni nodo) o salvataggio post-Fine.
+    final editingId = tracks.editingId;
+    final busy = tracks.saving ||
+        (editingId != null &&
+            ref.watch(livePathProvider(editingId)).isLoading);
+
     return Scaffold(
       appBar: fullscreen
           ? null
@@ -171,6 +177,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               _AttributionBox(sources: attributions),
             ],
           ),
+          if (busy)
+            const Align(
+              alignment: Alignment.topCenter,
+              child: LinearProgressIndicator(),
+            ),
           SafeArea(
             child: Stack(
               children: [
@@ -246,26 +257,67 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 }
 
 /// Polilinee di tutte le tracce (ognuna nel suo colore; la attiva più spessa).
-class _TracksLayer extends ConsumerWidget {
+/// La traccia in fase di salvataggio (`savingId`) pulsa come effetto di loading.
+class _TracksLayer extends ConsumerStatefulWidget {
   const _TracksLayer();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TracksLayer> createState() => _TracksLayerState();
+}
+
+class _TracksLayerState extends ConsumerState<_TracksLayer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+    value: 1,
+  );
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final st = ref.watch(tracksProvider);
-    final polylines = <Polyline>[];
+
+    // Anima solo quando una traccia sta salvando.
+    if (st.savingId != null) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else if (_pulse.isAnimating) {
+      _pulse.stop();
+      _pulse.value = 1;
+    }
+
+    // Percorsi (memorizzati per le tracce finalizzate, live in modifica).
+    final entries = <(DrawnTrack, List<LatLng>)>[];
     for (final t in st.tracks) {
-      // Tracce finalizzate: percorso memorizzato. In modifica: anteprima live.
       final path = t.routedPath.length >= 2
           ? t.routedPath
           : (ref.watch(livePathProvider(t.id)).value ?? const <LatLng>[]);
-      if (path.length < 2) continue;
-      polylines.add(Polyline(
-        points: path,
-        strokeWidth: t.id == st.activeId ? 6 : 4,
-        color: t.color,
-      ));
+      if (path.length >= 2) entries.add((t, path));
     }
-    return PolylineLayer(polylines: polylines);
+
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) {
+        final pulse = 0.3 + 0.7 * _pulse.value;
+        return PolylineLayer(
+          polylines: [
+            for (final (t, path) in entries)
+              Polyline(
+                points: path,
+                strokeWidth: t.id == st.activeId ? 6 : 4,
+                color: t.id == st.savingId
+                    ? t.color.withValues(alpha: pulse)
+                    : t.color,
+              ),
+          ],
+        );
+      },
+    );
   }
 }
 

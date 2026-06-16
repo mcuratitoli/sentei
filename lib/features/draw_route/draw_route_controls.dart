@@ -22,6 +22,9 @@ class DrawRouteControls extends ConsumerWidget {
     final track = st.active;
     final drawing = st.drawing;
     final saving = st.saving;
+    // Durante il disegno: calcolo del percorso in corso a ogni nodo.
+    final pathLoading =
+        drawing && track != null && ref.watch(livePathProvider(track.id)).isLoading;
     final distance = ref.watch(routeDistanceProvider);
     final liveMetrics = ref.watch(routeMetricsProvider);
     final canCompute = track?.canCompute ?? false;
@@ -73,7 +76,19 @@ class DrawRouteControls extends ConsumerWidget {
                 _GainLoss(metrics: shownMetrics),
               ],
             ),
-            if (saving)
+            if (pathLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Row(children: [
+                  SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 8),
+                  Text('Calcolo percorso…', style: TextStyle(fontSize: 12)),
+                ]),
+              )
+            else if (saving)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Row(children: [
@@ -134,8 +149,11 @@ class DrawRouteControls extends ConsumerWidget {
                     icon: const Icon(Icons.undo),
                   ),
                   FilledButton.icon(
-                    onPressed: () =>
-                        ref.read(tracksProvider.notifier).finishDrawing(),
+                    // Disabilitato finché il percorso non è stato calcolato.
+                    onPressed: pathLoading
+                        ? null
+                        : () =>
+                            ref.read(tracksProvider.notifier).finishDrawing(),
                     icon: const Icon(Icons.check),
                     label: const Text('Fine'),
                   ),

@@ -92,15 +92,18 @@ class TracksState {
     this.tracks = const [],
     this.editingId,
     this.selectedId,
-    this.saving = false,
+    this.savingId,
   });
 
   final List<DrawnTrack> tracks;
   final String? editingId;
   final String? selectedId;
 
-  /// Calcolo+salvataggio in corso dopo il "Fine".
-  final bool saving;
+  /// Id della traccia per cui è in corso calcolo+salvataggio dopo il "Fine".
+  final String? savingId;
+
+  /// Calcolo+salvataggio in corso.
+  bool get saving => savingId != null;
 
   bool get drawing => editingId != null;
   String? get activeId => editingId ?? selectedId;
@@ -182,9 +185,9 @@ class Tracks extends Notifier<TracksState> {
     }
 
     // Deseleziona (si possono disegnare altre tracce); il calcolo prosegue in
-    // background e i dati restano memorizzati per quando la traccia verrà
-    // selezionata.
-    state = TracksState(tracks: state.tracks, saving: true);
+    // background (savingId = id, per animare la traccia) e i dati restano
+    // memorizzati per quando la traccia verrà selezionata.
+    state = TracksState(tracks: state.tracks, savingId: id);
 
     final path =
         await routeAlong(ref.read(routingServiceProvider), track.waypoints,
@@ -223,6 +226,7 @@ class Tracks extends Notifier<TracksState> {
       ],
       editingId: state.editingId,
       selectedId: state.selectedId,
+      // savingId azzerato → fine animazione.
     );
   }
 
