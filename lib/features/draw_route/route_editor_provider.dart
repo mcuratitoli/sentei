@@ -1,6 +1,6 @@
-import 'dart:developer' as developer;
 import 'dart:ui' show Color;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -206,19 +206,21 @@ final routedPathProvider =
   final service = ref.watch(routingServiceProvider);
   final path = <LatLng>[wp.first];
   for (var i = 0; i < wp.length - 1; i++) {
+    final from = wp[i], to = wp[i + 1];
     try {
-      final seg = await service.route([wp[i], wp[i + 1]]);
-      // La geometria parte ~wp[i]: salto il primo punto per non duplicare la
+      final seg = await service.route([from, to]);
+      // La geometria parte ~from: salto il primo punto per non duplicare la
       // giunzione col segmento precedente.
       if (seg.geometry.length >= 2) {
         path.addAll(seg.geometry.skip(1));
       } else {
-        path.add(wp[i + 1]);
+        path.add(to);
       }
     } on RoutingException catch (e) {
-      developer.log('Segmento $i non instradabile → linea retta: ${e.message}',
-          name: 'routing');
-      path.add(wp[i + 1]); // fallback retto solo per questo segmento
+      debugPrint('[routing] seg $i FALLBACK retto '
+          '(${from.latitude},${from.longitude} -> ${to.latitude},${to.longitude}): '
+          '${e.message}');
+      path.add(to); // fallback retto solo per questo segmento
     }
   }
   return path;

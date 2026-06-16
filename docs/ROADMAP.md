@@ -47,7 +47,9 @@
 
 ✅ **Multi-traccia (feedback 6° test):** stato refattorizzato in `TracksState`/`Tracks` (lista `DrawnTrack`), con `editingId`/`selectedId`. Flusso: **Disegna** crea una nuova traccia → punti → **Fine** (deseleziona, si possono crearne altre) → **tap su una traccia** la seleziona (card). Ogni traccia ha **nome** (editabile solo in crea/modifica), **colore** (selettore in crea/modifica) e snap. Routing per-traccia (`routedPathProvider.family`). Dislivello: icona cambia, testo resta "Dislivello".
 
-✅ **Routing robusto + rifiniture card (feedback 7° test):** routing **per-segmento** (BRouter coppia per coppia) → un punto non instradabile degrada **solo quel segmento** a linea retta, non l'intero percorso; aggiunti **timeout** e **log** (`name: 'routing'`) per diagnosi. Card: tasto **Dislivello a sinistra**, Fine/Modifica a destra; alla **selezione** di una traccia distanza + D+/D- compaiono in automatico (grafico profilo come toggle separato).
+✅ **Routing robusto + rifiniture card (feedback 7°/8° test):** routing **per-segmento** (BRouter coppia per coppia) → un punto non instradabile degrada **solo quel segmento** a linea retta. **Causa segmenti retti diagnosticata via log**: il server pubblico brouter.de a volte uccide il calcolo (`operation killed by thread-priority-watchdog after 8s`) sotto carico → aggiunto **retry** (3 tentativi + backoff) oltre a timeout. Card: tasto **Dislivello a sinistra**, Fine/Modifica a destra; alla **selezione** di una traccia distanza + D+/D- compaiono in automatico (grafico profilo come toggle separato).
+
+> Nota: se i kill del server pubblico restano frequenti, valutare un'istanza BRouter self-hosted o un backend alternativo (GraphHopper/ORS con key).
 
 ⏭️ **Frecce di direzione: RIMOSSE temporaneamente** — "impazzivano" (marker fantasma) dopo aggiunta/rimozione nodi + pan mappa. Da **ristudiare** con un approccio diverso (es. layer dipinto su canvas proiettato con `MapCamera`, anziché `MarkerLayer`), così da non avere problemi di reconciliation dei marker.
 

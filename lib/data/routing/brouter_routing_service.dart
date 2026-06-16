@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -18,12 +18,20 @@ class BRouterRoutingService implements RoutingService {
     this.baseUrl = 'https://brouter.de/brouter',
     this.defaultProfile = 'hiking-mountain',
     this.timeout = const Duration(seconds: 20),
+    this.maxAttempts = 3,
+    this.retryDelay = const Duration(milliseconds: 500),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;
   final String defaultProfile;
   final Duration timeout;
+
+  /// Tentativi totali per richiesta. Il server pubblico BRouter a volte uccide
+  /// il calcolo ("operation killed by thread-priority-watchdog") sotto carico:
+  /// un nuovo tentativo spesso riesce.
+  final int maxAttempts;
+  final Duration retryDelay;
 
   @override
   Future<RouteResult> route(List<LatLng> waypoints, {String? profile}) async {
@@ -40,22 +48,23 @@ class BRouterRoutingService implements RoutingService {
       'format': 'geojson',
     });
 
-    final http.Response res;
-    try {
-      res = await _client.get(uri).timeout(timeout);
-    } catch (e) {
-      developer.log('BRouter request fallita: $e',
-          name: 'routing', error: e);
-      throw RoutingException('Rete/timeout: $e');
+    RoutingException last = const RoutingException('routing non riuscito');
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final res = await _client.get(uri).timeout(timeout);
+        if (res.statusCode == 200) return parseGeoJson(res.body);
+        last = RoutingException('BRouter HTTP ${res.statusCode}: '
+            '${res.body.trim()}');
+      } catch (e) {
+        last = RoutingException('Rete/timeout: $e');
+      }
+      if (attempt < maxAttempts) {
+        debugPrint('[routing] tentativo $attempt fallito (${last.message}), '
+            'ritento…');
+        await Future<void>.delayed(retryDelay);
+      }
     }
-    if (res.statusCode != 200) {
-      developer.log(
-          'BRouter HTTP ${res.statusCode} per $lonlats -> ${res.body.trim()}',
-          name: 'routing');
-      throw RoutingException('BRouter HTTP ${res.statusCode}: ${res.body}');
-    }
-
-    return parseGeoJson(res.body);
+    throw last;
   }
 
   /// Parsa la risposta GeoJSON di BRouter. Esposto per i test.
