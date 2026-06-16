@@ -442,10 +442,13 @@ class _MapButtonStack extends ConsumerWidget {
       elevation: 3,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Tooltip(
+      // Larghezza fissa: senza vincolo i Divider si espanderebbero a tutto schermo.
+      child: SizedBox(
+        width: _kMapButtonSize,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
             message: 'Tracciati salvati',
             child: cell(Icons.list_alt, onTap: onTracks),
           ),
@@ -495,6 +498,7 @@ class _MapButtonStack extends ConsumerWidget {
             child: cell(Icons.more_vert, highlighted: located),
           ),
         ],
+        ),
       ),
     );
   }

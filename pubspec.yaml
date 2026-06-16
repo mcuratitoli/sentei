@@ -66,21 +66,21 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.8
 
-# Icone app (generate da logo/appstore.png).
+# Icone app (sorgenti in branding/, rigenera con: flutter pub run flutter_launcher_icons).
 flutter_launcher_icons:
-  image_path: "logo/appstore.png"
+  image_path: "branding/appstore.png"
   android: true
   ios: true
   remove_alpha_ios: true
   background_color_ios: "#FFFFFF"
 
-# Splash screen di avvio.
+# Splash screen di avvio (rigenera con: flutter pub run flutter_native_splash:create).
 flutter_native_splash:
   color: "#FFFFFF"
-  image: logo/splash.png
+  image: branding/splash.png
   android_12:
     color: "#FFFFFF"
-    image: logo/appstore.png
+    image: branding/appstore.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
