@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:sentei/data/storage/tracks_repository.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
 import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
@@ -24,6 +25,16 @@ class _FakeElevation implements ElevationService {
       List.filled(points.length, null);
 }
 
+/// Repository finto: nessuna persistenza su disco nei test.
+class _FakeRepo implements TracksRepository {
+  @override
+  Future<List<DrawnTrack>> loadAll() async => const [];
+  @override
+  Future<void> save(DrawnTrack track) async {}
+  @override
+  Future<void> delete(String id) async {}
+}
+
 void main() {
   late ProviderContainer container;
   Tracks notifier() => container.read(tracksProvider.notifier);
@@ -39,6 +50,7 @@ void main() {
               (_) async => http.Response('{"elements":[]}', 200)),
         ),
       ),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
     ]);
   });
   tearDown(() => container.dispose());

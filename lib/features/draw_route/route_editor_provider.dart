@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
 import '../../data/offline/terrarium_http_fetcher.dart';
 import '../../data/routing/brouter_routing_service.dart';
+import '../../data/storage/app_database.dart';
+import '../../data/storage/tracks_repository.dart';
 import '../../data/trails/overpass_trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
 import '../../domain/services/elevation_service.dart';
@@ -150,7 +152,27 @@ class Tracks extends Notifier<TracksState> {
   int _counter = 0;
 
   @override
-  TracksState build() => const TracksState();
+  TracksState build() {
+    _load();
+    return const TracksState();
+  }
+
+  /// Carica le tracce salvate all'avvio.
+  Future<void> _load() async {
+    final loaded = await ref.read(tracksRepositoryProvider).loadAll();
+    if (loaded.isEmpty) return;
+    var maxN = -1;
+    for (final t in loaded) {
+      final n = int.tryParse(t.id.replaceFirst('t', ''));
+      if (n != null && n > maxN) maxN = n;
+    }
+    _counter = maxN + 1;
+    state = TracksState(
+      tracks: loaded,
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+    );
+  }
 
   String _newId() => 't${_counter++}';
 
@@ -228,6 +250,14 @@ class Tracks extends Notifier<TracksState> {
       selectedId: state.selectedId,
       // savingId azzerato → fine animazione.
     );
+
+    // Persiste su disco.
+    final saved = state.byId(id);
+    if (saved != null) {
+      try {
+        await ref.read(tracksRepositoryProvider).save(saved);
+      } catch (_) {/* best-effort */}
+    }
   }
 
   void select(String id) =>
@@ -243,6 +273,7 @@ class Tracks extends Notifier<TracksState> {
       editingId: state.editingId == target ? null : state.editingId,
       selectedId: state.selectedId == target ? null : state.selectedId,
     );
+    ref.read(tracksRepositoryProvider).delete(target); // best-effort
   }
 
   /// Modifica la traccia in editing; ogni cambio ai waypoint azzera i dati
@@ -287,6 +318,16 @@ class Tracks extends Notifier<TracksState> {
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
+
+/// Database locale (drift) e repository delle tracce (persistenza su disco).
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
+
+final tracksRepositoryProvider = Provider<TracksRepository>(
+    (ref) => TracksRepository(ref.watch(databaseProvider)));
 
 final activeTrackIdProvider =
     Provider<String?>((ref) => ref.watch(tracksProvider).activeId);

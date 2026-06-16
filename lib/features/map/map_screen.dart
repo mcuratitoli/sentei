@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -117,8 +118,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 IconButton(
                   tooltip: 'Tracciati salvati',
                   icon: const Icon(Icons.list_alt),
-                  onPressed: () => Navigator.of(context)
-                      .pushNamed(TracksListScreen.routePath),
+                  onPressed: () => context.push(TracksListScreen.routePath),
                 ),
                 _SourceMenu(selected: base),
               ],
