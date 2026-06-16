@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/map/map_screen.dart';
+import '../features/settings/settings_screen.dart';
 import '../features/tracks_list/tracks_list_screen.dart';
 
 /// Configurazione di routing dell'app (go_router).
@@ -19,6 +20,11 @@ final appRouter = GoRouter(
       path: TracksListScreen.routePath,
       name: TracksListScreen.routeName,
       builder: (context, state) => const TracksListScreen(),
+    ),
+    GoRoute(
+      path: SettingsScreen.routePath,
+      name: SettingsScreen.routeName,
+      builder: (context, state) => const SettingsScreen(),
     ),
   ],
 );

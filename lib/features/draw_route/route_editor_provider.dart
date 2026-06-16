@@ -187,12 +187,15 @@ class Tracks extends Notifier<TracksState> {
   Color _nextColor() => kTrackPalette[state.tracks.length % kTrackPalette.length];
 
   void startNewDrawing() {
+    // Scarta un'eventuale traccia in modifica ancora incompleta (<2 punti).
+    final existing = state.editing;
+    var tracks = state.tracks;
+    if (existing != null && existing.waypoints.length < 2) {
+      tracks = tracks.where((t) => t.id != existing.id).toList();
+    }
     final track =
         DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
-    state = TracksState(
-      tracks: [...state.tracks, track],
-      editingId: track.id,
-    );
+    state = TracksState(tracks: [...tracks, track], editingId: track.id);
   }
 
   void editSelected() {

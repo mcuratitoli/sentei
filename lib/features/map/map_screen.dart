@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -10,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../app/theme.dart';
 import '../../core/constants.dart';
 import '../../data/location/location_service.dart';
 import '../../data/map_sources/map_source.dart';
@@ -18,6 +16,7 @@ import '../../data/map_sources/map_sources.dart';
 import '../../domain/services/path_geometry.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
+import '../settings/settings_screen.dart';
 import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
 
@@ -161,64 +160,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               _AttributionBox(sources: attributions),
             ],
           ),
-          SafeArea(
-            child: Stack(
-              children: [
-                if (busy)
-                  const Align(
-                    alignment: Alignment.topCenter,
-                    child: LinearProgressIndicator(),
-                  ),
-                // Sinistra: logo (sfondo blur) + bussola piccola sotto.
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 0, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const _LogoBadge(),
-                        const SizedBox(height: 8),
-                        _Compass(controller: _mapController, size: 36),
-                      ],
-                    ),
-                  ),
-                ),
-                // Destra: tracce / mappe / menu uniti in un controllo arrotondato.
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: _MapButtonStack(
-                      onLocate: _locate,
-                      onTracks: () => context.push(TracksListScreen.routePath),
-                    ),
-                  ),
-                ),
-              ],
+          if (busy)
+            const SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: LinearProgressIndicator(),
+              ),
             ),
-          ),
+          // Card del tracciato (sopra) + barra flottante in basso.
           Align(
             alignment: Alignment.bottomCenter,
-            child: const SafeArea(child: DrawRouteControls()),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const DrawRouteControls(),
+                  _BottomBar(
+                    onOrientNorth: () => _mapController.rotate(0),
+                    onLocate: _locate,
+                    onNewTrack:
+                        ref.read(tracksProvider.notifier).startNewDrawing,
+                    onTracks: () => context.push(TracksListScreen.routePath),
+                    onSettings: () => context.push(SettingsScreen.routePath),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
-      floatingActionButton: _buildFab(tracks),
     );
-  }
-
-  Widget? _buildFab(TracksState tracks) {
-    // FAB tondo "+" per creare una nuova traccia, quando nessuna è in card.
-    if (!tracks.showCard) {
-      return FloatingActionButton(
-        tooltip: 'Nuova traccia',
-        onPressed: ref.read(tracksProvider.notifier).startNewDrawing,
-        child: const Icon(Icons.add),
-      );
-    }
-    return null; // card visibile → i tasti sono nella card
   }
 }
 
@@ -382,213 +353,145 @@ class _WaypointMarkers extends ConsumerWidget {
   }
 }
 
-/// Dimensione uniforme dei pulsanti flottanti.
-const double _kMapButtonSize = 44;
 
-/// Nome dell'app in sovrimpressione, con sfondo sfocato semitrasparente per
-/// staccarlo dalla mappa sottostante.
-class _LogoBadge extends StatelessWidget {
-  const _LogoBadge();
+/// Barra flottante in basso (stile dock iOS): bussola(menu) · mappe · + · tracce · impostazioni.
+class _BottomBar extends ConsumerWidget {
+  const _BottomBar({
+    required this.onOrientNorth,
+    required this.onLocate,
+    required this.onNewTrack,
+    required this.onTracks,
+    required this.onSettings,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          color: Colors.white.withValues(alpha: 0.25),
-          child: Text(
-            AppConstants.appDisplayName,
-            style: AppTheme.appNameStyle(Theme.of(context).colorScheme.primary),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Controllo verticale unito (tracce / mappe / menu) con angoli arrotondati.
-class _MapButtonStack extends ConsumerWidget {
-  const _MapButtonStack({required this.onLocate, required this.onTracks});
-
+  final VoidCallback onOrientNorth;
   final VoidCallback onLocate;
+  final VoidCallback onNewTrack;
   final VoidCallback onTracks;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final base = ref.watch(selectedBaseSourceProvider);
     final trailsOn = ref.watch(trailsOverlayEnabledProvider);
-    final located = ref.watch(userLocationProvider) != null;
 
-    Widget cell(IconData icon, {VoidCallback? onTap, bool highlighted = false}) {
-      final c = SizedBox(
-        width: _kMapButtonSize,
-        height: _kMapButtonSize,
-        child: Icon(icon,
-            size: 22,
-            color: highlighted ? scheme.primary : scheme.onSurface),
-      );
-      return onTap == null ? c : InkWell(onTap: onTap, child: c);
-    }
-
-    final divider = Divider(
-        height: 1, thickness: 1, color: scheme.outlineVariant);
-
-    return Material(
-      color: scheme.surface,
-      elevation: 3,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      // Larghezza fissa: senza vincolo i Divider si espanderebbero a tutto schermo.
-      child: SizedBox(
-        width: _kMapButtonSize,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Tooltip(
-            message: 'Tracciati salvati',
-            child: cell(Icons.list_alt, onTap: onTracks),
-          ),
-          divider,
-          PopupMenuButton<MapSource>(
-            tooltip: 'Sorgente mappa',
-            initialValue: base,
-            onSelected: (s) =>
-                ref.read(selectedBaseSourceProvider.notifier).select(s),
-            itemBuilder: (_) => [
-              for (final s in MapSources.bases)
-                PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
-            ],
-            child: cell(Icons.layers),
-          ),
-          divider,
-          PopupMenuButton<String>(
-            tooltip: 'Altro',
-            onSelected: (v) {
-              if (v == 'locate') onLocate();
-              if (v == 'trails') {
-                ref.read(trailsOverlayEnabledProvider.notifier).toggle();
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(
-                value: 'locate',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.my_location),
-                  title: Text('La mia posizione'),
-                ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: scheme.surface,
+        elevation: 6,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Bussola → menu (orienta, posizione, sentieri).
+              PopupMenuButton<String>(
+                tooltip: 'Bussola e posizione',
+                icon: const Icon(Icons.explore_outlined),
+                onSelected: (v) {
+                  if (v == 'north') onOrientNorth();
+                  if (v == 'locate') onLocate();
+                  if (v == 'trails') {
+                    ref.read(trailsOverlayEnabledProvider.notifier).toggle();
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'north',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.navigation_outlined),
+                      title: Text('Orienta a nord'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'locate',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.my_location),
+                      title: Text('La mia posizione'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'trails',
+                    child: ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                          trailsOn ? Icons.hiking : Icons.hiking_outlined),
+                      title: Text(
+                          trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
+                    ),
+                  ),
+                ],
               ),
-              PopupMenuItem(
-                value: 'trails',
-                child: ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading:
-                      Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
-                  title: Text(
-                      trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
-                ),
+              // Mappe → selettore sorgente.
+              PopupMenuButton<MapSource>(
+                tooltip: 'Sorgente mappa',
+                icon: const Icon(Icons.layers_outlined),
+                initialValue: base,
+                onSelected: (s) =>
+                    ref.read(selectedBaseSourceProvider.notifier).select(s),
+                itemBuilder: (_) => [
+                  for (final s in MapSources.bases)
+                    PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
+                ],
+              ),
+              // + centrale (colore primario, in evidenza).
+              _PlusButton(onTap: onNewTrack),
+              IconButton(
+                tooltip: 'Tracciati salvati',
+                icon: const Icon(Icons.list_alt),
+                onPressed: onTracks,
+              ),
+              IconButton(
+                tooltip: 'Impostazioni',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: onSettings,
               ),
             ],
-            child: cell(Icons.more_vert, highlighted: located),
           ),
-        ],
         ),
       ),
     );
   }
 }
 
-/// Bussola che indica sempre il nord; al tap riporta il nord in alto.
-class _Compass extends StatefulWidget {
-  const _Compass({required this.controller, this.size = _kMapButtonSize});
+/// Bottone "+" centrale della barra, in evidenza col colore primario.
+class _PlusButton extends StatelessWidget {
+  const _PlusButton({required this.onTap});
 
-  final MapController controller;
-  final double size;
-
-  @override
-  State<_Compass> createState() => _CompassState();
-}
-
-class _CompassState extends State<_Compass> {
-  double _rotation = 0;
-  StreamSubscription<MapEvent>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = widget.controller.mapEventStream.listen((e) {
-      if (e.camera.rotation != _rotation) {
-        setState(() => _rotation = e.camera.rotation);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      shape: const CircleBorder(),
-      elevation: 3,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () => widget.controller.rotate(0),
-        child: Tooltip(
-          message: 'Nord in alto',
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Material(
+        color: scheme.primary,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
           child: SizedBox(
-            width: widget.size,
-            height: widget.size,
-            child: CustomPaint(painter: _CompassPainter(rotationDeg: _rotation)),
+            width: 48,
+            height: 48,
+            child: Tooltip(
+              message: 'Nuova traccia',
+              child: Icon(Icons.add, color: scheme.onPrimary, size: 28),
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-class _CompassPainter extends CustomPainter {
-  _CompassPainter({required this.rotationDeg});
-
-  final double rotationDeg;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2 - 8;
-    canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(-rotationDeg * math.pi / 180.0);
-
-    const half = 5.0;
-    final north = Path()
-      ..moveTo(0, -r)
-      ..lineTo(-half, 0)
-      ..lineTo(half, 0)
-      ..close();
-    canvas.drawPath(north, Paint()..color = const Color(0xFFD32F2F));
-    final south = Path()
-      ..moveTo(0, r)
-      ..lineTo(-half, 0)
-      ..lineTo(half, 0)
-      ..close();
-    canvas.drawPath(south, Paint()..color = const Color(0xFF9E9E9E));
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_CompassPainter old) => old.rotationDeg != rotationDeg;
 }
 
 /// Pallino blu della posizione utente.
