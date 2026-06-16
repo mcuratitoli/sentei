@@ -29,7 +29,9 @@
 - **28 test verdi** (`test/domain/`).
 - **Manca per "chiudere" 1.C nell'app**: agganciare il fetcher alla cache offline FMTC (→ 1.F) e mostrare metriche+grafico in `track_detail` (dipende da 1.B/1.D).
 
-📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
+✅ **Fase 1.B — disegno tracciato (fatto):** vedi sezione 1.B sotto. Tap-to-add, undo, drag, eliminazione, distanza live, D+/D- + profilo on-demand.
+
+📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_map_dragmarker ^8.0.3`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
 
 ---
 
@@ -54,10 +56,12 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 - Pacchetto `geolocator` (foreground). Permessi iOS (`Info.plist`) + Android (`AndroidManifest`).
 - Marker posizione + bottone "centra su di me".
 
-### 1.B — Disegno tracciato manuale
-- Tap-to-add waypoint, **undo**, drag dei punti, eliminazione.
-- Provider Riverpod per lo stato del tracciato in editing.
-- Polilinea su `flutter_map` (`PolylineLayer` + `MarkerLayer`).
+### 1.B — Disegno tracciato manuale ✅
+- ✅ Tap-to-add waypoint, **undo**, drag dei punti (`flutter_map_dragmarker`), long-press per eliminare.
+- ✅ Stato in `RouteEditor` (Riverpod) + distanza live (`routeDistanceProvider`).
+- ✅ Polilinea su `flutter_map` + marker trascinabili; FAB modalità disegno.
+- ✅ Pannello `DrawRouteControls`: distanza, D+/D- on-demand (usa `TrackMetricsCalculator` + DEM online) e profilo altimetrico inline.
+- ⏭️ **Residuo**: salvataggio del tracciato disegnato (→ 1.D).
 
 ### 1.C — Calcolo distanza + dislivello + profilo (cuore dell'app, §6.3) ✅ (lato logica)
 - ✅ **Distanza**: haversine cumulativo su punti densificati. `PathGeometry`.

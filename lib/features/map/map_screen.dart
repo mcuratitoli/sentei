@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants.dart';
 import '../../data/map_sources/map_source.dart';
 import '../../data/map_sources/map_sources.dart';
+import '../draw_route/draw_route_controls.dart';
+import '../draw_route/route_editor_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
 
-/// Schermata mappa principale (Fase 0).
-///
-/// Mostra il layer base selezionabile + overlay sentieri opzionale +
-/// attribuzione obbligatoria. Il disegno tracciati arriva in Fase 1 (§7).
+/// Schermata mappa principale: visualizzazione + disegno tracciato (1.B).
 class MapScreen extends ConsumerWidget {
   const MapScreen({super.key});
 
@@ -23,6 +23,7 @@ class MapScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final base = ref.watch(selectedBaseSourceProvider);
     final trailsOn = ref.watch(trailsOverlayEnabledProvider);
+    final editor = ref.watch(routeEditorProvider);
 
     final attributions = <MapSource>[
       base,
@@ -48,19 +49,87 @@ class MapScreen extends ConsumerWidget {
           _SourceMenu(selected: base),
         ],
       ),
-      body: FlutterMap(
-        options: const MapOptions(
-          initialCenter: AppConstants.defaultCenter,
-          initialZoom: AppConstants.defaultZoom,
-          minZoom: AppConstants.minZoom,
-          maxZoom: AppConstants.maxZoom,
-        ),
+      body: Stack(
         children: [
-          base.toTileLayer(),
-          if (trailsOn) MapSources.waymarkedTrailsHiking.toTileLayer(),
-          _AttributionBox(sources: attributions),
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: AppConstants.defaultCenter,
+              initialZoom: AppConstants.defaultZoom,
+              minZoom: AppConstants.minZoom,
+              maxZoom: AppConstants.maxZoom,
+              onTap: editor.drawing
+                  ? (_, point) =>
+                      ref.read(routeEditorProvider.notifier).addPoint(point)
+                  : null,
+            ),
+            children: [
+              base.toTileLayer(),
+              if (trailsOn) MapSources.waymarkedTrailsHiking.toTileLayer(),
+              if (editor.points.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: editor.points,
+                      strokeWidth: 4,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ],
+                ),
+              if (editor.points.isNotEmpty) const _RoutePointMarkers(),
+              _AttributionBox(sources: attributions),
+            ],
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(child: const DrawRouteControls()),
+          ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
+        icon: Icon(editor.drawing ? Icons.check : Icons.edit_location_alt),
+        label: Text(editor.drawing ? 'Fine' : 'Disegna'),
+      ),
+    );
+  }
+}
+
+/// Marker trascinabili per i punti del tracciato. Drag per spostare, long-press
+/// per eliminare un punto.
+class _RoutePointMarkers extends ConsumerWidget {
+  const _RoutePointMarkers();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final points = ref.watch(routeEditorProvider).points;
+    final scheme = Theme.of(context).colorScheme;
+
+    return DragMarkers(
+      markers: [
+        for (var i = 0; i < points.length; i++)
+          DragMarker(
+            key: ValueKey('route-point-$i'),
+            point: points[i],
+            size: const Size(28, 28),
+            onDragUpdate: (_, latLng) =>
+                ref.read(routeEditorProvider.notifier).movePoint(i, latLng),
+            onLongPress: (_) =>
+                ref.read(routeEditorProvider.notifier).removePoint(i),
+            builder: (context, point, isDragging) {
+              final isEndpoint = i == 0 || i == points.length - 1;
+              return Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isEndpoint ? scheme.primary : scheme.surface,
+                  border: Border.all(color: scheme.primary, width: 2),
+                  boxShadow: isDragging
+                      ? [const BoxShadow(blurRadius: 6, color: Colors.black38)]
+                      : null,
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 }

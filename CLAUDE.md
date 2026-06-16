@@ -46,6 +46,7 @@ meteo, tracking di attività fitness avanzato.
 ```yaml
 # Mappa & geo
 flutter_map:                 # rendering mappa multi-tile
+flutter_map_dragmarker:      # marker trascinabili per il disegno tracciato (1.B)
 flutter_map_tile_caching:    # (FMTC) caching e download offline di aree
 latlong2:                    # coordinate / distanze
 geolocator:                  # posizione GPS (foreground; background in fase 2)
