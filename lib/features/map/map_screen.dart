@@ -104,25 +104,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ref.watch(livePathProvider(editingId)).isLoading);
 
     return Scaffold(
-      appBar: fullscreen
-          ? null
-          : AppBar(
-              title: const Text(AppConstants.appDisplayName),
-              actions: [
-                IconButton(
-                  tooltip: 'Sentieri',
-                  icon: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
-                  onPressed: () =>
-                      ref.read(trailsOverlayEnabledProvider.notifier).toggle(),
-                ),
-                IconButton(
-                  tooltip: 'Tracciati salvati',
-                  icon: const Icon(Icons.list_alt),
-                  onPressed: () => context.push(TracksListScreen.routePath),
-                ),
-                _SourceMenu(selected: base),
-              ],
-            ),
+      // Niente AppBar: i controlli sono pulsanti flottanti, identici in
+      // fullscreen e non.
       body: Stack(
         children: [
           FlutterMap(
@@ -177,14 +160,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               _AttributionBox(sources: attributions),
             ],
           ),
-          if (busy)
-            const Align(
-              alignment: Alignment.topCenter,
-              child: LinearProgressIndicator(),
-            ),
           SafeArea(
             child: Stack(
               children: [
+                if (busy)
+                  const Align(
+                    alignment: Alignment.topCenter,
+                    child: LinearProgressIndicator(),
+                  ),
                 Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
@@ -197,8 +180,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(8),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _SourceButton(selected: base),
+                            const SizedBox(width: 8),
+                            _MapButton(
+                              icon: Icons.list_alt,
+                              tooltip: 'Tracciati salvati',
+                              onPressed: () =>
+                                  context.push(TracksListScreen.routePath),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                         _MapButton(
                           icon: fullscreen
                               ? Icons.fullscreen_exit
@@ -210,11 +208,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               ref.read(fullscreenProvider.notifier).toggle(),
                         ),
                         const SizedBox(height: 8),
-                        _MapButton(
-                          icon: Icons.my_location,
-                          tooltip: 'La mia posizione',
-                          highlighted: userPos != null,
-                          onPressed: _locate,
+                        _MenuButton(
+                          trailsOn: trailsOn,
+                          userLocated: userPos != null,
+                          onLocate: _locate,
+                          onToggleTrails: () => ref
+                              .read(trailsOverlayEnabledProvider.notifier)
+                              .toggle(),
                         ),
                       ],
                     ),
@@ -422,13 +422,11 @@ class _MapButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.highlighted = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -441,9 +439,101 @@ class _MapButton extends StatelessWidget {
         iconSize: 20,
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon,
+        icon: Icon(icon, color: scheme.onSurface),
+      ),
+    );
+  }
+}
+
+/// Icona tonda (visuale) usata come child dei PopupMenuButton flottanti.
+class _RoundIcon extends StatelessWidget {
+  const _RoundIcon(this.icon, {this.highlighted = false});
+
+  final IconData icon;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Icon(icon,
+            size: 20,
             color: highlighted ? scheme.primary : scheme.onSurface),
       ),
+    );
+  }
+}
+
+/// Bottone tondo per la scelta della sorgente mappa (menu a comparsa).
+class _SourceButton extends ConsumerWidget {
+  const _SourceButton({required this.selected});
+
+  final MapSource selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<MapSource>(
+      tooltip: 'Sorgente mappa',
+      initialValue: selected,
+      onSelected: (s) =>
+          ref.read(selectedBaseSourceProvider.notifier).select(s),
+      itemBuilder: (context) => [
+        for (final s in MapSources.bases)
+          PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
+      ],
+      child: const _RoundIcon(Icons.layers),
+    );
+  }
+}
+
+/// Bottone menu: posizione attuale + mostra/nascondi sentieri.
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({
+    required this.trailsOn,
+    required this.userLocated,
+    required this.onLocate,
+    required this.onToggleTrails,
+  });
+
+  final bool trailsOn;
+  final bool userLocated;
+  final VoidCallback onLocate;
+  final VoidCallback onToggleTrails;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Altro',
+      onSelected: (v) {
+        if (v == 'locate') onLocate();
+        if (v == 'trails') onToggleTrails();
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'locate',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.my_location),
+            title: Text('La mia posizione'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'trails',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
+            title: Text(trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
+          ),
+        ),
+      ],
+      child: _RoundIcon(Icons.more_vert, highlighted: userLocated),
     );
   }
 }
@@ -565,28 +655,6 @@ class _CursorDot extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black45)],
       ),
-    );
-  }
-}
-
-/// Menu a tendina per scegliere il layer base.
-class _SourceMenu extends ConsumerWidget {
-  const _SourceMenu({required this.selected});
-
-  final MapSource selected;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<MapSource>(
-      tooltip: 'Sorgente mappa',
-      icon: const Icon(Icons.layers),
-      initialValue: selected,
-      onSelected: (s) =>
-          ref.read(selectedBaseSourceProvider.notifier).select(s),
-      itemBuilder: (context) => [
-        for (final s in MapSources.bases)
-          PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
-      ],
     );
   }
 }

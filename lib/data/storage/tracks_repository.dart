@@ -33,7 +33,7 @@ class TracksRepository {
       routedPath: Value(_encodePoints(track.routedPath)),
       trailRefs: Value(jsonEncode(track.trailRefs)),
       metrics: Value(_encodeMetrics(track.metrics)),
-      createdAt: Value(now),
+      createdAt: Value(track.createdAt ?? now),
       updatedAt: Value(now),
     ));
   }
@@ -106,5 +106,6 @@ class TracksRepository {
         routedPath: _decodePoints(r.routedPath),
         trailRefs: (jsonDecode(r.trailRefs) as List).cast<String>(),
         metrics: _decodeMetrics(r.metrics),
+        createdAt: r.createdAt,
       );
 }

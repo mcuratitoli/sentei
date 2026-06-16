@@ -25,7 +25,7 @@ void main() {
       ),
     );
 
-    // Il titolo dell'AppBar è il nome dell'app.
-    expect(find.text('Sentèi'), findsOneWidget);
+    // Nello stato iniziale è presente il FAB "Disegna".
+    expect(find.text('Disegna'), findsOneWidget);
   });
 }

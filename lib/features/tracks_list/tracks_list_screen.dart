@@ -12,39 +12,92 @@ import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../draw_route/route_editor_provider.dart';
 
-/// Libreria dei tracciati salvati (1.D) + export/import GPX (§6.4).
-class TracksListScreen extends ConsumerWidget {
+enum _SortMode { date, alpha }
+
+/// Libreria dei tracciati salvati (1.D) + export/import GPX (§6.4), con
+/// ordinamento (data/alfabetico) e ricerca sul titolo.
+class TracksListScreen extends ConsumerStatefulWidget {
   const TracksListScreen({super.key});
 
   static const String routeName = 'tracks';
   static const String routePath = '/tracks';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tracks = ref.watch(tracksProvider).tracks;
+  ConsumerState<TracksListScreen> createState() => _TracksListScreenState();
+}
+
+class _TracksListScreenState extends ConsumerState<TracksListScreen> {
+  _SortMode _sort = _SortMode.date;
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final all = ref.watch(tracksProvider).tracks;
+
+    final q = _query.trim().toLowerCase();
+    final filtered =
+        q.isEmpty ? [...all] : all.where((t) => t.name.toLowerCase().contains(q)).toList();
+    filtered.sort((a, b) {
+      switch (_sort) {
+        case _SortMode.alpha:
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        case _SortMode.date:
+          final da = a.createdAt ?? DateTime(0);
+          final db = b.createdAt ?? DateTime(0);
+          return db.compareTo(da); // più recenti prima
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tracciati'),
         actions: [
+          PopupMenuButton<_SortMode>(
+            tooltip: 'Ordina',
+            icon: const Icon(Icons.sort),
+            initialValue: _sort,
+            onSelected: (m) => setState(() => _sort = m),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: _SortMode.date, child: Text('Per data')),
+              PopupMenuItem(value: _SortMode.alpha, child: Text('Alfabetico')),
+            ],
+          ),
           IconButton(
             tooltip: 'Importa GPX',
             icon: const Icon(Icons.file_download_outlined),
-            onPressed: () => _importGpx(context, ref),
+            onPressed: _importGpx,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: TextField(
+              decoration: const InputDecoration(
+                isDense: true,
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Cerca per nome',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+        ),
       ),
-      body: tracks.isEmpty
-          ? const Center(
+      body: filtered.isEmpty
+          ? Center(
               child: Text(
-                  'Nessun tracciato salvato.\nDisegnane uno dalla mappa o importa un GPX.',
-                  textAlign: TextAlign.center),
+                all.isEmpty
+                    ? 'Nessun tracciato salvato.\nDisegnane uno dalla mappa o importa un GPX.'
+                    : 'Nessun risultato per "$_query".',
+                textAlign: TextAlign.center,
+              ),
             )
           : ListView.separated(
-              itemCount: tracks.length,
+              itemCount: filtered.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) {
-                final t = tracks[i];
+                final t = filtered[i];
                 final distance = t.metrics?.distanceMeters ??
                     const PathGeometry().totalDistance(t.routedPath);
                 final gain = t.metrics?.elevation.gain;
@@ -59,7 +112,7 @@ class TracksListScreen extends ConsumerWidget {
                   trailing: PopupMenuButton<String>(
                     onSelected: (v) {
                       if (v == 'export') {
-                        _exportGpx(context, t);
+                        _exportGpx(t);
                       } else if (v == 'delete') {
                         ref.read(tracksProvider.notifier).remove(t.id);
                       }
@@ -71,7 +124,7 @@ class TracksListScreen extends ConsumerWidget {
                   ),
                   onTap: () {
                     ref.read(tracksProvider.notifier).select(t.id);
-                    context.pop(); // torna alla mappa
+                    context.pop();
                   },
                 );
               },
@@ -79,7 +132,7 @@ class TracksListScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _importGpx(BuildContext context, WidgetRef ref) async {
+  Future<void> _importGpx() async {
     const group = XTypeGroup(
       label: 'GPX',
       extensions: ['gpx'],
@@ -89,14 +142,14 @@ class TracksListScreen extends ConsumerWidget {
     if (file == null) return;
     final xml = await file.readAsString();
     final error = await ref.read(tracksProvider.notifier).importGpx(xml);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(error ?? 'Tracciato importato'),
-      ));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error ?? 'Tracciato importato')),
+      );
     }
   }
 
-  Future<void> _exportGpx(BuildContext context, DrawnTrack track) async {
+  Future<void> _exportGpx(DrawnTrack track) async {
     final xml = const GpxService().exportToGpx(track);
     final dir = await getTemporaryDirectory();
     final safe = (track.name.isNotEmpty ? track.name : 'tracciato')

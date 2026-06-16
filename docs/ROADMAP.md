@@ -6,6 +6,19 @@
 
 ---
 
+## Prossimi step (priorità decisa dall'utente)
+
+1. ✅ **Correzioni grafiche minori — riordino bottoni (FATTO):** rimossa l'AppBar → controlli flottanti identici in fullscreen e non. Bussola top-sx; FAB "Disegna" bottom-dx. Top-dx: riga [scelta mappa][lista tracciati], sotto fullscreen, sotto bottone menu (posizione attuale + mostra/nascondi sentieri). **Lista tracciati**: ordinamento per data/alfabetico + ricerca sul titolo (`createdAt` aggiunto a `DrawnTrack`).
+2. ⏭️ **Font dell'app.**
+3. ⏭️ **Logo + splash screen** (immagini già pronte dall'utente).
+4. ⏭️ **Numeri sentieri CAI sul grafico dislivelli** (lungo l'asse X, in corrispondenza del percorso).
+5. ⏭️ **Fix IGN (layer 404)** + rivalutazione estetica mappe (stile GaiaGPS).
+6. ⏭️ **Download aree offline** (tile + DEM, FMTC) — §6.1 / Fase 1.F.
+
+> Sync Google Drive: rimandato dall'utente (analisi già pronta in cronologia).
+
+---
+
 ## Stato attuale
 
 ✅ **Fase 0 — scheletro (fatto):**

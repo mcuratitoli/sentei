@@ -40,6 +40,7 @@ class DrawnTrack {
     this.routedPath = const [],
     this.metrics,
     this.trailRefs = const [],
+    this.createdAt,
   });
 
   final String id;
@@ -47,6 +48,9 @@ class DrawnTrack {
   final String name;
   final Color color;
   final bool snapToTrail;
+
+  /// Data di creazione (per ordinamento). Impostata alla creazione/import.
+  final DateTime? createdAt;
 
   /// Geometria che segue i sentieri, calcolata al "Fine".
   final List<LatLng> routedPath;
@@ -67,6 +71,7 @@ class DrawnTrack {
     List<LatLng>? routedPath,
     TrackMetrics? metrics,
     List<String>? trailRefs,
+    DateTime? createdAt,
   }) =>
       DrawnTrack(
         id: id,
@@ -77,6 +82,7 @@ class DrawnTrack {
         routedPath: routedPath ?? this.routedPath,
         metrics: metrics ?? this.metrics,
         trailRefs: trailRefs ?? this.trailRefs,
+        createdAt: createdAt ?? this.createdAt,
       );
 
   /// Azzera i dati calcolati (quando i waypoint cambiano in modifica).
@@ -86,6 +92,7 @@ class DrawnTrack {
         name: name,
         color: color,
         snapToTrail: snapToTrail,
+        createdAt: createdAt,
       );
 }
 
@@ -180,7 +187,8 @@ class Tracks extends Notifier<TracksState> {
   Color _nextColor() => kTrackPalette[state.tracks.length % kTrackPalette.length];
 
   void startNewDrawing() {
-    final track = DrawnTrack(id: _newId(), color: _nextColor());
+    final track =
+        DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
     state = TracksState(
       tracks: [...state.tracks, track],
       editingId: track.id,
@@ -280,7 +288,9 @@ class Tracks extends Notifier<TracksState> {
   /// Importa una traccia da GPX. Ritorna `null` se ok, o un messaggio d'errore.
   Future<String?> importGpx(String xml) async {
     try {
-      final track = const GpxService().importFromGpx(xml, id: _newId());
+      final track = const GpxService()
+          .importFromGpx(xml, id: _newId())
+          .copyWith(createdAt: DateTime.now());
       state = TracksState(
         tracks: [...state.tracks, track],
         editingId: state.editingId,
