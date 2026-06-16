@@ -23,6 +23,30 @@ void main() {
     });
   });
 
+  group('distanceToPath', () {
+    final path = [
+      const LatLng(45.0, 7.0),
+      const LatLng(45.0, 7.01),
+    ];
+
+    test('punto sul segmento => ~0', () {
+      expect(calc.distanceToPath(const LatLng(45.0, 7.005), path),
+          lessThan(1));
+    });
+
+    test('punto lontano dal segmento => distanza grande', () {
+      // ~0.01° di latitudine ≈ 1.1 km a nord del segmento
+      final d = calc.distanceToPath(const LatLng(45.01, 7.005), path);
+      expect(d, greaterThan(900));
+      expect(d, lessThan(1300));
+    });
+
+    test('percorso vuoto => infinito', () {
+      expect(calc.distanceToPath(const LatLng(45, 7), const []),
+          double.infinity);
+    });
+  });
+
   group('densify', () {
     test('preserva i vertici originali e infittisce', () {
       final pts = [const LatLng(45.0, 7.0), const LatLng(45.01, 7.0)];

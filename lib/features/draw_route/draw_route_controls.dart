@@ -5,21 +5,28 @@ import '../../core/util/format.dart';
 import '../../ui/elevation_profile_chart.dart';
 import 'route_editor_provider.dart';
 
-/// Pannello inferiore di controllo del disegno tracciato (1.B): mostra distanza
-/// live e dislivello, con azioni undo/clear/calcola.
+/// Pannello inferiore di controllo del tracciato.
+///
+/// Due modalità: **disegno** (aggiungi/annulla punti, snap, Fine) e
+/// **selezionato** (modifica, elimina, dislivello). Visibile solo quando si
+/// disegna o il percorso è selezionato (vedi `RouteEditorState.showCard`).
 class DrawRouteControls extends ConsumerWidget {
   const DrawRouteControls({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editor = ref.watch(routeEditorProvider);
-    if (!editor.drawing && editor.waypoints.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (!editor.showCard) return const SizedBox.shrink();
 
     final distance = ref.watch(routeDistanceProvider);
     final metrics = ref.watch(routeMetricsProvider);
     final routing = ref.watch(routedPathProvider).isLoading;
+    final showingProfile = metrics.value != null;
+
+    void hideProfile() {
+      ref.read(routeMetricsProvider.notifier).reset();
+      ref.read(profileCursorProvider.notifier).set(null);
+    }
 
     return Card(
       margin: const EdgeInsets.all(8),
@@ -29,6 +36,8 @@ class DrawRouteControls extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const _NameField(),
+            const SizedBox(height: 6),
             Row(
               children: [
                 _Metric(
@@ -40,73 +49,77 @@ class DrawRouteControls extends ConsumerWidget {
                 _GainLoss(metrics: metrics),
                 const Spacer(),
                 if (routing)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                Text('${editor.waypoints.length} punti',
-                    style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
-            Row(
-              children: [
-                Icon(editor.snapToTrail ? Icons.route : Icons.timeline,
-                    size: 18),
-                const SizedBox(width: 6),
-                const Text('Segui sentieri'),
-                const Spacer(),
-                Switch(
-                  value: editor.snapToTrail,
-                  onChanged: (_) =>
-                      ref.read(routeEditorProvider.notifier).toggleSnap(),
-                ),
-              ],
-            ),
+            if (editor.drawing)
+              Row(
+                children: [
+                  Icon(editor.snapToTrail ? Icons.route : Icons.timeline,
+                      size: 18),
+                  const SizedBox(width: 6),
+                  const Text('Segui sentieri'),
+                  const Spacer(),
+                  Switch(
+                    value: editor.snapToTrail,
+                    onChanged: (_) =>
+                        ref.read(routeEditorProvider.notifier).toggleSnap(),
+                  ),
+                ],
+              ),
             const SizedBox(height: 4),
             Row(
               children: [
-                FilledButton.icon(
-                  onPressed: () =>
-                      ref.read(routeEditorProvider.notifier).toggleDrawing(),
-                  icon: Icon(
-                      editor.drawing ? Icons.check : Icons.edit_location_alt),
-                  label: Text(editor.drawing ? 'Fine' : 'Disegna'),
-                ),
-                IconButton(
-                  tooltip: 'Annulla ultimo punto',
-                  onPressed: editor.waypoints.isEmpty
-                      ? null
-                      : () => ref.read(routeEditorProvider.notifier).undo(),
-                  icon: const Icon(Icons.undo),
-                ),
-                IconButton(
-                  tooltip: 'Pulisci tracciato',
-                  onPressed: editor.waypoints.isEmpty
-                      ? null
-                      : () {
-                          ref.read(routeEditorProvider.notifier).clear();
-                          ref.read(routeMetricsProvider.notifier).reset();
-                          ref.read(profileCursorProvider.notifier).set(null);
-                        },
-                  icon: const Icon(Icons.delete_outline),
-                ),
+                if (editor.drawing) ...[
+                  FilledButton.icon(
+                    onPressed: () =>
+                        ref.read(routeEditorProvider.notifier).finishDrawing(),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Fine'),
+                  ),
+                  IconButton(
+                    tooltip: 'Annulla ultimo punto',
+                    onPressed: editor.waypoints.isEmpty
+                        ? null
+                        : () => ref.read(routeEditorProvider.notifier).undo(),
+                    icon: const Icon(Icons.undo),
+                  ),
+                ] else ...[
+                  FilledButton.icon(
+                    onPressed: () =>
+                        ref.read(routeEditorProvider.notifier).startDrawing(),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Modifica'),
+                  ),
+                  IconButton(
+                    tooltip: 'Elimina percorso',
+                    onPressed: () {
+                      ref.read(routeEditorProvider.notifier).clear();
+                      hideProfile();
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
                 const Spacer(),
                 FilledButton.tonalIcon(
-                  onPressed: editor.canCompute && !metrics.isLoading
-                      ? () => ref.read(routeMetricsProvider.notifier).compute()
-                      : null,
+                  onPressed: !editor.canCompute || metrics.isLoading
+                      ? null
+                      : showingProfile
+                          ? hideProfile
+                          : () =>
+                              ref.read(routeMetricsProvider.notifier).compute(),
                   icon: metrics.isLoading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.terrain),
-                  label: const Text('Dislivello'),
+                      : Icon(showingProfile ? Icons.expand_more : Icons.terrain),
+                  label: Text(showingProfile ? 'Nascondi' : 'Dislivello'),
                 ),
               ],
             ),
@@ -125,13 +138,53 @@ class DrawRouteControls extends ConsumerWidget {
               error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('Quota non disponibile: $e',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    style:
+                        TextStyle(color: Theme.of(context).colorScheme.error)),
               ),
               orElse: () => const SizedBox.shrink(),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Campo per dare un nome al percorso. Sincronizzato col provider (anche su reset).
+class _NameField extends ConsumerStatefulWidget {
+  const _NameField();
+
+  @override
+  ConsumerState<_NameField> createState() => _NameFieldState();
+}
+
+class _NameFieldState extends ConsumerState<_NameField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: ref.read(routeEditorProvider).name);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Allinea il campo a reset/modifiche esterne dello stato.
+    ref.listen(routeEditorProvider.select((s) => s.name), (_, next) {
+      if (next != _controller.text) _controller.text = next;
+    });
+
+    return TextField(
+      controller: _controller,
+      textInputAction: TextInputAction.done,
+      decoration: const InputDecoration(
+        isDense: true,
+        prefixIcon: Icon(Icons.edit_note),
+        hintText: 'Nome percorso',
+        border: OutlineInputBorder(),
+      ),
+      onChanged: (v) => ref.read(routeEditorProvider.notifier).setName(v),
     );
   }
 }

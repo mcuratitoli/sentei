@@ -39,7 +39,11 @@
 
 ✅ **Rifiniture disegno (feedback 3° test):** (1) zoom non ruota più la mappa (`enableMultiFingerGestureRace` + `rotationThreshold`); (2) **tap su un nodo lo elimina**; (3) bottone **bussola "nord in alto"** (appare quando ruotata); (4) frecce direzione più grandi/contrastate; (5) **scrubbing del profilo altimetrico** → evidenzia il punto corrispondente in mappa (`profileCursorProvider`, `ProfileSample.position`).
 
-✅ **Fase 1.A — posizione GPS + rifiniture (feedback 4° test):** `geolocator` + `LocationService`; bottone **"La mia posizione"** (centra + marker blu), permessi iOS/Android. **Bussola** ridisegnata (ago rosso/grigio sempre visibile, tap → nord su). **Frecce** con bordo bianco netto + key anti-fantasma dopo rimozione nodo. **Modalità fullscreen** (`fullscreenProvider`): nasconde app bar e pannelli, FAB disegno sempre disponibile.
+✅ **Fase 1.A — posizione GPS + rifiniture (feedback 4° test):** `geolocator` + `LocationService`; bottone **"La mia posizione"** (centra + marker blu), permessi iOS/Android. **Bussola** ridisegnata (ago rosso/grigio sempre visibile, tap → nord su). **Modalità fullscreen** (`fullscreenProvider`).
+
+✅ **Flusso disegno/selezione (feedback 5° test):** (1) frecce singole (rimosso il doppio layer bianco); (2) **stati percorso**: disegno → "Fine" → deselezionato; **tap sulla traccia = seleziona** (card modifica/elimina/dislivello), tap fuori = deseleziona (`PathGeometry.distanceToPath` per l'hit); FAB "Disegna/Modifica" sempre in basso a destra quando nulla è selezionato; (3) **Dislivello come toggle** (apre/chiude il grafico); (4) rimosso il conteggio punti; (5) **nome del percorso** (`RouteEditorState.name` + campo testo).
+
+⏭️ **(6) Tag numeri sentieri CAI:** rinviato. Verificato che **BRouter non espone il `ref`** dei sentieri nei WayTags. Approcci possibili: profilo BRouter custom che conserva `ref`/`osmc:symbol`, oppure query **Overpass** delle relazioni `route=hiking` lungo il tracciato. Da valutare in un'iterazione dedicata.
 
 📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_map_dragmarker ^8.0.3`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
 

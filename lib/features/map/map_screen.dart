@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_dragmarker/flutter_map_dragmarker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants.dart';
 import '../../data/location/location_service.dart';
 import '../../data/map_sources/map_source.dart';
 import '../../data/map_sources/map_sources.dart';
+import '../../domain/services/path_geometry.dart';
 import '../draw_route/direction_arrows.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
@@ -36,6 +38,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  /// Tap sulla mappa fuori dal disegno: seleziona il percorso se il tap è
+  /// vicino alla traccia, altrimenti deseleziona.
+  void _handleMapTap(LatLng point) {
+    final notifier = ref.read(routeEditorProvider.notifier);
+    final path = ref.read(routedPathProvider).value ?? const <LatLng>[];
+    if (path.length >= 2) {
+      final zoom = _mapController.camera.zoom;
+      final metersPerPixel =
+          156543.03392 * math.cos(point.latitude * math.pi / 180.0) /
+              math.pow(2, zoom);
+      final threshold = 22 * metersPerPixel; // ~22 px di tolleranza
+      if (const PathGeometry().distanceToPath(point, path) <= threshold) {
+        notifier.select();
+        return;
+      }
+    }
+    notifier.deselect();
   }
 
   Future<void> _locate() async {
@@ -115,10 +136,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 enableMultiFingerGestureRace: true,
                 rotationThreshold: 30,
               ),
-              onTap: editor.drawing
-                  ? (_, point) =>
-                      ref.read(routeEditorProvider.notifier).addPoint(point)
-                  : null,
+              onTap: (_, point) {
+                if (editor.drawing) {
+                  ref.read(routeEditorProvider.notifier).addPoint(point);
+                } else {
+                  _handleMapTap(point);
+                }
+              },
             ),
             children: [
               base.toTileLayer(),
@@ -157,7 +181,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ],
                 ),
-              if (editor.waypoints.isNotEmpty) const _WaypointMarkers(),
+              // In modifica: marker trascinabili/eliminabili. Altrimenti solo
+              // partenza/arrivo statici (così un tap fuori non li cancella).
+              if (editor.drawing)
+                const _WaypointMarkers()
+              else if (editor.waypoints.isNotEmpty)
+                const _EndpointMarkers(),
               _AttributionBox(sources: attributions),
             ],
           ),
@@ -220,22 +249,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget? _buildFab(RouteEditorState editor, bool fullscreen) {
-    // In fullscreen il pannello (col toggle Fine) è nascosto: serve comunque un
-    // modo per entrare/uscire dal disegno → FAB sempre presente.
+    final notifier = ref.read(routeEditorProvider.notifier);
+    // In fullscreen il pannello (con i tasti Fine/Modifica) è nascosto: il FAB
+    // fa da toggle disegno.
     if (fullscreen) {
       return FloatingActionButton(
-        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
+        onPressed: () =>
+            editor.drawing ? notifier.finishDrawing() : notifier.startDrawing(),
         child: Icon(editor.drawing ? Icons.check : Icons.edit_location_alt),
       );
     }
-    // Stato iniziale: il FAB avvia il disegno; poi il toggle vive nel pannello.
-    if (!editor.drawing && editor.waypoints.isEmpty) {
+    // "Disegna" sempre in basso a destra quando nessun percorso è selezionato
+    // e non si sta disegnando (stato iniziale o percorso deselezionato).
+    if (!editor.showCard) {
       return FloatingActionButton.extended(
-        onPressed: () => ref.read(routeEditorProvider.notifier).toggleDrawing(),
+        onPressed: notifier.startDrawing,
         icon: const Icon(Icons.edit_location_alt),
-        label: const Text('Disegna'),
+        label: Text(editor.hasRoute ? 'Modifica' : 'Disegna'),
       );
     }
+    // Card visibile (disegno o selezionato): i tasti sono nella card.
     return null;
   }
 }
@@ -452,6 +485,41 @@ class _WaypointMarkers extends ConsumerWidget {
               );
             },
           ),
+      ],
+    );
+  }
+}
+
+/// Marker statici di partenza (verde) e arrivo (rosso), mostrati quando il
+/// percorso non è in modifica.
+class _EndpointMarkers extends ConsumerWidget {
+  const _EndpointMarkers();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final waypoints = ref.watch(routeEditorProvider).waypoints;
+    if (waypoints.isEmpty) return const SizedBox.shrink();
+
+    Marker dot(LatLng p, Color color, IconData icon) => Marker(
+          point: p,
+          width: 28,
+          height: 28,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [BoxShadow(blurRadius: 2, color: Colors.black26)],
+            ),
+            child: Icon(icon, size: 16, color: Colors.white),
+          ),
+        );
+
+    return MarkerLayer(
+      markers: [
+        dot(waypoints.first, const Color(0xFF2E7D32), Icons.play_arrow),
+        if (waypoints.length > 1)
+          dot(waypoints.last, const Color(0xFFC62828), Icons.flag),
       ],
     );
   }

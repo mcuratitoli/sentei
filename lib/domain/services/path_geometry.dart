@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:latlong2/latlong.dart';
 
 /// Calcoli di distanza e densificazione di un percorso (§6.3 del CLAUDE.md).
@@ -52,4 +54,34 @@ class PathGeometry {
         a.latitude + (b.latitude - a.latitude) * t,
         a.longitude + (b.longitude - a.longitude) * t,
       );
+
+  /// Distanza minima in metri tra [p] e la spezzata [path] (punto→segmento).
+  /// Serve a capire se un tap sulla mappa "colpisce" il tracciato. Ritorna
+  /// `double.infinity` per percorsi vuoti.
+  ///
+  /// Proiezione equirettangolare locale attorno a [p]: precisa alle distanze
+  /// in gioco (poche decine di metri).
+  double distanceToPath(LatLng p, List<LatLng> path) {
+    if (path.isEmpty) return double.infinity;
+    if (path.length == 1) return distance(p, path.first);
+
+    const mPerDegLat = 111320.0;
+    final mPerDegLon = mPerDegLat * math.cos(p.latitude * math.pi / 180.0);
+    double x(LatLng q) => (q.longitude - p.longitude) * mPerDegLon;
+    double y(LatLng q) => (q.latitude - p.latitude) * mPerDegLat;
+
+    var best = double.infinity;
+    for (var i = 0; i < path.length - 1; i++) {
+      final ax = x(path[i]), ay = y(path[i]);
+      final bx = x(path[i + 1]), by = y(path[i + 1]);
+      final dx = bx - ax, dy = by - ay;
+      final lenSq = dx * dx + dy * dy;
+      final t = lenSq == 0 ? 0.0 : ((-ax) * dx + (-ay) * dy) / lenSq;
+      final tc = t.clamp(0.0, 1.0);
+      final px = ax + dx * tc, py = ay + dy * tc;
+      final d = math.sqrt(px * px + py * py);
+      if (d < best) best = d;
+    }
+    return best;
+  }
 }

@@ -41,13 +41,11 @@ class DirectionArrows extends ConsumerWidget {
           height: 30,
           child: Transform.rotate(
             angle: bearingDeg * math.pi / 180.0,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Bordo bianco netto (icona leggermente più grande dietro).
-                const Icon(Icons.navigation, size: 26, color: Colors.white),
-                Icon(Icons.navigation, size: 20, color: color),
-              ],
+            child: Icon(
+              Icons.navigation,
+              size: 22,
+              color: color,
+              shadows: const [Shadow(blurRadius: 2, color: Colors.black54)],
             ),
           ),
         ),

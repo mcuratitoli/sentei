@@ -19,35 +19,67 @@ class RouteEditorState {
   const RouteEditorState({
     this.waypoints = const [],
     this.drawing = false,
+    this.selected = false,
     this.snapToTrail = true,
+    this.name = '',
   });
 
   final List<LatLng> waypoints;
-  final bool drawing;
-  final bool snapToTrail;
 
+  /// In modalità disegno/modifica (tap aggiunge punti).
+  final bool drawing;
+
+  /// Percorso selezionato: mostra la card con azioni (modifica/elimina/dislivello).
+  final bool selected;
+
+  final bool snapToTrail;
+  final String name;
+
+  bool get hasRoute => waypoints.isNotEmpty;
   bool get canCompute => waypoints.length >= 2;
+
+  /// La card dei controlli è visibile in disegno o quando il percorso è selezionato.
+  bool get showCard => drawing || selected;
 
   RouteEditorState copyWith({
     List<LatLng>? waypoints,
     bool? drawing,
+    bool? selected,
     bool? snapToTrail,
+    String? name,
   }) =>
       RouteEditorState(
         waypoints: waypoints ?? this.waypoints,
         drawing: drawing ?? this.drawing,
+        selected: selected ?? this.selected,
         snapToTrail: snapToTrail ?? this.snapToTrail,
+        name: name ?? this.name,
       );
 }
 
-/// Editor del tracciato in disegno (tap-to-add, undo, drag, eliminazione) — 1.B.
+/// Editor del tracciato (tap-to-add, undo, drag, eliminazione, selezione) — 1.B.
 class RouteEditor extends Notifier<RouteEditorState> {
   @override
   RouteEditorState build() => const RouteEditorState();
 
-  void toggleDrawing() => state = state.copyWith(drawing: !state.drawing);
-
   void toggleSnap() => state = state.copyWith(snapToTrail: !state.snapToTrail);
+
+  /// Entra in modalità disegno/modifica (nuovo percorso o continua quello esistente).
+  void startDrawing() => state = state.copyWith(drawing: true, selected: false);
+
+  /// Termina il disegno: il percorso resta in mappa ma deselezionato.
+  void finishDrawing() => state = state.copyWith(drawing: false, selected: false);
+
+  /// Seleziona il percorso (mostra la card azioni).
+  void select() {
+    if (state.hasRoute && !state.drawing) {
+      state = state.copyWith(selected: true);
+    }
+  }
+
+  void deselect() => state = state.copyWith(selected: false);
+
+  void setName(String name) => state = state.copyWith(name: name);
 
   void addPoint(LatLng p) =>
       state = state.copyWith(waypoints: [...state.waypoints, p]);
@@ -71,7 +103,8 @@ class RouteEditor extends Notifier<RouteEditorState> {
     state = state.copyWith(waypoints: next);
   }
 
-  void clear() => state = state.copyWith(waypoints: const []);
+  /// Cancella tutto e torna allo stato iniziale.
+  void clear() => state = const RouteEditorState();
 }
 
 final routeEditorProvider =
