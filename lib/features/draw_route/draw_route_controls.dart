@@ -13,12 +13,13 @@ class DrawRouteControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final editor = ref.watch(routeEditorProvider);
-    if (!editor.drawing && editor.points.isEmpty) {
+    if (!editor.drawing && editor.waypoints.isEmpty) {
       return const SizedBox.shrink();
     }
 
     final distance = ref.watch(routeDistanceProvider);
     final metrics = ref.watch(routeMetricsProvider);
+    final routing = ref.watch(routedPathProvider).isLoading;
 
     return Card(
       margin: const EdgeInsets.all(8),
@@ -38,22 +39,45 @@ class DrawRouteControls extends ConsumerWidget {
                 const SizedBox(width: 16),
                 _GainLoss(metrics: metrics),
                 const Spacer(),
-                Text('${editor.points.length} punti',
+                if (routing)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                Text('${editor.waypoints.length} punti',
                     style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(editor.snapToTrail ? Icons.route : Icons.timeline,
+                    size: 18),
+                const SizedBox(width: 6),
+                const Text('Segui sentieri'),
+                const Spacer(),
+                Switch(
+                  value: editor.snapToTrail,
+                  onChanged: (_) =>
+                      ref.read(routeEditorProvider.notifier).toggleSnap(),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
                 TextButton.icon(
-                  onPressed: editor.points.isEmpty
+                  onPressed: editor.waypoints.isEmpty
                       ? null
                       : () => ref.read(routeEditorProvider.notifier).undo(),
                   icon: const Icon(Icons.undo),
                   label: const Text('Annulla'),
                 ),
                 TextButton.icon(
-                  onPressed: editor.points.isEmpty
+                  onPressed: editor.waypoints.isEmpty
                       ? null
                       : () {
                           ref.read(routeEditorProvider.notifier).clear();

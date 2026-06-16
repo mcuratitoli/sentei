@@ -12,7 +12,8 @@ import '../draw_route/route_editor_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
 
-/// Schermata mappa principale: visualizzazione + disegno tracciato (1.B).
+/// Schermata mappa principale: visualizzazione + disegno tracciato con
+/// snap-to-trail (1.B + §6.2).
 class MapScreen extends ConsumerWidget {
   const MapScreen({super.key});
 
@@ -24,6 +25,7 @@ class MapScreen extends ConsumerWidget {
     final base = ref.watch(selectedBaseSourceProvider);
     final trailsOn = ref.watch(trailsOverlayEnabledProvider);
     final editor = ref.watch(routeEditorProvider);
+    final routedPath = ref.watch(routedPathProvider);
 
     final attributions = <MapSource>[
       base,
@@ -34,6 +36,16 @@ class MapScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppConstants.appDisplayName),
         actions: [
+          IconButton(
+            tooltip: editor.snapToTrail
+                ? 'Snap ai sentieri: ON'
+                : 'Snap ai sentieri: OFF',
+            icon: Icon(editor.snapToTrail ? Icons.route : Icons.timeline),
+            color: editor.snapToTrail
+                ? Theme.of(context).colorScheme.primary
+                : null,
+            onPressed: () => ref.read(routeEditorProvider.notifier).toggleSnap(),
+          ),
           IconButton(
             tooltip: 'Sentieri',
             icon: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
@@ -65,23 +77,28 @@ class MapScreen extends ConsumerWidget {
             children: [
               base.toTileLayer(),
               if (trailsOn) MapSources.waymarkedTrailsHiking.toTileLayer(),
-              if (editor.points.length >= 2)
+              if ((routedPath.value?.length ?? 0) >= 2)
                 PolylineLayer(
                   polylines: [
                     Polyline(
-                      points: editor.points,
+                      points: routedPath.value!,
                       strokeWidth: 4,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ],
                 ),
-              if (editor.points.isNotEmpty) const _RoutePointMarkers(),
+              if (editor.waypoints.isNotEmpty) const _WaypointMarkers(),
               _AttributionBox(sources: attributions),
             ],
           ),
+          if (routedPath.isLoading)
+            const Align(
+              alignment: Alignment.topCenter,
+              child: LinearProgressIndicator(),
+            ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: SafeArea(child: const DrawRouteControls()),
+            child: const SafeArea(child: DrawRouteControls()),
           ),
         ],
       ),
@@ -94,29 +111,30 @@ class MapScreen extends ConsumerWidget {
   }
 }
 
-/// Marker trascinabili per i punti del tracciato. Drag per spostare, long-press
-/// per eliminare un punto.
-class _RoutePointMarkers extends ConsumerWidget {
-  const _RoutePointMarkers();
+/// Marker trascinabili per i waypoint. Drag (commit a rilascio) per spostare,
+/// long-press per eliminare.
+class _WaypointMarkers extends ConsumerWidget {
+  const _WaypointMarkers();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final points = ref.watch(routeEditorProvider).points;
+    final waypoints = ref.watch(routeEditorProvider).waypoints;
     final scheme = Theme.of(context).colorScheme;
 
     return DragMarkers(
       markers: [
-        for (var i = 0; i < points.length; i++)
+        for (var i = 0; i < waypoints.length; i++)
           DragMarker(
-            key: ValueKey('route-point-$i'),
-            point: points[i],
+            key: ValueKey('waypoint-$i'),
+            point: waypoints[i],
             size: const Size(28, 28),
-            onDragUpdate: (_, latLng) =>
+            // Commit solo a fine drag: evita di ri-instradare a ogni frame.
+            onDragEnd: (_, latLng) =>
                 ref.read(routeEditorProvider.notifier).movePoint(i, latLng),
             onLongPress: (_) =>
                 ref.read(routeEditorProvider.notifier).removePoint(i),
             builder: (context, point, isDragging) {
-              final isEndpoint = i == 0 || i == points.length - 1;
+              final isEndpoint = i == 0 || i == waypoints.length - 1;
               return Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,

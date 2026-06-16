@@ -31,6 +31,10 @@
 
 ✅ **Fase 1.B — disegno tracciato (fatto):** vedi sezione 1.B sotto. Tap-to-add, undo, drag, eliminazione, distanza live, D+/D- + profilo on-demand.
 
+✅ **Snap-to-trail (anticipato da Fase 2 su richiesta utente):** i tap sono **waypoint**; il percorso effettivo segue i sentieri OSM via **BRouter** (servizio web pubblico, profilo `hiking-mountain`, no API key). Fallback a linea retta se il routing non è disponibile; toggle "Segui sentieri" (default ON). File: `domain/services/routing_service.dart`, `data/routing/brouter_routing_service.dart`, `routedPathProvider`. **Testato sul parser**; da provare sul campo.
+
+> **Feedback utente (priorità):** (a) ✅ migliorare la tracciatura → snap-to-trail; (b) ⏭️ posizione GPS utente sulla mappa; (c) ⏭️ valutare rese grafiche mappe più belle/intuitive (stile GaiaGPS) — OpenTopoMap/OSM efficaci ma esteticamente migliorabili.
+
 📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_map_dragmarker ^8.0.3`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
 
 ---

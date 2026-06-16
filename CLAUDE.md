@@ -141,10 +141,15 @@ test/
 ### 6.2 Disegno tracciati + "snap-to-trail"
 - **MVP:** l'utente tocca la mappa per aggiungere waypoint; il tracciato è la polilinea tra i punti.
   Distanza = somma haversine; dislivello = derivato dal profilo Terrarium campionato lungo il path.
-- **Fase 2 (snap-to-trail):** instradamento che segue i sentieri OSM:
-  - *Online:* **GraphHopper API** profilo `hike`/`foot` (o Valhalla).
-  - *Offline:* **BRouter** (motore di routing OSM offline con profili escursionistici) —
-    valutare embedding/segment files. Documentare la decisione quando si affronta.
+- **Snap-to-trail (IMPLEMENTATO, anticipato da Fase 2 su richiesta utente):** i waypoint vengono
+  instradati lungo i sentieri OSM.
+  - *Online (scelto):* **BRouter** servizio web pubblico (`https://brouter.de/brouter`, profilo
+    `hiking-mountain`, formato GeoJSON, **senza API key**). Restituisce geometria + `track-length`
+    + `filtered ascend` + quota per punto. Implementazione: `data/routing/brouter_routing_service.dart`
+    dietro l'interfaccia `domain/services/routing_service.dart`. **Fallback a linea retta** su errore.
+  - *Offline (Fase 2):* stesso motore **BRouter** embedded (segment files) — coerenza con l'online.
+  - *Alternative valutate:* GraphHopper/Valhalla/OpenRouteService (richiedono API key) — tenute di
+    riserva se la reliability del servizio pubblico BRouter non basta.
 
 ### 6.3 Calcolo distanza/dislivello
 - Distanza: haversine cumulativo su punti densificati (interpolazione ogni ~10-25 m).
@@ -224,7 +229,7 @@ dart format .                # formattazione
 - [x] **Toolchain:** Flutter aggiornato a **3.44.2** in Fase 0 (Riverpod 2→3, flutter_map 7→8, go_router→17).
 - [ ] **Bundle id** definitivo (proposta: `com.mattiacuratitoli.sentei`). Nome app: `Sentèi` (display), `sentei` (tecnico) ✓.
 - [ ] **IGN SCAN 25:** verificare se la licenza topografica dettagliata è utilizzabile o se usare Plan IGN.
-- [ ] **Routing offline:** confermare fattibilità BRouter embedded in Flutter (Fase 2).
+- [~] **Routing:** snap-to-trail **online** fatto con BRouter pubblico. Resta da confermare la fattibilità **BRouter embedded offline** in Flutter (Fase 2) e la reliability del servizio pubblico.
 - [ ] **Apple Developer Program** (99€/anno) necessario per iCloud + distribuzione iOS reale.
 - [ ] **Google Cloud project** + OAuth consent per Google Drive.
 - [~] **Smoothing del dislivello:** implementato filtro a soglia deadband (default 8 m, `ElevationCalculator`). Da **validare con tracce reali**; zoom DEM Terrarium a z13 da verificare.
