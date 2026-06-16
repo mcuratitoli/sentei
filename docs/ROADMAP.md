@@ -98,7 +98,7 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 ### 1.D — Persistenza locale
 - 🟡 **Cache in-memory dei dati calcolati (FATTO):** al "Fine" si calcola **una volta** percorso instradato + metriche (D+/D-/profilo) + numeri sentieri e si **memorizzano su `DrawnTrack`**; selezionare/deselezionare non ricalcola più (prima "frullava" a ogni riselezione, con esiti incoerenti per i kill del server). `livePathProvider` solo per l'anteprima in modifica.
 - ✅ **Persistenza su disco (drift) — FATTO:** `drift` + `drift_flutter` (SQLite). `AppDatabase` con tabella `TrackRows` (dati strutturati in JSON); `TracksRepository` converte ↔ `DrawnTrack`. Le tracce si **caricano all'avvio** e si **salvano al "Fine"** / si eliminano. Schermata **"Tracciati"** popolata (tap → seleziona sulla mappa, elimina).
-- ⏭️ **Export/import GPX** (§6.4): prossimo (abilita anche il cloud).
+- ✅ **Export/import GPX (§6.4) — FATTO:** `GpxService` (pacchetto `gpx`) export `<trk>` con quota + import (trk/rte → traccia, snap off, waypoint sottocampionati). UI in "Tracciati": **Importa** (`file_selector`) e **Esporta GPX** (`share_plus` + file temporaneo). *(Nota: usato `file_selector` invece di `file_picker` per conflitto win32 con geolocator+share_plus.)*
 - ⏭️ **Sync cloud (Google Drive):** rimandato su decisione utente — login Google account + archiviazione ordinata (vedi analisi in cronologia).
 
 ### 1.E — GPX import/export (§6.4)

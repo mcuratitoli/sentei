@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../data/gpx/gpx_service.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
 import '../../data/offline/terrarium_http_fetcher.dart';
 import '../../data/routing/brouter_routing_service.dart';
@@ -274,6 +275,26 @@ class Tracks extends Notifier<TracksState> {
       selectedId: state.selectedId == target ? null : state.selectedId,
     );
     ref.read(tracksRepositoryProvider).delete(target); // best-effort
+  }
+
+  /// Importa una traccia da GPX. Ritorna `null` se ok, o un messaggio d'errore.
+  Future<String?> importGpx(String xml) async {
+    try {
+      final track = const GpxService().importFromGpx(xml, id: _newId());
+      state = TracksState(
+        tracks: [...state.tracks, track],
+        editingId: state.editingId,
+        selectedId: state.selectedId,
+      );
+      try {
+        await ref.read(tracksRepositoryProvider).save(track);
+      } catch (_) {/* best-effort */}
+      return null;
+    } on FormatException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'GPX non valido';
+    }
   }
 
   /// Modifica la traccia in editing; ogni cambio ai waypoint azzera i dati
