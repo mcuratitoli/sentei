@@ -10,7 +10,7 @@
 
 1. ✅ **Correzioni grafiche minori — riordino bottoni (FATTO):** rimossa l'AppBar → controlli flottanti identici in fullscreen e non. Bussola top-sx; FAB "Disegna" bottom-dx. Top-dx: riga [scelta mappa][lista tracciati], sotto fullscreen, sotto bottone menu (posizione attuale + mostra/nascondi sentieri). **Lista tracciati**: ordinamento per data/alfabetico + ricerca sul titolo (`createdAt` aggiunto a `DrawnTrack`).
 2. ✅ **Font dell'app (FATTO):** **Lato** (UI, via `google_fonts`) + **Yeseva One** per il nome. Inoltre: **rimosso il fullscreen** (l'app è già a tutto schermo), **bottoni uniformati** a 44px (bussola, mappe, lista, menu), **nome "Sentèi"** in sovrimpressione in alto a sinistra (senza sfondo). *Nota: `google_fonts` scarica i font a runtime (cache); valutare il bundling come asset per l'uso offline.*
-3. ⏭️ **Logo + splash screen** (immagini già pronte dall'utente).
+3. ✅ **Logo + splash screen (FATTO):** icone app generate da `logo/appstore.png` (`flutter_launcher_icons`) e splash da `logo/splash.png` (`flutter_native_splash`, sfondo bianco). + **Rifiniture grafiche:** palette **blu/azzurro** (seed `#1565C0`); bottoni dx **uniti** in un controllo verticale arrotondato (tracce/mappe/menu); logo con **sfondo sfocato** semitrasparente; **bussola** spostata a sx sotto il logo, più piccola; **FAB tondo "+"** per nuova traccia.
 4. ⏭️ **Numeri sentieri CAI sul grafico dislivelli** (lungo l'asse X, in corrispondenza del percorso).
 5. ⏭️ **Fix IGN (layer 404)** + rivalutazione estetica mappe (stile GaiaGPS).
 6. ⏭️ **Download aree offline** (tile + DEM, FMTC) — §6.1 / Fase 1.F.

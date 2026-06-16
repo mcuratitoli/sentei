@@ -17,14 +17,14 @@ import '../../domain/services/path_geometry.dart';
 import '../../domain/services/routing_service.dart';
 import '../../domain/services/track_metrics.dart';
 
-/// Palette di colori selezionabili per le tracce.
+/// Palette di colori selezionabili per le tracce (blu di default + varianti).
 const List<Color> kTrackPalette = [
-  Color(0xFF2E6E4E), // verde bosco
-  Color(0xFF1E88E5), // blu
+  Color(0xFF1565C0), // blu
+  Color(0xFF00897B), // teal
   Color(0xFFE53935), // rosso
   Color(0xFFF57C00), // arancio
   Color(0xFF8E24AA), // viola
-  Color(0xFF00897B), // teal
+  Color(0xFF2E6E4E), // verde bosco
 ];
 
 /// Una traccia disegnata: i waypoint di controllo + i dati **calcolati e
@@ -35,7 +35,7 @@ class DrawnTrack {
     required this.id,
     this.waypoints = const [],
     this.name = '',
-    this.color = const Color(0xFF2E6E4E),
+    this.color = const Color(0xFF1565C0),
     this.snapToTrail = true,
     this.routedPath = const [],
     this.metrics,

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// Tema dell'app. Palette ispirata all'ambiente alpino (verdi/pietra).
 /// Font UI: **Lato** (il nome dell'app usa **Yeseva One**, vedi [appNameStyle]).
 abstract final class AppTheme {
-  static const Color _seed = Color(0xFF2E6E4E); // verde bosco
+  static const Color _seed = Color(0xFF1565C0); // blu/azzurro (palette app)
 
   static ThemeData light() {
     final base = ThemeData(

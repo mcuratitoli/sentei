@@ -25,7 +25,7 @@ void main() {
       ),
     );
 
-    // Nello stato iniziale è presente il FAB "Disegna".
-    expect(find.text('Disegna'), findsOneWidget);
+    // Il nome dell'app è in sovrimpressione sulla mappa.
+    expect(find.text('Sentèi'), findsOneWidget);
   });
 }

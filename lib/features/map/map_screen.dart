@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -168,51 +169,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     alignment: Alignment.topCenter,
                     child: LinearProgressIndicator(),
                   ),
-                // Nome dell'app in sovrimpressione (Yeseva One, senza sfondo).
+                // Sinistra: logo (sfondo blur) + bussola piccola sotto.
                 Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 0, 0),
-                    child: Text(
-                      AppConstants.appDisplayName,
-                      style: AppTheme.appNameStyle(
-                          Theme.of(context).colorScheme.primary),
+                    padding: const EdgeInsets.fromLTRB(8, 4, 0, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _LogoBadge(),
+                        const SizedBox(height: 8),
+                        _Compass(controller: _mapController, size: 36),
+                      ],
                     ),
                   ),
                 ),
+                // Destra: tracce / mappe / menu uniti in un controllo arrotondato.
                 Align(
                   alignment: Alignment.topRight,
                   child: Padding(
                     padding: const EdgeInsets.all(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _SourceButton(selected: base),
-                            const SizedBox(width: 8),
-                            _RoundIcon(
-                              Icons.list_alt,
-                              tooltip: 'Tracciati salvati',
-                              onTap: () =>
-                                  context.push(TracksListScreen.routePath),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        _Compass(controller: _mapController),
-                        const SizedBox(height: 8),
-                        _MenuButton(
-                          trailsOn: trailsOn,
-                          userLocated: userPos != null,
-                          onLocate: _locate,
-                          onToggleTrails: () => ref
-                              .read(trailsOverlayEnabledProvider.notifier)
-                              .toggle(),
-                        ),
-                      ],
+                    child: _MapButtonStack(
+                      onLocate: _locate,
+                      onTracks: () => context.push(TracksListScreen.routePath),
                     ),
                   ),
                 ),
@@ -230,12 +210,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget? _buildFab(TracksState tracks) {
-    // "Disegna" sempre in basso a destra quando nessuna traccia è in card.
+    // FAB tondo "+" per creare una nuova traccia, quando nessuna è in card.
     if (!tracks.showCard) {
-      return FloatingActionButton.extended(
+      return FloatingActionButton(
+        tooltip: 'Nuova traccia',
         onPressed: ref.read(tracksProvider.notifier).startNewDrawing,
-        icon: const Icon(Icons.edit_location_alt),
-        label: const Text('Disegna'),
+        child: const Icon(Icons.add),
       );
     }
     return null; // card visibile → i tasti sono nella card
@@ -402,121 +382,130 @@ class _WaypointMarkers extends ConsumerWidget {
   }
 }
 
-/// Dimensione uniforme dei pulsanti tondi flottanti (bussola, mappe, lista, menu).
+/// Dimensione uniforme dei pulsanti flottanti.
 const double _kMapButtonSize = 44;
 
-/// Bottone/icona tonda flottante. Se [onTap] è dato è tappabile direttamente;
-/// altrimenti è solo visuale (usata come child dei PopupMenuButton).
-class _RoundIcon extends StatelessWidget {
-  const _RoundIcon(this.icon, {this.highlighted = false, this.onTap, this.tooltip});
-
-  final IconData icon;
-  final bool highlighted;
-  final VoidCallback? onTap;
-  final String? tooltip;
+/// Nome dell'app in sovrimpressione, con sfondo sfocato semitrasparente per
+/// staccarlo dalla mappa sottostante.
+class _LogoBadge extends StatelessWidget {
+  const _LogoBadge();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Widget content = SizedBox(
-      width: _kMapButtonSize,
-      height: _kMapButtonSize,
-      child: Icon(icon,
-          size: 22, color: highlighted ? scheme.primary : scheme.onSurface),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          color: Colors.white.withValues(alpha: 0.25),
+          child: Text(
+            AppConstants.appDisplayName,
+            style: AppTheme.appNameStyle(Theme.of(context).colorScheme.primary),
+          ),
+        ),
+      ),
     );
-    if (onTap != null) {
-      content = InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: content,
-      );
-    }
-    Widget button = Material(
-      color: scheme.surface,
-      shape: const CircleBorder(),
-      elevation: 3,
-      clipBehavior: Clip.antiAlias,
-      child: content,
-    );
-    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
-    return button;
   }
 }
 
-/// Bottone tondo per la scelta della sorgente mappa (menu a comparsa).
-class _SourceButton extends ConsumerWidget {
-  const _SourceButton({required this.selected});
+/// Controllo verticale unito (tracce / mappe / menu) con angoli arrotondati.
+class _MapButtonStack extends ConsumerWidget {
+  const _MapButtonStack({required this.onLocate, required this.onTracks});
 
-  final MapSource selected;
+  final VoidCallback onLocate;
+  final VoidCallback onTracks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return PopupMenuButton<MapSource>(
-      tooltip: 'Sorgente mappa',
-      initialValue: selected,
-      onSelected: (s) =>
-          ref.read(selectedBaseSourceProvider.notifier).select(s),
-      itemBuilder: (context) => [
-        for (final s in MapSources.bases)
-          PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
-      ],
-      child: const _RoundIcon(Icons.layers),
-    );
-  }
-}
+    final scheme = Theme.of(context).colorScheme;
+    final base = ref.watch(selectedBaseSourceProvider);
+    final trailsOn = ref.watch(trailsOverlayEnabledProvider);
+    final located = ref.watch(userLocationProvider) != null;
 
-/// Bottone menu: posizione attuale + mostra/nascondi sentieri.
-class _MenuButton extends StatelessWidget {
-  const _MenuButton({
-    required this.trailsOn,
-    required this.userLocated,
-    required this.onLocate,
-    required this.onToggleTrails,
-  });
+    Widget cell(IconData icon, {VoidCallback? onTap, bool highlighted = false}) {
+      final c = SizedBox(
+        width: _kMapButtonSize,
+        height: _kMapButtonSize,
+        child: Icon(icon,
+            size: 22,
+            color: highlighted ? scheme.primary : scheme.onSurface),
+      );
+      return onTap == null ? c : InkWell(onTap: onTap, child: c);
+    }
 
-  final bool trailsOn;
-  final bool userLocated;
-  final VoidCallback onLocate;
-  final VoidCallback onToggleTrails;
+    final divider = Divider(
+        height: 1, thickness: 1, color: scheme.outlineVariant);
 
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: 'Altro',
-      onSelected: (v) {
-        if (v == 'locate') onLocate();
-        if (v == 'trails') onToggleTrails();
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'locate',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.my_location),
-            title: Text('La mia posizione'),
+    return Material(
+      color: scheme.surface,
+      elevation: 3,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: 'Tracciati salvati',
+            child: cell(Icons.list_alt, onTap: onTracks),
           ),
-        ),
-        PopupMenuItem(
-          value: 'trails',
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
-            title: Text(trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
+          divider,
+          PopupMenuButton<MapSource>(
+            tooltip: 'Sorgente mappa',
+            initialValue: base,
+            onSelected: (s) =>
+                ref.read(selectedBaseSourceProvider.notifier).select(s),
+            itemBuilder: (_) => [
+              for (final s in MapSources.bases)
+                PopupMenuItem<MapSource>(value: s, child: Text(s.name)),
+            ],
+            child: cell(Icons.layers),
           ),
-        ),
-      ],
-      child: _RoundIcon(Icons.more_vert, highlighted: userLocated),
+          divider,
+          PopupMenuButton<String>(
+            tooltip: 'Altro',
+            onSelected: (v) {
+              if (v == 'locate') onLocate();
+              if (v == 'trails') {
+                ref.read(trailsOverlayEnabledProvider.notifier).toggle();
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'locate',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.my_location),
+                  title: Text('La mia posizione'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'trails',
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading:
+                      Icon(trailsOn ? Icons.hiking : Icons.hiking_outlined),
+                  title: Text(
+                      trailsOn ? 'Nascondi sentieri' : 'Mostra sentieri'),
+                ),
+              ),
+            ],
+            child: cell(Icons.more_vert, highlighted: located),
+          ),
+        ],
+      ),
     );
   }
 }
 
 /// Bussola che indica sempre il nord; al tap riporta il nord in alto.
 class _Compass extends StatefulWidget {
-  const _Compass({required this.controller});
+  const _Compass({required this.controller, this.size = _kMapButtonSize});
 
   final MapController controller;
+  final double size;
 
   @override
   State<_Compass> createState() => _CompassState();
@@ -555,8 +544,8 @@ class _CompassState extends State<_Compass> {
         child: Tooltip(
           message: 'Nord in alto',
           child: SizedBox(
-            width: _kMapButtonSize,
-            height: _kMapButtonSize,
+            width: widget.size,
+            height: widget.size,
             child: CustomPaint(painter: _CompassPainter(rotationDeg: _rotation)),
           ),
         ),
