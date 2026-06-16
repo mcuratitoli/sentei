@@ -9,7 +9,7 @@
 ## Prossimi step (priorità decisa dall'utente)
 
 1. ✅ **Correzioni grafiche minori — riordino bottoni (FATTO):** rimossa l'AppBar → controlli flottanti identici in fullscreen e non. Bussola top-sx; FAB "Disegna" bottom-dx. Top-dx: riga [scelta mappa][lista tracciati], sotto fullscreen, sotto bottone menu (posizione attuale + mostra/nascondi sentieri). **Lista tracciati**: ordinamento per data/alfabetico + ricerca sul titolo (`createdAt` aggiunto a `DrawnTrack`).
-2. ⏭️ **Font dell'app.**
+2. ✅ **Font dell'app (FATTO):** **Lato** (UI, via `google_fonts`) + **Yeseva One** per il nome. Inoltre: **rimosso il fullscreen** (l'app è già a tutto schermo), **bottoni uniformati** a 44px (bussola, mappe, lista, menu), **nome "Sentèi"** in sovrimpressione in alto a sinistra (senza sfondo). *Nota: `google_fonts` scarica i font a runtime (cache); valutare il bundling come asset per l'uso offline.*
 3. ⏭️ **Logo + splash screen** (immagini già pronte dall'utente).
 4. ⏭️ **Numeri sentieri CAI sul grafico dislivelli** (lungo l'asse X, in corrispondenza del percorso).
 5. ⏭️ **Fix IGN (layer 404)** + rivalutazione estetica mappe (stile GaiaGPS).

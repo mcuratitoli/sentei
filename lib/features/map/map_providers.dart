@@ -31,17 +31,6 @@ class TrailsOverlayEnabled extends Notifier<bool> {
 final trailsOverlayEnabledProvider =
     NotifierProvider<TrailsOverlayEnabled, bool>(TrailsOverlayEnabled.new);
 
-/// Modalità fullscreen: nasconde app bar e pannelli per massimizzare la mappa.
-class FullscreenMode extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void toggle() => state = !state;
-}
-
-final fullscreenProvider =
-    NotifierProvider<FullscreenMode, bool>(FullscreenMode.new);
-
 final locationServiceProvider =
     Provider<LocationService>((ref) => const LocationService());
 

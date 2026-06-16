@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/theme.dart';
 import '../../core/constants.dart';
 import '../../data/location/location_service.dart';
 import '../../data/map_sources/map_source.dart';
@@ -90,7 +91,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final tracks = ref.watch(tracksProvider);
     final cursor = ref.watch(profileCursorProvider);
     final userPos = ref.watch(userLocationProvider);
-    final fullscreen = ref.watch(fullscreenProvider);
 
     final attributions = <MapSource>[
       base,
@@ -168,11 +168,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     alignment: Alignment.topCenter,
                     child: LinearProgressIndicator(),
                   ),
+                // Nome dell'app in sovrimpressione (Yeseva One, senza sfondo).
                 Align(
                   alignment: Alignment.topLeft,
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: _Compass(controller: _mapController),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 0, 0),
+                    child: Text(
+                      AppConstants.appDisplayName,
+                      style: AppTheme.appNameStyle(
+                          Theme.of(context).colorScheme.primary),
+                    ),
                   ),
                 ),
                 Align(
@@ -188,25 +193,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           children: [
                             _SourceButton(selected: base),
                             const SizedBox(width: 8),
-                            _MapButton(
-                              icon: Icons.list_alt,
+                            _RoundIcon(
+                              Icons.list_alt,
                               tooltip: 'Tracciati salvati',
-                              onPressed: () =>
+                              onTap: () =>
                                   context.push(TracksListScreen.routePath),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        _MapButton(
-                          icon: fullscreen
-                              ? Icons.fullscreen_exit
-                              : Icons.fullscreen,
-                          tooltip: fullscreen
-                              ? 'Esci da schermo intero'
-                              : 'Schermo intero',
-                          onPressed: () =>
-                              ref.read(fullscreenProvider.notifier).toggle(),
-                        ),
+                        _Compass(controller: _mapController),
                         const SizedBox(height: 8),
                         _MenuButton(
                           trailsOn: trailsOn,
@@ -223,31 +219,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ],
             ),
           ),
-          if (!fullscreen)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: const SafeArea(child: DrawRouteControls()),
-            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: const SafeArea(child: DrawRouteControls()),
+          ),
         ],
       ),
-      floatingActionButton: _buildFab(tracks, fullscreen),
+      floatingActionButton: _buildFab(tracks),
     );
   }
 
-  Widget? _buildFab(TracksState tracks, bool fullscreen) {
-    final notifier = ref.read(tracksProvider.notifier);
-    if (fullscreen) {
-      return FloatingActionButton(
-        onPressed: () => tracks.drawing
-            ? notifier.finishDrawing()
-            : notifier.startNewDrawing(),
-        child: Icon(tracks.drawing ? Icons.check : Icons.edit_location_alt),
-      );
-    }
+  Widget? _buildFab(TracksState tracks) {
     // "Disegna" sempre in basso a destra quando nessuna traccia è in card.
     if (!tracks.showCard) {
       return FloatingActionButton.extended(
-        onPressed: notifier.startNewDrawing,
+        onPressed: ref.read(tracksProvider.notifier).startNewDrawing,
         icon: const Icon(Icons.edit_location_alt),
         label: const Text('Disegna'),
       );
@@ -416,56 +402,44 @@ class _WaypointMarkers extends ConsumerWidget {
   }
 }
 
-/// Bottone tondo piccolo per i controlli mappa.
-class _MapButton extends StatelessWidget {
-  const _MapButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
+/// Dimensione uniforme dei pulsanti tondi flottanti (bussola, mappe, lista, menu).
+const double _kMapButtonSize = 44;
 
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      shape: const CircleBorder(),
-      elevation: 3,
-      child: IconButton(
-        iconSize: 20,
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, color: scheme.onSurface),
-      ),
-    );
-  }
-}
-
-/// Icona tonda (visuale) usata come child dei PopupMenuButton flottanti.
+/// Bottone/icona tonda flottante. Se [onTap] è dato è tappabile direttamente;
+/// altrimenti è solo visuale (usata come child dei PopupMenuButton).
 class _RoundIcon extends StatelessWidget {
-  const _RoundIcon(this.icon, {this.highlighted = false});
+  const _RoundIcon(this.icon, {this.highlighted = false, this.onTap, this.tooltip});
 
   final IconData icon;
   final bool highlighted;
+  final VoidCallback? onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
+    Widget content = SizedBox(
+      width: _kMapButtonSize,
+      height: _kMapButtonSize,
+      child: Icon(icon,
+          size: 22, color: highlighted ? scheme.primary : scheme.onSurface),
+    );
+    if (onTap != null) {
+      content = InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: content,
+      );
+    }
+    Widget button = Material(
       color: scheme.surface,
       shape: const CircleBorder(),
       elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Icon(icon,
-            size: 20,
-            color: highlighted ? scheme.primary : scheme.onSurface),
-      ),
+      clipBehavior: Clip.antiAlias,
+      child: content,
     );
+    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
+    return button;
   }
 }
 
@@ -574,14 +548,15 @@ class _CompassState extends State<_Compass> {
       color: Theme.of(context).colorScheme.surface,
       shape: const CircleBorder(),
       elevation: 3,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: () => widget.controller.rotate(0),
         child: Tooltip(
           message: 'Nord in alto',
           child: SizedBox(
-            width: 40,
-            height: 40,
+            width: _kMapButtonSize,
+            height: _kMapButtonSize,
             child: CustomPaint(painter: _CompassPainter(rotationDeg: _rotation)),
           ),
         ),
