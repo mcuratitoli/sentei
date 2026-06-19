@@ -94,7 +94,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     final attributions = <MapSource>[
       base,
-      if (trailsOn) MapSources.waymarkedTrailsHiking,
+      // Rete sentieri ora da OSM (Overpass): credito OpenStreetMap.
+      if (trailsOn) MapSources.osmStandard,
     ];
 
     // Lavoro in corso: calcolo percorso (a ogni nodo) o salvataggio post-Fine.
@@ -136,13 +137,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               if (base.id == MapSources.ignPlan.id)
                 MapSources.openTopoMap.toTileLayer(muted: true),
               base.toTileLayer(muted: base.muteByDefault),
-              // Overlay sentieri attenuato: presente ma non "urlante", così la
-              // mappa resta pulita (stile GaiaGPS) senza perdere i tracciati.
-              if (trailsOn)
-                Opacity(
-                  opacity: 0.55,
-                  child: MapSources.waymarkedTrailsHiking.toTileLayer(),
-                ),
+              // Rete sentieri vettoriale (da OSM/Overpass): linee uniformi e
+              // tratteggiate, stile GaiaGPS — più pulite dell'overlay raster.
+              if (trailsOn) const _TrailNetworkLayer(),
               const _TracksLayer(),
               const _EndpointMarkers(),
               if (tracks.drawing) const _WaypointMarkers(),
@@ -207,6 +204,41 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
 /// Polilinee di tutte le tracce (ognuna nel suo colore; la attiva più spessa).
 /// La traccia in fase di salvataggio (`savingId`) pulsa come effetto di loading.
+/// Rete sentieri vettoriale (OSM/Overpass) disegnata stile GaiaGPS: un solo
+/// colore, spessore uniforme, tratteggio. Più pulita dell'overlay raster.
+class _TrailNetworkLayer extends ConsumerWidget {
+  const _TrailNetworkLayer();
+
+  /// Rosso mattone uniforme per tutta la rete ("colori simili").
+  static const Color _trailColor = Color(0xE6B3261E);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final camera = MapCamera.of(context);
+    // Richiesta debounced per la vista corrente (non muta lo stato in sincrono).
+    ref
+        .read(trailNetworkProvider.notifier)
+        .updateView(camera.visibleBounds, camera.zoom);
+
+    final lines = ref.watch(trailNetworkProvider);
+    if (lines.isEmpty) return const SizedBox.shrink();
+    return PolylineLayer(
+      polylines: [
+        for (final pts in lines)
+          Polyline(
+            points: pts,
+            strokeWidth: 2.5,
+            color: _trailColor,
+            // Sottile casing bianco per leggibilità sulla base topografica.
+            borderStrokeWidth: 1,
+            borderColor: Colors.white.withValues(alpha: 0.6),
+            pattern: StrokePattern.dashed(segments: const [7, 5]),
+          ),
+      ],
+    );
+  }
+}
+
 class _TracksLayer extends ConsumerStatefulWidget {
   const _TracksLayer();
 
