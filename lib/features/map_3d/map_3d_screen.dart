@@ -4,9 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
+/// Una traccia da disegnare nella vista 3D: punti + colore.
+class Track3D {
+  const Track3D({required this.points, required this.color});
+  final List<ll.LatLng> points;
+  final Color color;
+}
+
 /// Vista 3D del terreno (stile Suunto): Mapbox Outdoors + terreno 3D (DEM
 /// Mapbox) con pitch. Sola visualizzazione — l'editing resta nella mappa 2D
-/// (flutter_map). Mostra anche la traccia selezionata, se passata.
+/// (flutter_map). Mostra anche le tracce disegnate, se passate.
 ///
 /// Richiede il token Mapbox (inizializzato in `main.dart`). Senza token la
 /// `MapWidget` mostra una vista vuota: il pulsante "3D" è nascosto in quel caso.
@@ -15,8 +22,7 @@ class Map3DScreen extends StatefulWidget {
     super.key,
     required this.center,
     required this.zoom,
-    this.trackPoints,
-    this.trackColor,
+    this.tracks = const <Track3D>[],
   });
 
   /// Centro iniziale (dal camera 2D corrente).
@@ -25,11 +31,8 @@ class Map3DScreen extends StatefulWidget {
   /// Zoom iniziale (dal camera 2D corrente).
   final double zoom;
 
-  /// Punti della traccia selezionata da disegnare in 3D (opzionale).
-  final List<ll.LatLng>? trackPoints;
-
-  /// Colore della traccia selezionata.
-  final Color? trackColor;
+  /// Tracce disegnate da mostrare in 3D.
+  final List<Track3D> tracks;
 
   @override
   State<Map3DScreen> createState() => _Map3DScreenState();
@@ -53,22 +56,23 @@ class _Map3DScreenState extends State<Map3DScreen> {
       'exaggeration': 1.4,
     }));
 
-    // Traccia selezionata (se presente): linea pulita con casing bianco.
-    final pts = widget.trackPoints;
-    if (pts != null && pts.length >= 2) {
+    // Tracce disegnate: linee pulite con casing bianco.
+    final tracks = widget.tracks.where((t) => t.points.length >= 2).toList();
+    if (tracks.isNotEmpty) {
       final manager = await map.annotations.createPolylineAnnotationManager();
-      final color = (widget.trackColor ?? const Color(0xFF1565C0)).toARGB32();
-      await manager.create(PolylineAnnotationOptions(
-        geometry: LineString(
-          coordinates: [
-            for (final p in pts) Position(p.longitude, p.latitude),
-          ],
-        ),
-        lineColor: color,
-        lineWidth: 4.0,
-        lineBorderColor: 0xFFFFFFFF,
-        lineBorderWidth: 1.0,
-      ));
+      for (final t in tracks) {
+        await manager.create(PolylineAnnotationOptions(
+          geometry: LineString(
+            coordinates: [
+              for (final p in t.points) Position(p.longitude, p.latitude),
+            ],
+          ),
+          lineColor: t.color.toARGB32(),
+          lineWidth: 4.0,
+          lineBorderColor: 0xFFFFFFFF,
+          lineBorderWidth: 1.0,
+        ));
+      }
     }
   }
 

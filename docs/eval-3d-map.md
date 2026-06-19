@@ -104,6 +104,38 @@ riscrittura e ri-test**, non fattibilità.
    nell'editing: a quel punto la migrazione totale a `mapbox_maps_flutter` (un
    solo motore) ha senso, sapendo che il dominio non va toccato.
 
+## 7-bis. Transizione fluida 2D↔3D con due dita (richiesta utente)
+
+**Obiettivo:** inclinare la mappa con un gesto a due dita e passare in modo
+**continuo e fluido** dal 2D al 3D (come Suunto/Google Earth), senza un tasto.
+
+**Verdetto: NON è semplice con l'architettura attuale (ibrida) → serve Opzione A.**
+
+Perché:
+- `flutter_map` **non ha il pitch/tilt**: è ortografico 2D, non sa inclinarsi.
+  Quindi, finché la mappa 2D è flutter_map, *non esiste* un'inclinazione
+  continua da animare. Si potrebbe solo **intercettare** un drag a due dita e
+  poi **aprire** la schermata 3D (Mapbox) — ma è uno *scambio di schermata*, non
+  un tilt continuo guidato dal dito. L'effetto "fluido" vero è impossibile.
+- Una transizione **fluida e guidata dal gesto** richiede **un solo motore** che
+  faccia sia 2D (pitch 0) sia 3D (pitch >0): cioè **Mapbox GL come unica mappa**
+  = **Opzione A** (migrazione totale).
+- Buona notizia: in **Mapbox GL il gesto a due dita = pitch è NATIVO e già
+  fluido di default**. Migrando all'Opzione A, questa feature arriva
+  praticamente **gratis**, senza codice custom.
+
+**Conseguenza pratica:** la richiesta (3) è il motivo più forte per fare la
+**migrazione totale (Opzione A)** a `mapbox_maps_flutter`. Costo: riscrivere la
+UI mappa (disegno, drag dei waypoint, hit-test tap→traccia, marker, bussola,
+rete sentieri, cursore profilo) sull'engine GL — il **dominio non si tocca**
+(vedi §2, §5). Effort medio-alto, rischio medio; in cambio: gesto 2D↔3D nativo,
+stile vettoriale (dash/casing migliori), un solo motore.
+
+**Raccomandazione:** se il gesto fluido 2D↔3D è una priorità, pianificare
+l'**Opzione A**. Nel frattempo resta il pulsante "3D" (Opzione B) come ponte.
+Posso produrre un **piano di migrazione dettagliato** (inventario schermo per
+schermo, stime, ordine dei passi, criteri di rollback).
+
 ## 8. Domande aperte prima di implementare la B
 
 - DEM per il 3D: **terreno Mapbox** (`mapbox-terrain-dem-v1`, semplice, dentro lo

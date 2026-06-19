@@ -73,27 +73,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// Apre la vista 3D sull'area corrente, con la traccia selezionata se presente.
+  /// Apre la vista 3D sull'area corrente, con **tutte** le tracce disegnate.
   void _open3D() {
     final camera = _mapController.camera;
     final state = ref.read(tracksProvider);
-    DrawnTrack? selected;
-    for (final t in state.tracks) {
-      if (t.id == state.selectedId) {
-        selected = t;
-        break;
-      }
-    }
-    final points = (selected != null && selected.routedPath.length >= 2)
-        ? selected.routedPath
-        : null;
+    final tracks = <Track3D>[
+      for (final t in state.tracks)
+        if (t.routedPath.length >= 2)
+          Track3D(points: t.routedPath, color: t.color),
+    ];
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Map3DScreen(
           center: camera.center,
           zoom: camera.zoom,
-          trackPoints: points,
-          trackColor: selected?.color,
+          tracks: tracks,
         ),
       ),
     );
@@ -232,8 +226,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 class _TrailNetworkLayer extends ConsumerWidget {
   const _TrailNetworkLayer();
 
-  /// Rosso mattone uniforme per tutta la rete ("colori simili").
-  static const Color _trailColor = Color(0xE6B3261E);
+  /// Verde semi-trasparente, uniforme: le sovrapposizioni creano naturali
+  /// **sfumature di verde** sulla rete.
+  static const Color _trailColor = Color(0xCC2E7D32);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -250,12 +245,12 @@ class _TrailNetworkLayer extends ConsumerWidget {
         for (final pts in lines)
           Polyline(
             points: pts,
-            strokeWidth: 2.5,
+            // Linee sottili, verdi, con trattini piccoli e fitti.
+            strokeWidth: 1.8,
             color: _trailColor,
-            // Sottile casing bianco per leggibilità sulla base topografica.
-            borderStrokeWidth: 1,
-            borderColor: Colors.white.withValues(alpha: 0.6),
-            pattern: StrokePattern.dashed(segments: const [7, 5]),
+            borderStrokeWidth: 0.6,
+            borderColor: Colors.white.withValues(alpha: 0.5),
+            pattern: StrokePattern.dashed(segments: const [3, 3]),
           ),
       ],
     );
@@ -347,27 +342,36 @@ class _EndpointMarkers extends ConsumerWidget {
     final markers = <Marker>[];
     for (final t in st.tracks) {
       if (t.id == st.editingId || t.waypoints.isEmpty) continue;
-      markers.add(_dot(t.waypoints.first, const Color(0xFF2E7D32),
-          Icons.play_arrow));
+      markers.add(_dot(t.waypoints.first, const Color(0xFF2E7D32), 'P'));
       if (t.waypoints.length > 1) {
-        markers.add(_dot(t.waypoints.last, const Color(0xFFC62828), Icons.flag));
+        markers.add(_dot(t.waypoints.last, const Color(0xFFC62828), 'A'));
       }
     }
     return MarkerLayer(markers: markers);
   }
 
-  Marker _dot(LatLng p, Color color, IconData icon) => Marker(
+  /// Pallino piccolo con lettera (P = partenza, A = arrivo).
+  Marker _dot(LatLng p, Color color, String letter) => Marker(
         point: p,
-        width: 28,
-        height: 28,
+        width: 18,
+        height: 18,
         child: Container(
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: Colors.white, width: 1.5),
             boxShadow: const [BoxShadow(blurRadius: 2, color: Colors.black26)],
           ),
-          child: Icon(icon, size: 16, color: Colors.white),
+          child: Text(
+            letter,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
         ),
       );
 }
