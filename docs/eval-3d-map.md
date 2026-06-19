@@ -2,7 +2,11 @@
 
 > Documento decisionale. Obiettivo dell'utente: vista **3D del terreno** (alla
 > Suunto) mantenendo i colori Mapbox Outdoors già apprezzati.
-> Stato: **valutazione**, nessuna implementazione 3D ancora fatta.
+>
+> ✅ **DECISO E IMPLEMENTATO: Opzione B (ibrido).** Vista 3D dedicata con
+> `mapbox_maps_flutter` (Outdoors + terreno DEM Mapbox + pitch), pulsante "3D"
+> nella barra. flutter_map resta per l'editing 2D. Verificata sul simulatore
+> (Monte Rosa, prospettiva 3D con curve di livello). Dettaglio in `features/map_3d/`.
 
 ## 1. Il vincolo di fondo
 

@@ -16,6 +16,7 @@ import '../../data/map_sources/map_sources.dart';
 import '../../domain/services/path_geometry.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
+import '../map_3d/map_3d_screen.dart';
 import '../settings/settings_screen.dart';
 import '../tracks_list/tracks_list_screen.dart';
 import 'map_providers.dart';
@@ -70,6 +71,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } else {
       notifier.deselect();
     }
+  }
+
+  /// Apre la vista 3D sull'area corrente, con la traccia selezionata se presente.
+  void _open3D() {
+    final camera = _mapController.camera;
+    final state = ref.read(tracksProvider);
+    DrawnTrack? selected;
+    for (final t in state.tracks) {
+      if (t.id == state.selectedId) {
+        selected = t;
+        break;
+      }
+    }
+    final points = (selected != null && selected.routedPath.length >= 2)
+        ? selected.routedPath
+        : null;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Map3DScreen(
+          center: camera.center,
+          zoom: camera.zoom,
+          trackPoints: points,
+          trackColor: selected?.color,
+        ),
+      ),
+    );
   }
 
   Future<void> _locate() async {
@@ -185,6 +212,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ref.read(tracksProvider.notifier).startNewDrawing,
                     onTracks: () => context.push(TracksListScreen.routePath),
                     onSettings: () => context.push(SettingsScreen.routePath),
+                    // Pulsante 3D solo se c'è il token Mapbox (altrimenti vuota).
+                    onOpen3D: MapSources.hasMapboxToken ? _open3D : null,
                   ),
                 ],
               ),
@@ -412,6 +441,7 @@ class _BottomBar extends StatelessWidget {
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
+    this.onOpen3D,
   });
 
   final VoidCallback onOrientNorth;
@@ -419,6 +449,7 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
+  final VoidCallback? onOpen3D;
 
   @override
   Widget build(BuildContext context) {
@@ -453,6 +484,12 @@ class _BottomBar extends StatelessWidget {
                 icon: const Icon(Icons.list_alt),
                 onPressed: onTracks,
               ),
+              if (onOpen3D != null)
+                IconButton(
+                  tooltip: 'Vista 3D',
+                  icon: const Icon(Icons.terrain_outlined),
+                  onPressed: onOpen3D,
+                ),
               IconButton(
                 tooltip: 'Impostazioni',
                 icon: const Icon(Icons.settings_outlined),
