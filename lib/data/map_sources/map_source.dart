@@ -34,6 +34,8 @@ class MapSource {
     this.attributionUrl,
     this.note,
     this.muteByDefault = true,
+    this.tileSize = 256,
+    this.zoomOffset = 0,
   });
 
   /// Identificatore tecnico stabile (usato per persistenza/preferenze).
@@ -67,9 +69,15 @@ class MapSource {
   final String? note;
 
   /// Se applicare di default il filtro [mutedTopoFilter] (palette calma).
-  /// Falso per le basi già tenui (es. Stamen Terrain), che altrimenti
+  /// Falso per le basi già curate (es. Mapbox Outdoors), che altrimenti
   /// risulterebbero slavate.
   final bool muteByDefault;
+
+  /// Dimensione tile in px. Mapbox serve tile 512 (con [zoomOffset] -1).
+  final int tileSize;
+
+  /// Offset di zoom per le tile (Mapbox 512 → -1). Default 0.
+  final int zoomOffset;
 
   /// Costruisce il [TileLayer] per flutter_map.
   ///
@@ -80,6 +88,8 @@ class MapSource {
         subdomains: subdomains,
         maxNativeZoom: maxNativeZoom,
         maxZoom: maxZoom.toDouble(),
+        tileDimension: tileSize,
+        zoomOffset: zoomOffset.toDouble(),
         userAgentPackageName: 'com.mattiacuratitoli.sentei',
         tileBuilder: muted
             ? (context, tileWidget, tile) => ColorFiltered(

@@ -95,7 +95,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final attributions = <MapSource>[
       base,
       // Rete sentieri ora da OSM (Overpass): credito OpenStreetMap.
-      if (trailsOn) MapSources.osmStandard,
+      if (trailsOn) MapSources.osmAttribution,
     ];
 
     // Lavoro in corso: calcolo percorso (a ogni nodo) o salvataggio post-Fine.
@@ -130,12 +130,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               },
             ),
             children: [
-              // IGN copre in dettaglio solo la Francia (404 sul versante
-              // italiano ad alto zoom): sotto mettiamo OpenTopoMap come
-              // fallback, così l'area italiana resta leggibile invece di
-              // mostrare buchi vuoti.
-              if (base.id == MapSources.ignPlan.id)
-                MapSources.openTopoMap.toTileLayer(muted: true),
               base.toTileLayer(muted: base.muteByDefault),
               // Rete sentieri vettoriale (da OSM/Overpass): linee uniformi e
               // tratteggiate, stile GaiaGPS — più pulite dell'overlay raster.

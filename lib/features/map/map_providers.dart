@@ -14,7 +14,9 @@ import '../../data/trails/trail_network_service.dart';
 /// TODO(settings): persistere la scelta con shared_preferences (§3).
 class SelectedBaseSource extends Notifier<MapSource> {
   @override
-  MapSource build() => MapSources.defaultBase;
+  MapSource build() => MapSources.hasMapboxToken
+      ? MapSources.mapboxOutdoors
+      : MapSources.defaultBase;
 
   void select(MapSource source) => state = source;
 }
