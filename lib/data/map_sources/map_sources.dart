@@ -5,13 +5,22 @@ import 'map_source.dart';
 /// Le URL e le licenze sono fissate nel documento di progetto. Rispettare
 /// SEMPRE le fair-use policy: niente download massivo, attribuzione obbligatoria.
 abstract final class MapSources {
+  /// API key Stadia Maps, iniettata a build time:
+  /// `flutter run --dart-define=STADIA_API_KEY=xxxx`. Mai committata (§9).
+  static const String _stadiaKey = String.fromEnvironment('STADIA_API_KEY');
+
+  /// Vero se è stata fornita una API key Stadia (abilita le sue sorgenti).
+  static bool get hasStadiaKey => _stadiaKey.isNotEmpty;
+
   /// Layer base disponibili, in ordine di presentazione nel selettore.
-  static const List<MapSource> bases = <MapSource>[
-    openTopoMap,
-    swissTopo,
-    ignPlan,
-    osmStandard,
-  ];
+  /// La sorgente Stadia compare solo se è presente la API key.
+  static List<MapSource> get bases => <MapSource>[
+        if (hasStadiaKey) stamenTerrain,
+        openTopoMap,
+        swissTopo,
+        ignPlan,
+        osmStandard,
+      ];
 
   /// Overlay opzionali sovrapponibili al layer base.
   static const List<MapSource> overlays = <MapSource>[
@@ -22,6 +31,23 @@ abstract final class MapSources {
   static const MapSource defaultBase = openTopoMap;
 
   // ---- Layer base ---------------------------------------------------------
+
+  /// Stamen Terrain (servito da Stadia Maps) — base tenue e morbida, look
+  /// ispirato a GaiaGPS. Già poco satura: niente filtro muted ([muteByDefault]
+  /// false). Richiede la API key Stadia (free tier per uso non commerciale).
+  static const MapSource stamenTerrain = MapSource(
+    id: 'stadia_stamen_terrain',
+    name: 'Terrain (Gaia-like)',
+    urlTemplate:
+        'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png'
+        '?api_key=$_stadiaKey',
+    attribution:
+        '© Stadia Maps · © Stamen Design · © OpenMapTiles · © OpenStreetMap',
+    attributionUrl: 'https://stadiamaps.com/attribution/',
+    maxNativeZoom: 18,
+    muteByDefault: false,
+    note: 'Stadia free tier (non commerciale). API key via --dart-define.',
+  );
 
   static const MapSource openTopoMap = MapSource(
     id: 'opentopomap',

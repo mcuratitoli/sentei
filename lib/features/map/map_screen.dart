@@ -129,8 +129,20 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               },
             ),
             children: [
-              base.toTileLayer(),
-              if (trailsOn) MapSources.waymarkedTrailsHiking.toTileLayer(),
+              // IGN copre in dettaglio solo la Francia (404 sul versante
+              // italiano ad alto zoom): sotto mettiamo OpenTopoMap come
+              // fallback, così l'area italiana resta leggibile invece di
+              // mostrare buchi vuoti.
+              if (base.id == MapSources.ignPlan.id)
+                MapSources.openTopoMap.toTileLayer(muted: true),
+              base.toTileLayer(muted: base.muteByDefault),
+              // Overlay sentieri attenuato: presente ma non "urlante", così la
+              // mappa resta pulita (stile GaiaGPS) senza perdere i tracciati.
+              if (trailsOn)
+                Opacity(
+                  opacity: 0.55,
+                  child: MapSources.waymarkedTrailsHiking.toTileLayer(),
+                ),
               const _TracksLayer(),
               const _EndpointMarkers(),
               if (tracks.drawing) const _WaypointMarkers(),
@@ -241,15 +253,27 @@ class _TracksLayerState extends ConsumerState<_TracksLayer>
       animation: _pulse,
       builder: (context, _) {
         final pulse = 0.3 + 0.7 * _pulse.value;
+        final activeId = st.activeId;
+        // Ordine di disegno: prima le tracce non attive, poi quella attiva in
+        // cima, così il tratto selezionato non resta coperto.
+        final ordered = [...entries]
+          ..sort((a, b) => (a.$1.id == activeId ? 1 : 0)
+              .compareTo(b.$1.id == activeId ? 1 : 0));
         return PolylineLayer(
           polylines: [
-            for (final (t, path) in entries)
+            for (final (t, path) in ordered)
               Polyline(
                 points: path,
-                strokeWidth: t.id == st.activeId ? 6 : 4,
+                // Tratto pulito stile GaiaGPS: linea piena con sottile casing
+                // bianco e estremità/giunzioni arrotondate (meno "spigoloso").
+                strokeWidth: t.id == activeId ? 5 : 4,
                 color: t.id == st.savingId
                     ? t.color.withValues(alpha: pulse)
                     : t.color,
+                borderStrokeWidth: t.id == activeId ? 3 : 2,
+                borderColor: Colors.white.withValues(alpha: 0.85),
+                strokeCap: StrokeCap.round,
+                strokeJoin: StrokeJoin.round,
               ),
           ],
         );
