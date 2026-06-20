@@ -46,6 +46,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   bool _centeredOnSaved = false;
   bool _rendering = false;
   bool _renderAgain = false;
+  bool _is3D = false;
 
   // Cache area numeri sentiero già scaricata (gradi).
   double? _tS, _tW, _tN, _tE;
@@ -397,11 +398,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     }
   }
 
-  Future<void> _setPitch(double pitch) async {
-    final cam = await _map?.getCameraState();
+  /// Alterna 2D (pitch 0) e 3D (pitch 65). L'etichetta del bottone mostra la
+  /// modalità *impostabile* (quella verso cui si passa al tap).
+  Future<void> _toggle3D() async {
+    final to3D = !_is3D;
     await _map?.flyTo(
-      CameraOptions(pitch: pitch, bearing: pitch == 0 ? 0 : cam?.bearing),
+      CameraOptions(pitch: to3D ? 65 : 0),
       MapAnimationOptions(duration: 600),
+    );
+    if (mounted) setState(() => _is3D = to3D);
+  }
+
+  /// Orienta la mappa a nord (azzera il bearing), mantenendo l'inclinazione.
+  Future<void> _orientNorth() async {
+    await _map?.flyTo(
+      CameraOptions(bearing: 0),
+      MapAnimationOptions(duration: 400),
     );
   }
 
@@ -425,26 +437,21 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
           ),
-          // Toggle 3D/2D in alto a destra.
+          // Toggle 3D/2D unico in alto a destra: l'etichetta è la modalità
+          // verso cui si passa al tap.
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Column(
-                  children: [
-                    FloatingActionButton.small(
-                      heroTag: 'gl-3d',
-                      onPressed: () => _setPitch(65),
-                      child: const Icon(Icons.terrain),
-                    ),
-                    const SizedBox(height: 8),
-                    FloatingActionButton.small(
-                      heroTag: 'gl-2d',
-                      onPressed: () => _setPitch(0),
-                      child: const Icon(Icons.crop_landscape),
-                    ),
-                  ],
+                child: FloatingActionButton.small(
+                  heroTag: 'gl-3dtoggle',
+                  onPressed: _toggle3D,
+                  child: Text(
+                    _is3D ? '2D' : '3D',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ),
             ),
@@ -457,7 +464,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 children: [
                   const DrawRouteControls(),
                   _BottomBar(
-                    onOrientNorth: () => _setPitch(0),
+                    onOrientNorth: _orientNorth,
                     onLocate: _locate,
                     onNewTrack:
                         ref.read(tracksProvider.notifier).startNewDrawing,

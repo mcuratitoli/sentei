@@ -386,10 +386,14 @@ final elevationServiceProvider = Provider<ElevationService>(
 /// Percorso instradato **in tempo reale** della traccia in modifica (anteprima
 /// durante il disegno). Le tracce finalizzate usano `DrawnTrack.routedPath`.
 final livePathProvider = FutureProvider.family<List<LatLng>, String>((ref, id) async {
-  final track = ref.watch(tracksProvider).byId(id);
-  if (track == null) return const [];
-  return routeAlong(ref.watch(routingServiceProvider), track.waypoints,
-      track.snapToTrail);
+  // Dipende SOLO da waypoint + snap: così cambi di nome/colore della traccia
+  // NON fanno ri-instradare (niente "Calcolo percorso…" a ogni carattere).
+  final waypoints =
+      ref.watch(tracksProvider.select((s) => s.byId(id)?.waypoints));
+  if (waypoints == null) return const [];
+  final snap =
+      ref.watch(tracksProvider.select((s) => s.byId(id)?.snapToTrail ?? true));
+  return routeAlong(ref.read(routingServiceProvider), waypoints, snap);
 });
 
 /// Distanza (m) della traccia attiva: usa i dati memorizzati se presenti,

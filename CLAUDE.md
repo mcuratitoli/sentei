@@ -30,7 +30,7 @@ meteo, tracking di attività fitness avanzato.
 | Ambito | Scelta | Motivazione |
 |---|---|---|
 | Framework | **Flutter** (Dart) | Un solo codebase iOS+Android, ottimo ecosistema mappe. |
-| Rendering mappa | **`mapbox_maps_flutter`** (Mapbox GL) — *migrato da `flutter_map`* | Serve il **3D del terreno** (alla Suunto) col gesto nativo a due dita + stile vettoriale Outdoors + un solo motore. Migrazione completata sul branch `feat/mapbox-gl` (5 fasi, vedi `docs/plan-mapbox-gl-migration.md`); `flutter_map` rimosso. Logica di dominio invariata (era engine-agnostica). |
+| Rendering mappa | **`mapbox_maps_flutter`** (Mapbox GL) — *migrato da `flutter_map`* | Serve il **3D del terreno** (alla Suunto) col gesto nativo a due dita + stile vettoriale **Outdoors** + un solo motore. Migrazione completata (5 fasi) e **validata su iPhone**; `flutter_map` rimosso. Logica di dominio invariata (era engine-agnostica). Token: `--dart-define=MAPBOX_TOKEN=pk...` (runtime) + secret download token in `~/.netrc` e `~/.gradle/gradle.properties`. Vedi `docs/plan-mapbox-gl-migration.md`. |
 | Sorgenti mappa | **OpenStreetMap / OpenTopoMap** (base) + **SwissTopo** (CH) + **IGN** (FR) | Copertura sentieri alpina eccellente; topografiche ufficiali nelle zone di confine. |
 | Overlay sentieri | **Waymarked Trails (hiking)** | Evidenzia i percorsi escursionistici segnati. |
 | Offline | **Essenziale dalla v1** | Caching tile per area + elevazione offline + (fase 2) routing offline. |
@@ -45,12 +45,11 @@ meteo, tracking di attività fitness avanzato.
 
 ```yaml
 # Mappa & geo
-flutter_map:                 # rendering mappa multi-tile
-flutter_map_dragmarker:      # marker trascinabili per il disegno tracciato (1.B)
-flutter_map_tile_caching:    # (FMTC) caching e download offline di aree
-latlong2:                    # coordinate / distanze
+mapbox_maps_flutter:         # rendering mappa (Mapbox GL): vettoriale + 3D terreno
+latlong2:                    # coordinate / distanze (dominio engine-agnostico)
 geolocator:                  # posizione GPS (foreground; background in fase 2)
-proj4dart:                   # eventuali conversioni di proiezione (WMTS)
+# (ex flutter_map / flutter_map_dragmarker: RIMOSSI con la migrazione a Mapbox GL)
+# offline aree: usare l'OfflineManager di Mapbox (non più FMTC) — vedi Step 6
 
 # Tracciati & elevazione
 gpx:                         # parsing/generazione file GPX
