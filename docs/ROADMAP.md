@@ -17,8 +17,8 @@ lista tracciati ordinabile/ricercabile; **export/import GPX**; UI con palette bl
 flottante in basso** (bussola-nord / mia posizione / **+** / lista / impostazioni), logo+splash.
 
 **Cosa resta (in ordine di priorità):**
-- **Step 5** — fix **IGN** (layer WMTS dà 404) + valutazione estetica mappe (stile GaiaGPS; es. CyclOSM/Thunderforest/Mapbox).
-- **Step 6** — **download aree offline** (tile mappa + DEM Terrarium via FMTC) — §6.1 / Fase 1.F.
+- **Migrazione Mapbox GL — FATTA sul branch `feat/mapbox-gl` (5 fasi), da validare a mano + merge.** L'app è passata da `flutter_map` a **Mapbox GL** (`mapbox_maps_flutter`): un solo motore, stile **Outdoors**, **terreno 3D** (gesto nativo a due dita), numeri CAI come etichette lungo i sentieri, disegno/editing wired a `Tracks`. `flutter_map` rimosso, 45 test verdi. **Da fare prima del merge in `main`:** validare sul **device fisico** le interazioni della Fase 4 (tap-aggiungi, drag waypoint, tap-nodo-elimina, tap-seleziona) e il gesto 2D↔3D; poi merge. Piano/dettagli: `docs/plan-mapbox-gl-migration.md`, `docs/eval-3d-map.md`.
+- **Step 6** — **download aree offline** (tile mappa + DEM Terrarium) — §6.1 / Fase 1.F. *(Nota: ora le tile sono Mapbox GL → l'offline andrà rifatto con l'offline manager di Mapbox, non più FMTC.)*
 - **Rimandati:** sync **Google Drive** (analisi pronta, vedi §6.5 + cronologia); **bundling font** come asset (ora `google_fonts` scarica a runtime).
 
 **Come eseguire / testare:** vedi `CLAUDE.md` §8 (avvio simulatore, `flutter run`, drift codegen, rigenerazione icone/splash).

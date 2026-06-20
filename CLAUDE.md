@@ -30,7 +30,7 @@ meteo, tracking di attività fitness avanzato.
 | Ambito | Scelta | Motivazione |
 |---|---|---|
 | Framework | **Flutter** (Dart) | Un solo codebase iOS+Android, ottimo ecosistema mappe. |
-| Rendering mappa | **`flutter_map`** | Gestisce nativamente più sorgenti di **tile raster** (OpenTopoMap, SwissTopo, IGN) e overlay; plugin maturo per caching offline. |
+| Rendering mappa | **`mapbox_maps_flutter`** (Mapbox GL) — *migrato da `flutter_map`* | Serve il **3D del terreno** (alla Suunto) col gesto nativo a due dita + stile vettoriale Outdoors + un solo motore. Migrazione completata sul branch `feat/mapbox-gl` (5 fasi, vedi `docs/plan-mapbox-gl-migration.md`); `flutter_map` rimosso. Logica di dominio invariata (era engine-agnostica). |
 | Sorgenti mappa | **OpenStreetMap / OpenTopoMap** (base) + **SwissTopo** (CH) + **IGN** (FR) | Copertura sentieri alpina eccellente; topografiche ufficiali nelle zone di confine. |
 | Overlay sentieri | **Waymarked Trails (hiking)** | Evidenzia i percorsi escursionistici segnati. |
 | Offline | **Essenziale dalla v1** | Caching tile per area + elevazione offline + (fase 2) routing offline. |
