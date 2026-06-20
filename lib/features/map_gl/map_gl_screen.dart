@@ -29,25 +29,40 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   CircleAnnotationManager? _circles;
   PolylineAnnotationManager? _line;
 
+  /// Manager separati per le tracce SALVATE (read-only, da tracksProvider).
+  PolylineAnnotationManager? _savedLines;
+  CircleAnnotationManager? _savedEnds;
+
+  /// Centratura una-tantum sulle tracce caricate (le tracce arrivano async).
+  bool _centeredOnSaved = false;
+
   /// Waypoint nell'ordine di inserimento + mappa id-cerchio→indice.
   final List<ll.LatLng> _waypoints = <ll.LatLng>[];
   final Map<String, int> _indexById = <String, int>{};
 
   Future<void> _onMapCreated(MapboxMap map) async {
     _map = map;
+    // Apri sulla prima traccia salvata, se c'è; altrimenti centro di default.
+    ll.LatLng center = AppConstants.defaultCenter;
+    for (final t in ref.read(tracksProvider).tracks) {
+      if (t.waypoints.isNotEmpty) {
+        center = t.waypoints.first;
+        break;
+      }
+    }
     await map.setCamera(CameraOptions(
-      center: Point(
-        coordinates: Position(
-          AppConstants.defaultCenter.longitude,
-          AppConstants.defaultCenter.latitude,
-        ),
-      ),
+      center: Point(coordinates: Position(center.longitude, center.latitude)),
       zoom: 14,
       pitch: 0,
     ));
+    // Ordine di creazione = ordine di disegno (sotto→sopra): tracce salvate
+    // sotto, disegno in corso sopra.
+    _savedLines = await map.annotations.createPolylineAnnotationManager();
+    _savedEnds = await map.annotations.createCircleAnnotationManager();
     _circles = await map.annotations.createCircleAnnotationManager();
     _line = await map.annotations.createPolylineAnnotationManager();
     _circles!.dragEvents(onEnd: _onDragEnd);
+    await _renderSaved();
     map.addInteraction(TapInteraction.onMap(_onTap));
     // Posizione utente nativa (puck + heading) + bussola nativa (default).
     await map.location.updateSettings(LocationComponentSettings(
@@ -55,6 +70,71 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       pulsingEnabled: true,
       puckBearingEnabled: true,
     ));
+  }
+
+  /// Disegna (read-only) le tracce SALVATE dallo stato: linea col colore della
+  /// traccia + casing bianco, e marker partenza (verde) / arrivo (rosso).
+  Future<void> _renderSaved() async {
+    final lines = _savedLines;
+    final ends = _savedEnds;
+    if (lines == null || ends == null) return;
+    await lines.deleteAll();
+    await ends.deleteAll();
+    final tracks = ref.read(tracksProvider).tracks;
+    // Centratura una-tantum sulle tracce (caricate async dopo onMapCreated).
+    if (!_centeredOnSaved) {
+      for (final t in tracks) {
+        if (t.waypoints.isNotEmpty) {
+          _centeredOnSaved = true;
+          await _map?.flyTo(
+            CameraOptions(
+              center: Point(
+                coordinates: Position(
+                    t.waypoints.first.longitude, t.waypoints.first.latitude),
+              ),
+              zoom: 14,
+            ),
+            MapAnimationOptions(duration: 700),
+          );
+          break;
+        }
+      }
+    }
+    for (final t in tracks) {
+      final path = t.routedPath;
+      if (path.length < 2) continue;
+      await lines.create(PolylineAnnotationOptions(
+        geometry: LineString(
+          coordinates: [
+            for (final p in path) Position(p.longitude, p.latitude),
+          ],
+        ),
+        lineColor: t.color.toARGB32(),
+        lineWidth: 4,
+        lineBorderColor: 0xFFFFFFFF,
+        lineBorderWidth: 1,
+      ));
+      final wps = t.waypoints;
+      if (wps.isEmpty) continue;
+      await ends.create(CircleAnnotationOptions(
+        geometry:
+            Point(coordinates: Position(wps.first.longitude, wps.first.latitude)),
+        circleRadius: 6,
+        circleColor: 0xFF2E7D32, // partenza (verde)
+        circleStrokeColor: 0xFFFFFFFF,
+        circleStrokeWidth: 2,
+      ));
+      if (wps.length > 1) {
+        await ends.create(CircleAnnotationOptions(
+          geometry: Point(
+              coordinates: Position(wps.last.longitude, wps.last.latitude)),
+          circleRadius: 6,
+          circleColor: 0xFFC62828, // arrivo (rosso)
+          circleStrokeColor: 0xFFFFFFFF,
+          circleStrokeWidth: 2,
+        ));
+      }
+    }
   }
 
   /// Centra sulla posizione GPS dell'utente (permessi via geolocator).
@@ -157,6 +237,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Ridisegna le tracce salvate quando lo stato cambia (caricamento, salvataggio…).
+    ref.listen(tracksProvider, (_, __) => _renderSaved());
     return Scaffold(
       body: Stack(
         children: [
