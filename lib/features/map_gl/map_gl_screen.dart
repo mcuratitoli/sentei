@@ -6,7 +6,9 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../core/constants.dart';
+import '../../data/location/location_service.dart';
 import '../draw_route/route_editor_provider.dart';
+import '../map/map_providers.dart';
 
 /// SPIKE (Fase 0 della migrazione a Mapbox GL — vedi
 /// `docs/plan-mapbox-gl-migration.md`). De-risca la **Fase 4** (disegno con
@@ -47,6 +49,31 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     _line = await map.annotations.createPolylineAnnotationManager();
     _circles!.dragEvents(onEnd: _onDragEnd);
     map.addInteraction(TapInteraction.onMap(_onTap));
+    // Posizione utente nativa (puck + heading) + bussola nativa (default).
+    await map.location.updateSettings(LocationComponentSettings(
+      enabled: true,
+      pulsingEnabled: true,
+      puckBearingEnabled: true,
+    ));
+  }
+
+  /// Centra sulla posizione GPS dell'utente (permessi via geolocator).
+  Future<void> _locate() async {
+    try {
+      final pos = await ref.read(userLocationProvider.notifier).locate();
+      await _map?.flyTo(
+        CameraOptions(
+          center: Point(coordinates: Position(pos.longitude, pos.latitude)),
+          zoom: 15,
+        ),
+        MapAnimationOptions(duration: 800),
+      );
+    } on LocationException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
   /// Attiva il terreno 3D (DEM Mapbox) appena lo stile è caricato.
@@ -168,6 +195,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    FloatingActionButton.small(
+                      heroTag: 'gl-locate',
+                      onPressed: _locate,
+                      child: const Icon(Icons.my_location),
+                    ),
+                    const SizedBox(width: 12),
                     FloatingActionButton.extended(
                       heroTag: 'gl-clear',
                       onPressed: _clear,
