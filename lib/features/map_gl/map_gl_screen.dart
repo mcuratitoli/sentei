@@ -23,8 +23,8 @@ import '../tracks_list/tracks_list_screen.dart';
 class MapGlScreen extends ConsumerStatefulWidget {
   const MapGlScreen({super.key});
 
-  static const String routeName = 'map-gl';
-  static const String routePath = '/gl';
+  static const String routeName = 'map';
+  static const String routePath = '/';
 
   @override
   ConsumerState<MapGlScreen> createState() => _MapGlScreenState();
