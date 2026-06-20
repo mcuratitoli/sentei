@@ -36,33 +36,40 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// Centratura una-tantum sulle tracce caricate (le tracce arrivano async).
   bool _centeredOnSaved = false;
 
+  /// Cache dell'area sentieri già scaricata (sud,ovest,nord,est in gradi).
+  double? _tS, _tW, _tN, _tE;
+
+  // onStyleLoaded può scattare prima di onMapCreated: il setup parte solo
+  // quando entrambi sono pronti (in qualsiasi ordine), una volta sola.
+  bool _styleLoaded = false;
+  bool _didSetup = false;
+
+  Future<void> _trySetup() async {
+    if (_didSetup || _map == null || !_styleLoaded) return;
+    _didSetup = true;
+    await _styleSetup(_map!);
+  }
+
+  static const String _trailSourceId = 'sentei-trails';
+  static const String _trailLayerId = 'sentei-trails-line';
+  static const double _trailMinZoom = 13;
+
   /// Waypoint nell'ordine di inserimento + mappa id-cerchio→indice.
   final List<ll.LatLng> _waypoints = <ll.LatLng>[];
   final Map<String, int> _indexById = <String, int>{};
 
   Future<void> _onMapCreated(MapboxMap map) async {
     _map = map;
-    // Apri sulla prima traccia salvata, se c'è; altrimenti centro di default.
-    ll.LatLng center = AppConstants.defaultCenter;
-    for (final t in ref.read(tracksProvider).tracks) {
-      if (t.waypoints.isNotEmpty) {
-        center = t.waypoints.first;
-        break;
-      }
-    }
     await map.setCamera(CameraOptions(
-      center: Point(coordinates: Position(center.longitude, center.latitude)),
+      center: Point(
+        coordinates: Position(
+          AppConstants.defaultCenter.longitude,
+          AppConstants.defaultCenter.latitude,
+        ),
+      ),
       zoom: 14,
       pitch: 0,
     ));
-    // Ordine di creazione = ordine di disegno (sotto→sopra): tracce salvate
-    // sotto, disegno in corso sopra.
-    _savedLines = await map.annotations.createPolylineAnnotationManager();
-    _savedEnds = await map.annotations.createCircleAnnotationManager();
-    _circles = await map.annotations.createCircleAnnotationManager();
-    _line = await map.annotations.createPolylineAnnotationManager();
-    _circles!.dragEvents(onEnd: _onDragEnd);
-    await _renderSaved();
     map.addInteraction(TapInteraction.onMap(_onTap));
     // Posizione utente nativa (puck + heading) + bussola nativa (default).
     await map.location.updateSettings(LocationComponentSettings(
@@ -70,6 +77,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       pulsingEnabled: true,
       puckBearingEnabled: true,
     ));
+    await _trySetup();
   }
 
   /// Disegna (read-only) le tracce SALVATE dallo stato: linea col colore della
@@ -156,10 +164,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     }
   }
 
-  /// Attiva il terreno 3D (DEM Mapbox) appena lo stile è caricato.
+  /// Allo stile caricato: terreno 3D, rete sentieri (sotto), poi i manager
+  /// delle annotation (sopra), così le tracce stanno sopra i sentieri.
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
-    final map = _map;
-    if (map == null) return;
+    _styleLoaded = true;
+    await _trySetup();
+  }
+
+  Future<void> _styleSetup(MapboxMap map) async {
+    // Terreno 3D (DEM Mapbox).
     await map.style.addSource(RasterDemSource(
       id: 'mapbox-dem',
       url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
@@ -169,6 +182,98 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       'source': 'mapbox-dem',
       'exaggeration': 1.4,
     }));
+    // Numeri sentiero CAI: sorgente GeoJSON di punti + symbol layer con le
+    // etichette `ref`. Mapbox declustera automaticamente le etichette
+    // sovrapposte (collision), così restano leggibili. Le linee dei sentieri
+    // le disegna già lo stile Outdoors.
+    await map.style.addSource(GeoJsonSource(
+      id: _trailSourceId,
+      data: '{"type":"FeatureCollection","features":[]}',
+    ));
+    await map.style.addLayer(SymbolLayer(
+      id: _trailLayerId,
+      sourceId: _trailSourceId,
+      // Etichette ripetute LUNGO il sentiero, così i numeri sono sempre in vista.
+      symbolPlacement: SymbolPlacement.LINE,
+      symbolSpacing: 220,
+      textFieldExpression: <Object>['get', 'ref'],
+      textSize: 13,
+      textColor: 0xFF1B5E20, // verde scuro
+      textHaloColor: 0xFFFFFFFF,
+      textHaloWidth: 1.5,
+    ));
+    // Manager annotation (sopra il layer sentieri): tracce salvate, poi disegno.
+    _savedLines = await map.annotations.createPolylineAnnotationManager();
+    _savedEnds = await map.annotations.createCircleAnnotationManager();
+    _circles = await map.annotations.createCircleAnnotationManager();
+    _line = await map.annotations.createPolylineAnnotationManager();
+    _circles!.dragEvents(onEnd: _onDragEnd);
+    await _renderSaved();
+    await _maybeFetchTrails();
+  }
+
+  /// Scarica e mostra i numeri sentiero (ref CAI) per la vista corrente (su map
+  /// idle). Gating zoom + cache sull'area già scaricata (come nel 2D).
+  Future<void> _maybeFetchTrails() async {
+    final map = _map;
+    if (map == null) return;
+    try {
+      await _maybeFetchTrailsInner(map);
+    } catch (_) {
+      // best-effort: i numeri sono un di più, non bloccano nulla.
+    }
+  }
+
+  Future<void> _maybeFetchTrailsInner(MapboxMap map) async {
+    final cam = await map.getCameraState();
+    if (cam.zoom < _trailMinZoom) {
+      _tS = null;
+      await map.style.setStyleSourceProperty(
+          _trailSourceId, 'data', '{"type":"FeatureCollection","features":[]}');
+      return;
+    }
+    final b = await map.coordinateBoundsForCamera(CameraOptions(
+      center: cam.center,
+      zoom: cam.zoom,
+      bearing: cam.bearing,
+      pitch: cam.pitch,
+    ));
+    final s = b.southwest.coordinates.lat.toDouble();
+    final w = b.southwest.coordinates.lng.toDouble();
+    final n = b.northeast.coordinates.lat.toDouble();
+    final e = b.northeast.coordinates.lng.toDouble();
+    // Già coperto dall'ultima area scaricata? niente nuova richiesta.
+    if (_tS != null && s >= _tS! && n <= _tN! && w >= _tW! && e <= _tE!) {
+      return;
+    }
+    // Espandi del 15% per coprire piccoli pan.
+    final dLat = (n - s) * 0.15, dLon = (e - w) * 0.15;
+    final es = s - dLat, en = n + dLat, ew = w - dLon, ee = e + dLon;
+    final refLines = await ref
+        .read(trailNetworkServiceProvider)
+        .hikingRefLinesInBounds(es, ew, en, ee);
+    _tS = es;
+    _tW = ew;
+    _tN = en;
+    _tE = ee;
+    final features = [
+      for (final l in refLines)
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates': [
+              for (final p in l.pts) [p.longitude, p.latitude],
+            ],
+          },
+          'properties': <String, Object>{'ref': l.ref},
+        },
+    ];
+    await map.style.setStyleSourceProperty(
+      _trailSourceId,
+      'data',
+      jsonEncode({'type': 'FeatureCollection', 'features': features}),
+    );
   }
 
   Future<void> _onTap(MapContentGestureContext context) async {
@@ -246,6 +351,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             styleUri: MapboxStyles.OUTDOORS,
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
+            onMapIdleListener: (_) => _maybeFetchTrails(),
           ),
           SafeArea(
             child: Padding(
@@ -261,7 +367,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                   ),
                   child: const Text(
                     'SPIKE GL · tocca = punto (snap sentieri) · trascina i '
-                    'pallini · "3D"/due dita = inclina',
+                    'pallini · "3D" = inclina',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12),
                   ),

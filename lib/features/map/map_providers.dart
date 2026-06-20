@@ -82,8 +82,12 @@ class TrailNetwork extends Notifier<List<List<LatLng>>> {
   Future<void> _fetch(LatLngBounds visible) async {
     final expanded = _expand(visible, 0.15);
     final gen = ++_gen;
-    final lines =
-        await ref.read(trailNetworkServiceProvider).hikingTrailsInBounds(expanded);
+    final lines = await ref.read(trailNetworkServiceProvider).hikingTrailsInBounds(
+          expanded.south,
+          expanded.west,
+          expanded.north,
+          expanded.east,
+        );
     if (gen != _gen) return; // superato da una richiesta più recente
     // Cache l'area comunque (anche se vuota) per non martellare Overpass.
     _fetched = expanded;
