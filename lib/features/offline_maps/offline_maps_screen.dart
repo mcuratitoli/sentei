@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/offline/terrarium_tile_cache.dart';
+import '../draw_route/route_editor_provider.dart';
 import 'offline_maps_providers.dart';
 
 /// Gestione **mappe offline**: scarica l'area visualizzata (mappa Mapbox) e
@@ -18,6 +20,7 @@ class OfflineMapsScreen extends ConsumerStatefulWidget {
 class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
   bool _downloading = false;
   double _progress = 0;
+  String _phase = '';
 
   Future<void> _download(MapAreaBounds b) async {
     final service = ref.read(offlineMapsServiceProvider);
@@ -28,6 +31,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
     setState(() {
       _downloading = true;
       _progress = 0;
+      _phase = 'Mappa';
     });
     try {
       await service.downloadArea(
@@ -38,6 +42,23 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
         north: b.north,
         east: b.east,
         maxZoom: 15,
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
+      );
+      // Elevazione: cache delle tile Terrarium per D+/profilo offline.
+      if (mounted) {
+        setState(() {
+          _phase = 'Elevazione';
+          _progress = 0;
+        });
+      }
+      await downloadTerrariumArea(
+        cache: ref.read(terrariumCacheProvider),
+        south: b.south,
+        west: b.west,
+        north: b.north,
+        east: b.east,
         onProgress: (p) {
           if (mounted) setState(() => _progress = p);
         },
@@ -87,7 +108,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                 if (_downloading) ...[
                   LinearProgressIndicator(value: _progress == 0 ? null : _progress),
                   const SizedBox(height: 8),
-                  Text('Scaricamento… ${(_progress * 100).round()}%',
+                  Text('$_phase… ${(_progress * 100).round()}%',
                       textAlign: TextAlign.center),
                 ] else
                   FilledButton.icon(
@@ -99,8 +120,8 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                   ),
                 const SizedBox(height: 4),
                 Text(
-                  'Scarica la mappa dell\'area che hai inquadrato, per usarla '
-                  'senza connessione (fino allo zoom 15).',
+                  'Scarica mappa + elevazione dell\'area inquadrata, per usarla '
+                  'senza connessione (mappa fino allo zoom 15; D+/profilo offline).',
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),

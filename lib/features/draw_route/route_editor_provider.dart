@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../data/gpx/gpx_service.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
-import '../../data/offline/terrarium_http_fetcher.dart';
+import '../../data/offline/terrarium_tile_cache.dart';
 import '../../data/routing/brouter_routing_service.dart';
 import '../../data/storage/app_database.dart';
 import '../../data/storage/tracks_repository.dart';
@@ -379,8 +379,14 @@ final routingServiceProvider =
 final trailServiceProvider =
     Provider<OverpassTrailService>((ref) => OverpassTrailService());
 
+/// Cache su disco delle tile Terrarium (condivisa: elevazione online + offline).
+final terrariumCacheProvider =
+    Provider<TerrariumTileCache>((ref) => TerrariumTileCache());
+
 final elevationServiceProvider = Provider<ElevationService>(
-  (ref) => TerrariumElevationService(fetchTile: httpTerrariumFetcher()),
+  (ref) => TerrariumElevationService(
+    fetchTile: cachingTerrariumFetcher(cache: ref.read(terrariumCacheProvider)),
+  ),
 );
 
 /// Percorso instradato **in tempo reale** della traccia in modifica (anteprima
