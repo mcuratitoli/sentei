@@ -13,6 +13,7 @@ import '../../domain/services/path_geometry.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
+import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
 import '../tracks_list/tracks_list_screen.dart';
 
@@ -330,12 +331,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   Future<void> _maybeFetchTrailsInner(MapboxMap map) async {
     final cam = await map.getCameraState();
-    if (cam.zoom < _trailMinZoom) {
-      _tS = null;
-      await map.style.setStyleSourceProperty(
-          _trailSourceId, 'data', '{"type":"FeatureCollection","features":[]}');
-      return;
-    }
     final b = await map.coordinateBoundsForCamera(CameraOptions(
       center: cam.center,
       zoom: cam.zoom,
@@ -346,6 +341,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     final w = b.southwest.coordinates.lng.toDouble();
     final n = b.northeast.coordinates.lat.toDouble();
     final e = b.northeast.coordinates.lng.toDouble();
+    // Memorizza l'area inquadrata (per "scarica area visualizzata" offline).
+    ref.read(lastMapBoundsProvider.notifier).set(
+          MapAreaBounds(south: s, west: w, north: n, east: e, zoom: cam.zoom),
+        );
+    if (cam.zoom < _trailMinZoom) {
+      _tS = null;
+      await map.style.setStyleSourceProperty(
+          _trailSourceId, 'data', '{"type":"FeatureCollection","features":[]}');
+      return;
+    }
     if (_tS != null && s >= _tS! && n <= _tN! && w >= _tW! && e <= _tE!) {
       return;
     }

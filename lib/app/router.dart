@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../features/map_gl/map_gl_screen.dart';
+import '../features/offline_maps/offline_maps_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/tracks_list/tracks_list_screen.dart';
 
@@ -23,6 +24,11 @@ final appRouter = GoRouter(
       path: SettingsScreen.routePath,
       name: SettingsScreen.routeName,
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: OfflineMapsScreen.routePath,
+      name: OfflineMapsScreen.routeName,
+      builder: (context, state) => const OfflineMapsScreen(),
     ),
   ],
 );
