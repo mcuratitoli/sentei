@@ -409,13 +409,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     if (mounted) setState(() => _is3D = to3D);
   }
 
-  /// Orienta la mappa a nord (azzera il bearing), mantenendo l'inclinazione.
-  Future<void> _orientNorth() async {
-    await _map?.flyTo(
-      CameraOptions(bearing: 0),
-      MapAnimationOptions(duration: 400),
-    );
-  }
 
   // ---- UI -----------------------------------------------------------------
 
@@ -437,25 +430,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
           ),
-          // Toggle 3D/2D unico in alto a destra: l'etichetta è la modalità
-          // verso cui si passa al tap.
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: FloatingActionButton.small(
-                  heroTag: 'gl-3dtoggle',
-                  onPressed: _toggle3D,
-                  child: Text(
-                    _is3D ? '2D' : '3D',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-              ),
-            ),
-          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
@@ -464,8 +438,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 children: [
                   const DrawRouteControls(),
                   _BottomBar(
-                    onOrientNorth: _orientNorth,
                     onLocate: _locate,
+                    is3D: _is3D,
+                    onToggle3D: _toggle3D,
                     onNewTrack:
                         ref.read(tracksProvider.notifier).startNewDrawing,
                     onTracks: () => context.push(TracksListScreen.routePath),
@@ -481,18 +456,21 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   }
 }
 
-/// Barra flottante in basso (dock): nord · posizione · + · tracce · impostazioni.
+/// Barra flottante in basso (dock): posizione · 3D/2D · + · tracce · impostazioni.
+/// (La bussola/nord è fornita nativamente da Mapbox.)
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
-    required this.onOrientNorth,
     required this.onLocate,
+    required this.is3D,
+    required this.onToggle3D,
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
   });
 
-  final VoidCallback onOrientNorth;
   final VoidCallback onLocate;
+  final bool is3D;
+  final VoidCallback onToggle3D;
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
@@ -513,14 +491,21 @@ class _BottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'Orienta a nord',
-                icon: const Icon(Icons.explore_outlined),
-                onPressed: onOrientNorth,
-              ),
-              IconButton(
                 tooltip: 'La mia posizione',
                 icon: const Icon(Icons.my_location),
                 onPressed: onLocate,
+              ),
+              IconButton(
+                tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
+                onPressed: onToggle3D,
+                icon: Text(
+                  is3D ? '2D' : '3D',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: scheme.onSurface,
+                  ),
+                ),
               ),
               FloatingActionButton.small(
                 heroTag: 'gl-new',
