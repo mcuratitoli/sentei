@@ -47,7 +47,8 @@ class DrawRouteControls extends ConsumerWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.all(8),
+      // Vicino alla toolbar in basso (poco margine sotto).
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -69,7 +70,6 @@ class DrawRouteControls extends ConsumerWidget {
               children: [
                 _Metric(
                   icon: Icons.straighten,
-                  label: 'Distanza',
                   value: Format.distance(distance),
                 ),
                 const SizedBox(width: 16),
@@ -136,7 +136,7 @@ class DrawRouteControls extends ConsumerWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(showingChart ? Icons.unfold_less : Icons.terrain),
-                  label: const Text('Dislivello'),
+                  label: const Text('Percorso'),
                 ),
                 const Spacer(),
                 // Azioni primarie a destra.
@@ -305,10 +305,9 @@ class _NameFieldState extends ConsumerState<_NameField> {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.icon, required this.label, required this.value});
+  const _Metric({required this.icon, required this.value});
 
   final IconData icon;
-  final String label;
   final String value;
 
   @override
@@ -318,7 +317,6 @@ class _Metric extends StatelessWidget {
       children: [
         Icon(icon, size: 18),
         const SizedBox(width: 4),
-        Text('$label: ', style: Theme.of(context).textTheme.bodySmall),
         Text(value,
             style: Theme.of(context)
                 .textTheme
