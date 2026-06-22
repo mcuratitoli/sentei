@@ -67,6 +67,7 @@ Xcode genererà `ios/Runner/Runner.entitlements` con, in sostanza:
 - Niente login OAuth, niente `--dart-define` per iCloud.
 - Il selettore Drive/iCloud in Impostazioni è **iOS-only** (iCloud non esiste
   altrove); la scelta è persistita in `shared_preferences`.
-- Limiti v1 (come Drive): eliminazioni non propagate, sync manuale.
+- Auto-sync (come Drive): salva/import → upload, elimina → delete remoto
+  (best-effort). "Sincronizza ora" resta per il merge completo.
 - **Codice già scritto** (`IcloudSyncService`): manca solo la capability nativa
   del passo 2, da fare quando l'Apple Developer Program è attivo.

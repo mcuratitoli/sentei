@@ -76,7 +76,8 @@ Poi: **Impostazioni → Google Drive → Accedi** → consenti → **Sincronizza
 - Una traccia = `Sentèi/<id>.json` (fonte di verità, round-trip completo) +
   `Sentèi/<id>.gpx` (per aprirla in altre app).
 - **Last-write-wins** per timestamp (`updatedAt` in `appProperties` del file).
-- **Le eliminazioni non si propagano** (v1): una traccia cancellata da un lato
-  viene ri-copiata dall'altro, mai rimossa. Da rivedere se diventa un problema.
-- "Sincronizza ora" è manuale (Impostazioni). Sync automatico: eventuale step
-  successivo.
+- **Auto-sync** (giu 2026): salvataggio/import → upload della traccia; eliminazione
+  → cancellazione anche dal cloud. Best-effort e silenzioso (no-op se non connessi).
+- "Sincronizza ora" (Impostazioni) resta per il merge completo bidirezionale
+  (utile dopo modifiche da un altro device). NB: il merge manuale ri-scarica le
+  tracce presenti solo nel cloud (le eliminazioni offline non lasciano tombstone).
