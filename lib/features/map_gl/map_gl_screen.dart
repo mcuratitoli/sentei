@@ -420,6 +420,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   @override
   Widget build(BuildContext context) {
     final editingId = ref.watch(tracksProvider).editingId;
+    // Card visibile (traccia selezionata o in modifica): occupa il fondo e
+    // sostituisce la toolbar (che viene nascosta).
+    final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
     // Ridisegna su cambi di stato e sull'aggiornamento del percorso live.
     ref.listen(tracksProvider, (_, __) => _renderAll());
     if (editingId != null) {
@@ -441,21 +444,19 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Spinta in basso: la card si sovrappone leggermente alla
-                  // toolbar (che la copre per gli ultimi px → look "attaccato").
-                  Transform.translate(
-                    offset: const Offset(0, 14),
-                    child: const DrawRouteControls(),
-                  ),
-                  _BottomBar(
-                    onLocate: _locate,
-                    is3D: _is3D,
-                    onToggle3D: _toggle3D,
-                    onNewTrack:
-                        ref.read(tracksProvider.notifier).startNewDrawing,
-                    onTracks: () => context.push(TracksListScreen.routePath),
-                    onSettings: () => context.push(SettingsScreen.routePath),
-                  ),
+                  const DrawRouteControls(),
+                  // La toolbar c'è solo quando NON è mostrata la card: così la
+                  // card di dettaglio occupa il fondo dello schermo.
+                  if (!showCard)
+                    _BottomBar(
+                      onLocate: _locate,
+                      is3D: _is3D,
+                      onToggle3D: _toggle3D,
+                      onNewTrack:
+                          ref.read(tracksProvider.notifier).startNewDrawing,
+                      onTracks: () => context.push(TracksListScreen.routePath),
+                      onSettings: () => context.push(SettingsScreen.routePath),
+                    ),
                 ],
               ),
             ),
