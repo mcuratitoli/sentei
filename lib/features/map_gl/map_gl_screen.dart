@@ -441,7 +441,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const DrawRouteControls(),
+                  // Spinta in basso: la card si sovrappone leggermente alla
+                  // toolbar (che la copre per gli ultimi px → look "attaccato").
+                  Transform.translate(
+                    offset: const Offset(0, 14),
+                    child: const DrawRouteControls(),
+                  ),
                   _BottomBar(
                     onLocate: _locate,
                     is3D: _is3D,
