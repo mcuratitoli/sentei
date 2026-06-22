@@ -288,6 +288,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     _rendering = true;
     try {
       final state = ref.read(tracksProvider);
+      final hidden = ref.read(tracksHiddenProvider);
       await _savedLines!.deleteAll();
       await _savedEnds!.deleteAll();
       await _liveLine!.deleteAll();
@@ -303,6 +304,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             : (ref.read(livePathProvider(t.id)).value ?? const <ll.LatLng>[]);
 
         if (!editing) {
+          if (hidden) continue; // tracce salvate nascoste
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa e con bordo più marcato.
           final isSelected = t.id == state.selectedId;
@@ -412,6 +414,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     final state = ref.read(tracksProvider);
     if (state.drawing) {
       ref.read(tracksProvider.notifier).addPoint(p);
+    } else if (ref.read(tracksHiddenProvider)) {
+      // Tracce nascoste: niente da selezionare.
+      ref.read(tracksProvider.notifier).deselect();
     } else {
       final cam = await _map?.getCameraState();
       _selectNearest(p, cam?.zoom ?? 14);
@@ -573,6 +578,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     });
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
+    ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
     }
@@ -600,6 +606,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                       onLocate: _locate,
                       is3D: _is3D,
                       onToggle3D: _toggle3D,
+                      tracksHidden: ref.watch(tracksHiddenProvider),
+                      onToggleHide: () {
+                        final notifier = ref.read(tracksProvider.notifier);
+                        ref.read(tracksHiddenProvider.notifier).toggle();
+                        if (ref.read(tracksHiddenProvider)) notifier.deselect();
+                      },
                       onNewTrack:
                           ref.read(tracksProvider.notifier).startNewDrawing,
                       onTracks: () => context.push(TracksListScreen.routePath),
@@ -622,6 +634,8 @@ class _BottomBar extends StatelessWidget {
     required this.onLocate,
     required this.is3D,
     required this.onToggle3D,
+    required this.tracksHidden,
+    required this.onToggleHide,
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
@@ -630,6 +644,8 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onLocate;
   final bool is3D;
   final VoidCallback onToggle3D;
+  final bool tracksHidden;
+  final VoidCallback onToggleHide;
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
@@ -665,6 +681,15 @@ class _BottomBar extends StatelessWidget {
                     color: scheme.onSurface,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: tracksHidden
+                    ? 'Mostra le tracce'
+                    : 'Nascondi le tracce',
+                onPressed: onToggleHide,
+                icon: Icon(tracksHidden
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined),
               ),
               FloatingActionButton.small(
                 heroTag: 'gl-new',

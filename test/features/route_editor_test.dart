@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:sentei/data/cloud/cloud_sync_service.dart';
 import 'package:sentei/data/storage/tracks_repository.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
 import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
+import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete).
 class _FakeRouting implements RoutingService {
@@ -23,6 +25,29 @@ class _FakeElevation implements ElevationService {
   @override
   Future<List<double?>> elevationsAlong(List<LatLng> points) async =>
       List.filled(points.length, null);
+}
+
+/// Cloud finto non connesso: l'auto-sync è no-op nei test (niente plugin).
+class _FakeCloud implements CloudSyncService {
+  @override
+  String get providerName => 'Fake';
+  @override
+  Future<bool> isSignedIn() async => false;
+  @override
+  Future<String?> signIn() async => null;
+  @override
+  Future<void> signOut() async {}
+  @override
+  Future<String?> currentAccount() async => null;
+  @override
+  Future<List<RemoteTrackMeta>> listRemote() async => const [];
+  @override
+  Future<DrawnTrack?> downloadTrack(RemoteTrackMeta meta) async => null;
+  @override
+  Future<void> uploadTrack(DrawnTrack track,
+      {required DateTime updatedAt}) async {}
+  @override
+  Future<void> deleteTrack(RemoteTrackMeta meta) async {}
 }
 
 /// Repository finto: nessuna persistenza su disco nei test.
@@ -54,6 +79,7 @@ void main() {
         ),
       ),
       tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+      cloudServiceProvider.overrideWithValue(_FakeCloud()),
     ]);
   });
   tearDown(() => container.dispose());

@@ -1,8 +1,11 @@
+import 'dart:async' show unawaited;
 import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+
+import '../settings/cloud_sync_controller.dart';
 
 import '../../data/gpx/gpx_service.dart';
 import '../../data/offline/terrarium_elevation_service.dart';
@@ -301,12 +304,14 @@ class Tracks extends Notifier<TracksState> {
       // savingId azzerato → fine animazione.
     );
 
-    // Persiste su disco.
+    // Persiste su disco e propaga al cloud (auto-sync, best-effort).
     final saved = state.byId(id);
     if (saved != null) {
+      final now = DateTime.now();
       try {
-        await ref.read(tracksRepositoryProvider).save(saved);
+        await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
       } catch (_) {/* best-effort */}
+      unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
     }
   }
 
@@ -324,6 +329,8 @@ class Tracks extends Notifier<TracksState> {
       selectedId: state.selectedId == target ? null : state.selectedId,
     );
     ref.read(tracksRepositoryProvider).delete(target); // best-effort
+    // Auto-sync: propaga l'eliminazione al cloud (best-effort, no-op se offline).
+    unawaited(ref.read(cloudSyncProvider.notifier).autoDelete(target));
   }
 
   /// Importa una traccia da GPX. Ritorna `null` se ok, o un messaggio d'errore.
@@ -337,9 +344,11 @@ class Tracks extends Notifier<TracksState> {
         editingId: state.editingId,
         selectedId: state.selectedId,
       );
+      final now = DateTime.now();
       try {
-        await ref.read(tracksRepositoryProvider).save(track);
+        await ref.read(tracksRepositoryProvider).save(track, updatedAt: now);
       } catch (_) {/* best-effort */}
+      unawaited(ref.read(cloudSyncProvider.notifier).autoPush(track, now));
       return null;
     } on FormatException catch (e) {
       return e.message;
@@ -521,3 +530,15 @@ class ProfileCursor extends Notifier<ProfileSample?> {
 
 final profileCursorProvider =
     NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);
+
+/// Nasconde dalla mappa le tracce **salvate** (la traccia in modifica resta
+/// sempre visibile). Stato in-memory: alla riapertura le tracce tornano visibili.
+class TracksHidden extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
+final tracksHiddenProvider =
+    NotifierProvider<TracksHidden, bool>(TracksHidden.new);

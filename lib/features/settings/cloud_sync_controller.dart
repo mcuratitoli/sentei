@@ -23,12 +23,15 @@ class CloudProviderController extends Notifier<CloudProvider> {
   }
 
   Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_key);
-    final restored = CloudProvider.values
-        .where((p) => p.name == saved)
-        .firstOrNull;
-    if (restored != null && restored != state) state = restored;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_key);
+      final restored =
+          CloudProvider.values.where((p) => p.name == saved).firstOrNull;
+      if (restored != null && restored != state) state = restored;
+    } catch (_) {
+      // shared_preferences non disponibile (es. in test): resta il default.
+    }
   }
 
   Future<void> set(CloudProvider provider) async {
@@ -133,6 +136,24 @@ class CloudSyncController extends Notifier<CloudState> {
       await _service.signOut();
     } catch (_) {/* best-effort */}
     state = const CloudState();
+  }
+
+  /// Auto-sync: carica una singola traccia salvata sul cloud. Best-effort e
+  /// silenzioso (no-op se non connessi); la sync manuale resta disponibile.
+  Future<void> autoPush(DrawnTrack track, DateTime updatedAt) async {
+    if (!state.signedIn) return;
+    try {
+      await _service.uploadTrack(track, updatedAt: updatedAt);
+    } catch (_) {/* best-effort: non disturba l'utente */}
+  }
+
+  /// Auto-sync: propaga l'eliminazione di una traccia al cloud (best-effort).
+  Future<void> autoDelete(String id) async {
+    if (!state.signedIn) return;
+    try {
+      await _service
+          .deleteTrack(RemoteTrackMeta(id: id, updatedAt: DateTime.now()));
+    } catch (_) {/* best-effort */}
   }
 
   Future<void> syncNow() async {
