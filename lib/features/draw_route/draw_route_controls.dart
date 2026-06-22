@@ -52,8 +52,14 @@ class DrawRouteControls extends ConsumerWidget {
     return Card(
       // Vicino alla toolbar in basso (poco margine sotto).
       margin: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(20)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,15 +91,23 @@ class DrawRouteControls extends ConsumerWidget {
                   ),
                 ],
               ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Row(
               children: [
                 _Metric(
                   icon: Icons.straighten,
                   value: Format.distance(distance),
                 ),
-                const SizedBox(width: 16),
-                _GainLoss(metrics: shownMetrics),
+                if (shownMetrics != null) ...[
+                  const SizedBox(width: 14),
+                  Container(
+                    width: 1,
+                    height: 18,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                  const SizedBox(width: 14),
+                  _GainLoss(metrics: shownMetrics),
+                ],
               ],
             ),
             if (pathLoading)
@@ -356,12 +370,12 @@ class _Metric extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 4),
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 5),
         Text(value,
             style: Theme.of(context)
                 .textTheme
-                .bodyMedium
+                .titleSmall
                 ?.copyWith(fontWeight: FontWeight.bold)),
       ],
     );
@@ -377,14 +391,22 @@ class _GainLoss extends StatelessWidget {
   Widget build(BuildContext context) {
     final m = metrics;
     if (m == null) return const SizedBox.shrink();
+    final style = Theme.of(context)
+        .textTheme
+        .titleSmall
+        ?.copyWith(fontWeight: FontWeight.bold);
+    const up = Color(0xFF2E7D32);
+    const down = Color(0xFFC62828);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.trending_up, size: 18),
-        Text(' ${Format.meters(m.elevation.gain)}'),
-        const SizedBox(width: 8),
-        const Icon(Icons.trending_down, size: 18),
-        Text(' ${Format.meters(m.elevation.loss)}'),
+        const Icon(Icons.trending_up, size: 18, color: up),
+        const SizedBox(width: 3),
+        Text(Format.meters(m.elevation.gain), style: style),
+        const SizedBox(width: 10),
+        const Icon(Icons.trending_down, size: 18, color: down),
+        const SizedBox(width: 3),
+        Text(Format.meters(m.elevation.loss), style: style),
       ],
     );
   }

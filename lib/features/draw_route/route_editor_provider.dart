@@ -450,8 +450,12 @@ final routeMetricsProvider =
 class ProfileVisible extends Notifier<bool> {
   @override
   bool build() {
-    ref.watch(activeTrackIdProvider);
-    return false;
+    ref.watch(activeTrackIdProvider); // reset al cambio traccia
+    final st = ref.read(tracksProvider);
+    // Aperto di default quando si **seleziona** una traccia con profilo già
+    // calcolato; in disegno resta chiuso (il profilo è on-demand, tasto
+    // "Percorso"). Il toggle manuale persiste finché non si cambia traccia.
+    return !st.drawing && (st.active?.metrics?.profile.isEmpty == false);
   }
 
   void toggle() => state = !state;

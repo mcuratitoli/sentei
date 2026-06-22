@@ -151,22 +151,34 @@ class _ProfilePainter extends CustomPainter {
       ..lineTo(0, chartH)
       ..close();
 
-    canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.18));
-    if (steepness) {
-      // Linea colorata per pendenza (gradiente), segmento per segmento.
-      for (var i = 0; i < samples.length - 1; i++) {
-        final a = samples[i], b = samples[i + 1];
-        canvas.drawLine(
-          Offset(dxFor(a.distanceMeters), dyFor(a.elevation)),
-          Offset(dxFor(b.distanceMeters), dyFor(b.elevation)),
-          Paint()
-            ..color = steepnessColor(slopePercentBetween(a, b))
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3
-            ..strokeCap = StrokeCap.round,
-        );
-      }
+    final stops =
+        steepness ? steepnessGradientStops(profile) : const <SteepnessStop>[];
+    if (stops.length >= 2) {
+      // Stesso gradiente continuo della mappa: shader orizzontale lungo la
+      // distanza. Riempimento sotto la curva (semitrasparente) + linea piena.
+      final rect = Rect.fromLTWH(0, 0, size.width, chartH);
+      final positions = [for (final s in stops) s.t];
+      final colors = [for (final s in stops) s.color];
+      canvas.drawPath(
+        area,
+        Paint()
+          ..shader = LinearGradient(
+            colors: [for (final c in colors) c.withValues(alpha: 0.38)],
+            stops: positions,
+          ).createShader(rect),
+      );
+      canvas.drawPath(
+        line,
+        Paint()
+          ..shader = LinearGradient(colors: colors, stops: positions)
+              .createShader(rect)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
     } else {
+      canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.18));
       canvas.drawPath(
         line,
         Paint()

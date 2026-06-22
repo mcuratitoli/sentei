@@ -129,15 +129,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
     _savedLines = await map.annotations.createPolylineAnnotationManager();
-    // Colorazione ripidezza: sopra la linea della traccia, colore data-driven.
+    // Colorazione ripidezza: una sola polilinea con gradiente continuo
+    // (`line-gradient` su `line-progress`) → niente gradini di colore. Richiede
+    // `lineMetrics: true` sul source. Il gradiente è impostato in _renderSteepness.
     await map.style.addSource(GeoJsonSource(
       id: _steepSourceId,
       data: '{"type":"FeatureCollection","features":[]}',
+      lineMetrics: true,
     ));
     await map.style.addLayer(LineLayer(
       id: _steepLayerId,
       sourceId: _steepSourceId,
-      lineColorExpression: <Object>['get', 'color'],
       lineWidth: 6,
       lineJoin: LineJoin.ROUND,
       lineCap: LineCap.ROUND,
@@ -175,7 +177,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// toggle è attivo; altrimenti svuota il layer.
   Future<void> _renderSteepness() async {
     final map = _map;
-    if (map == null) return;
+    if (map == null || !_didSetup) return; // source/layer non ancora pronti
     final state = ref.read(tracksProvider);
     final on = ref.read(steepnessVisibleProvider);
     DrawnTrack? sel;
@@ -186,25 +188,48 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       }
     }
     final profile = sel?.metrics?.profile;
-    final segments =
-        (on && profile != null) ? steepnessSegments(profile) : const [];
-    final features = [
-      for (final s in segments)
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'LineString',
-            'coordinates': [
-              for (final p in s.points) [p.longitude, p.latitude],
-            ],
-          },
-          'properties': <String, Object>{'color': s.colorHex},
-        },
+    final stops =
+        (on && profile != null) ? steepnessGradientStops(profile) : const [];
+
+    if (stops.isEmpty) {
+      await map.style.setStyleSourceProperty(
+        _steepSourceId,
+        'data',
+        '{"type":"FeatureCollection","features":[]}',
+      );
+      return;
+    }
+
+    // Una sola LineString = tutta la traccia; il colore varia col gradiente.
+    final coords = [
+      for (final s in profile!.samples) [s.position.longitude, s.position.latitude],
     ];
     await map.style.setStyleSourceProperty(
       _steepSourceId,
       'data',
-      jsonEncode({'type': 'FeatureCollection', 'features': features}),
+      jsonEncode({
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'geometry': {'type': 'LineString', 'coordinates': coords},
+            'properties': <String, Object>{},
+          },
+        ],
+      }),
+    );
+
+    // line-gradient: interpolazione continua dei colori lungo line-progress.
+    final gradient = <Object>[
+      'interpolate',
+      <Object>['linear'],
+      <Object>['line-progress'],
+      for (final st in stops) ...[st.t, st.colorHex],
+    ];
+    await map.style.setStyleLayerProperty(
+      _steepLayerId,
+      'line-gradient',
+      jsonEncode(gradient),
     );
   }
 
