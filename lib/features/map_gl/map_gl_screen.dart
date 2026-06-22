@@ -18,6 +18,13 @@ import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
 import '../tracks_list/tracks_list_screen.dart';
 
+/// Stile della mappa. Default: Mapbox **Outdoors** (topo stock migliore).
+/// Sovrascrivibile con uno stile Mapbox Studio dedicato (simil-GaiaGPS) senza
+/// toccare il codice: `--dart-define=MAP_STYLE_URI=mapbox://styles/<user>/<id>`.
+const String _envMapStyle = String.fromEnvironment('MAP_STYLE_URI');
+String get _mapStyleUri =>
+    _envMapStyle.isEmpty ? MapboxStyles.OUTDOORS : _envMapStyle;
+
 /// Mappa principale su **Mapbox GL** (migrazione, Fase 4): base Outdoors +
 /// terreno 3D, numeri CAI, posizione utente, e **disegno multi-traccia**
 /// collegato a `Tracks` (Riverpod) — tap=aggiungi, drag=sposta, tap-nodo=
@@ -111,8 +118,36 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     await map.style.setStyleTerrain(jsonEncode(<String, Object>{
       'source': 'mapbox-dem',
-      'exaggeration': 1.4,
+      'exaggeration': 1.5,
     }));
+    // Cielo atmosferico: dà profondità all'orizzonte in vista 3D.
+    await map.style.addLayer(SkyLayer(
+      id: 'sentei-sky',
+      skyType: SkyType.ATMOSPHERE,
+      skyAtmosphereSunIntensity: 10,
+    ));
+    // Hillshade extra per un rilievo più marcato (Outdoors ne ha uno tenue).
+    // Inserito SOTTO la prima etichetta così non copre testo/sentieri/strade.
+    // Riusa la stessa DEM del terreno 3D.
+    String? firstSymbolId;
+    for (final l in await map.style.getStyleLayers()) {
+      if (l?.type == 'symbol') {
+        firstSymbolId = l!.id;
+        break;
+      }
+    }
+    final hillshade = HillshadeLayer(
+      id: 'sentei-hillshade',
+      sourceId: 'mapbox-dem',
+      hillshadeExaggeration: 0.5,
+      hillshadeShadowColor: 0x59413A33,
+      hillshadeHighlightColor: 0x33FFFFFF,
+    );
+    if (firstSymbolId != null) {
+      await map.style.addLayerAt(hillshade, LayerPosition(below: firstSymbolId));
+    } else {
+      await map.style.addLayer(hillshade);
+    }
     // Numeri sentiero CAI: etichette ripetute lungo i sentieri (Outdoors
     // disegna già le linee). Decluttering automatico di Mapbox.
     await map.style.addSource(GeoJsonSource(
@@ -128,7 +163,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       textSize: 13,
       textColor: 0xFF1B5E20,
       textHaloColor: 0xFFFFFFFF,
-      textHaloWidth: 1.5,
+      textHaloWidth: 2,
+      textHaloBlur: 0.5,
     ));
     // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
     _savedLines = await map.annotations.createPolylineAnnotationManager();
@@ -268,12 +304,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
         if (!editing) {
           if (path.length < 2) continue;
+          // La traccia selezionata è più spessa e con bordo più marcato.
+          final isSelected = t.id == state.selectedId;
           await _savedLines!.create(PolylineAnnotationOptions(
             geometry: _lineOf(path),
             lineColor: t.color.toARGB32(),
-            lineWidth: 4,
+            lineWidth: isSelected ? 7 : 4.5,
             lineBorderColor: 0xFFFFFFFF,
-            lineBorderWidth: 1,
+            lineBorderWidth: isSelected ? 2.5 : 1.5,
           ));
           await _drawEndpoints(t.waypoints);
         } else {
@@ -543,7 +581,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       body: Stack(
         children: [
           MapWidget(
-            styleUri: MapboxStyles.OUTDOORS,
+            styleUri: _mapStyleUri,
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
