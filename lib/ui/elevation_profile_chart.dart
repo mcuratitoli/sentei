@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/models/elevation_profile.dart';
+import '../domain/services/steepness.dart';
 
 /// Grafico del profilo altimetrico: area riempita quota vs distanza, con
 /// scrubbing — trascinando il dito/cursore si evidenzia un punto e lo si
@@ -16,9 +17,13 @@ class ElevationProfileChart extends StatelessWidget {
     this.cursor,
     this.onCursor,
     this.height = 150,
+    this.steepness = false,
   });
 
   final ElevationProfile profile;
+
+  /// Se vero, la linea del profilo è colorata per **pendenza** (gradiente).
+  final bool steepness;
 
   /// Tratti percorsi sui vari sentieri (per le etichette sull'asse X).
   final List<TrailSegment> trailSegments;
@@ -70,6 +75,7 @@ class ElevationProfileChart extends StatelessWidget {
                 bandColor: scheme.secondaryContainer,
                 bandTextColor: scheme.onSecondaryContainer,
                 cursor: cursor,
+                steepness: steepness,
               ),
               size: Size.infinite,
             ),
@@ -103,6 +109,7 @@ class _ProfilePainter extends CustomPainter {
     required this.bandColor,
     required this.bandTextColor,
     this.cursor,
+    this.steepness = false,
   });
 
   final ElevationProfile profile;
@@ -112,6 +119,7 @@ class _ProfilePainter extends CustomPainter {
   final Color bandColor;
   final Color bandTextColor;
   final ProfileSample? cursor;
+  final bool steepness;
 
   static const double _bandHeight = 18;
 
@@ -144,13 +152,29 @@ class _ProfilePainter extends CustomPainter {
       ..close();
 
     canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.18));
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
+    if (steepness) {
+      // Linea colorata per pendenza (gradiente), segmento per segmento.
+      for (var i = 0; i < samples.length - 1; i++) {
+        final a = samples[i], b = samples[i + 1];
+        canvas.drawLine(
+          Offset(dxFor(a.distanceMeters), dyFor(a.elevation)),
+          Offset(dxFor(b.distanceMeters), dyFor(b.elevation)),
+          Paint()
+            ..color = steepnessColor(slopePercentBetween(a, b))
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    } else {
+      canvas.drawPath(
+        line,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
 
     // Banda dei numeri sentiero sotto l'asse X.
     if (hasBands) {
@@ -204,5 +228,6 @@ class _ProfilePainter extends CustomPainter {
       old.profile != profile ||
       old.color != color ||
       old.cursor != cursor ||
+      old.steepness != steepness ||
       old.trailSegments != trailSegments;
 }

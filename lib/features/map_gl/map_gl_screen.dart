@@ -40,6 +40,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   PolylineAnnotationManager? _savedLines;
   CircleAnnotationManager? _savedEnds;
   CircleAnnotationManager? _waypointDots;
+  CircleAnnotationManager? _cursorDot;
   PolylineAnnotationManager? _liveLine;
 
   /// id-cerchio→indice waypoint della traccia in modifica.
@@ -146,9 +147,28 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     _waypointDots = await map.annotations.createCircleAnnotationManager();
     _waypointDots!.dragEvents(onEnd: _onWaypointDragEnd);
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
+    // Cursore profilo (sopra a tutto): punto evidenziato scorrendo il grafico.
+    _cursorDot = await map.annotations.createCircleAnnotationManager();
     await _renderAll();
     await _renderSteepness();
     await _maybeFetchTrails();
+  }
+
+  /// Evidenzia sulla mappa il punto selezionato sul grafico (profileCursor).
+  Future<void> _renderCursor() async {
+    final mgr = _cursorDot;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    final c = ref.read(profileCursorProvider);
+    if (c == null) return;
+    await mgr.create(CircleAnnotationOptions(
+      geometry:
+          Point(coordinates: Position(c.position.longitude, c.position.latitude)),
+      circleRadius: 8,
+      circleColor: 0xFFE53935,
+      circleStrokeColor: 0xFFFFFFFF,
+      circleStrokeWidth: 3,
+    ));
   }
 
   /// Disegna la colorazione per ripidezza della traccia selezionata, se il
@@ -483,6 +503,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       _renderSteepness();
     });
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
+    ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
     }

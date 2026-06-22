@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
-import '../../domain/services/steepness.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../offline_maps/track_offline_download.dart';
@@ -62,14 +61,31 @@ class DrawRouteControls extends ConsumerWidget {
             if (drawing)
               const _NameField()
             else
-              Text(
-                (track?.name.isNotEmpty ?? false) ? track!.name : 'Senza nome',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      (track?.name.isNotEmpty ?? false)
+                          ? track!.name
+                          : 'Senza nome',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Modifica',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: saving
+                        ? null
+                        : () =>
+                            ref.read(tracksProvider.notifier).editSelected(),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ],
               ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 2),
             Row(
               children: [
                 _Metric(
@@ -128,7 +144,7 @@ class DrawRouteControls extends ConsumerWidget {
               _ColorPicker(selected: track?.color),
             ],
             const SizedBox(height: 4),
-            // Toggle: profilo percorso (+ ripidezza, solo su traccia selezionata).
+            // Controlli compatti: Percorso (profilo) · Ripidezza (icona) · azioni.
             Row(
               children: [
                 FilledButton.tonalIcon(
@@ -143,28 +159,22 @@ class DrawRouteControls extends ConsumerWidget {
                   label: const Text('Percorso'),
                 ),
                 if (!drawing) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   if (steepnessOn)
-                    FilledButton.icon(
+                    IconButton.filledTonal(
+                      tooltip: 'Ripidezza',
                       onPressed: () =>
                           ref.read(steepnessVisibleProvider.notifier).toggle(),
                       icon: const Icon(Icons.stairs),
-                      label: const Text('Ripidezza'),
                     )
                   else
-                    FilledButton.tonalIcon(
+                    IconButton(
+                      tooltip: 'Ripidezza',
                       onPressed: () =>
                           ref.read(steepnessVisibleProvider.notifier).toggle(),
                       icon: const Icon(Icons.stairs),
-                      label: const Text('Ripidezza'),
                     ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            // Azioni.
-            Row(
-              children: [
                 const Spacer(),
                 if (drawing) ...[
                   IconButton(
@@ -182,7 +192,7 @@ class DrawRouteControls extends ConsumerWidget {
                     icon: const Icon(Icons.check),
                     label: const Text('Fine'),
                   ),
-                ] else ...[
+                ] else
                   IconButton(
                     tooltip: 'Salva offline',
                     onPressed: saving || track == null
@@ -190,48 +200,37 @@ class DrawRouteControls extends ConsumerWidget {
                         : () => downloadTrackOffline(context, ref, track),
                     icon: const Icon(Icons.download_for_offline_outlined),
                   ),
-                  IconButton(
-                    tooltip: 'Elimina percorso',
-                    onPressed: saving
-                        ? null
-                        : () {
-                            ref.read(tracksProvider.notifier).remove();
-                            ref.read(profileCursorProvider.notifier).set(null);
-                          },
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                  FilledButton.icon(
-                    onPressed: saving
-                        ? null
-                        : () =>
-                            ref.read(tracksProvider.notifier).editSelected(),
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Modifica'),
-                  ),
-                ],
               ],
             ),
             if (showingChart && !shownMetrics.profile.isEmpty) ...[
-              const SizedBox(height: 8),
-              // Quota (e distanza) del punto indicato dal cursore sul grafico.
-              if (cursor != null)
-                Text(
-                  'Quota ${Format.meters(cursor.elevation)} · '
-                  '${Format.distance(cursor.distanceMeters)}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
+              const SizedBox(height: 4),
+              // Slot fisso per la quota al cursore (spazio riservato sempre,
+              // così la card non cambia altezza scorrendo il grafico).
+              SizedBox(
+                height: 16,
+                child: Text(
+                  cursor == null
+                      ? 'Tocca il grafico per la quota del punto'
+                      : 'Quota ${Format.meters(cursor.elevation)} · '
+                          '${Format.distance(cursor.distanceMeters)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight:
+                            cursor == null ? FontWeight.normal : FontWeight.bold,
+                        color:
+                            cursor == null ? Theme.of(context).hintColor : null,
+                      ),
                 ),
+              ),
               ElevationProfileChart(
                 profile: shownMetrics.profile,
                 trailSegments: shownMetrics.trailSegments,
                 cursor: cursor,
+                steepness: steepnessOn,
+                height: 120,
                 onCursor: (s) =>
                     ref.read(profileCursorProvider.notifier).set(s),
               ),
             ],
-            if (steepnessOn && !drawing) const _SteepnessLegend(),
           ],
         ),
       ),
@@ -365,40 +364,6 @@ class _Metric extends StatelessWidget {
                 .bodyMedium
                 ?.copyWith(fontWeight: FontWeight.bold)),
       ],
-    );
-  }
-}
-
-/// Legenda degli scaglioni di pendenza (colore + intervallo).
-class _SteepnessLegend extends StatelessWidget {
-  const _SteepnessLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 4,
-        children: [
-          for (final b in kSteepnessBuckets)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: b.color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(b.label, style: const TextStyle(fontSize: 11)),
-              ],
-            ),
-        ],
-      ),
     );
   }
 }
