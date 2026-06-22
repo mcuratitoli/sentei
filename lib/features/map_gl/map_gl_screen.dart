@@ -58,6 +58,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   // sono pronti, una sola volta.
   bool _styleLoaded = false;
   bool _didSetup = false;
+  // Source/layer/manager TUTTI creati: solo allora si può renderizzare. Diverso
+  // da _didSetup (che segna "setup avviato", per non rifarlo due volte).
+  bool _ready = false;
 
   static const String _trailSourceId = 'sentei-trails';
   static const String _trailLayerId = 'sentei-trails-labels';
@@ -151,6 +154,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
     // Cursore profilo (sopra a tutto): punto evidenziato scorrendo il grafico.
     _cursorDot = await map.annotations.createCircleAnnotationManager();
+    _ready = true; // tutto creato: ora si può renderizzare
     await _renderAll();
     await _renderSteepness();
     await _maybeFetchTrails();
@@ -177,7 +181,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// toggle è attivo; altrimenti svuota il layer.
   Future<void> _renderSteepness() async {
     final map = _map;
-    if (map == null || !_didSetup) return; // source/layer non ancora pronti
+    if (map == null || !_ready) return; // source/layer non ancora pronti
     final state = ref.read(tracksProvider);
     final on = ref.read(steepnessVisibleProvider);
     DrawnTrack? sel;
@@ -238,15 +242,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// Ridisegna tutto dallo stato: tracce finalizzate (linea+estremi) + traccia
   /// in modifica (percorso live + waypoint trascinabili).
   Future<void> _renderAll() async {
-    // I manager si creano in sequenza in _styleSetup: finché non sono TUTTI
-    // pronti non renderizzare (un listener può scattare durante il setup →
-    // null-check su un manager non ancora creato).
-    if (_savedLines == null ||
-        _savedEnds == null ||
-        _liveLine == null ||
-        _waypointDots == null) {
-      return;
-    }
+    // Finché il setup non è completo non renderizzare (un listener può scattare
+    // durante l'inizializzazione → null-check su manager non ancora creati).
+    if (!_ready) return;
     if (_rendering) {
       _renderAgain = true;
       return;
