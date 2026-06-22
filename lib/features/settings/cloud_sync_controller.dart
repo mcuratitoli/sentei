@@ -1,22 +1,64 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/cloud/cloud_sync_engine.dart';
 import '../../data/cloud/cloud_sync_service.dart';
 import '../../data/cloud/google_drive_sync_service.dart';
+import '../../data/cloud/icloud_sync_service.dart';
 import '../draw_route/route_editor_provider.dart';
 
-/// Servizio cloud attivo. Per ora Google Drive; iCloud si aggiungerà come
-/// implementazione alternativa di [CloudSyncService].
+/// Backend cloud disponibili (§6.5). iCloud è iOS-only.
+enum CloudProvider { googleDrive, iCloud }
+
+/// Provider cloud selezionato dall'utente, persistito in `shared_preferences`.
+/// Default: Google Drive (cross-platform e già testato). Su iOS l'utente può
+/// passare a iCloud dal selettore in Impostazioni.
+class CloudProviderController extends Notifier<CloudProvider> {
+  static const _key = 'cloud_provider';
+
+  @override
+  CloudProvider build() {
+    _restore();
+    return CloudProvider.googleDrive;
+  }
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_key);
+    final restored = CloudProvider.values
+        .where((p) => p.name == saved)
+        .firstOrNull;
+    if (restored != null && restored != state) state = restored;
+  }
+
+  Future<void> set(CloudProvider provider) async {
+    state = provider;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, provider.name);
+  }
+}
+
+final cloudProviderProvider =
+    NotifierProvider<CloudProviderController, CloudProvider>(
+        CloudProviderController.new);
+
+/// Servizio cloud attivo, in base al [cloudProviderProvider] selezionato.
 ///
-/// Le credenziali OAuth si passano via `--dart-define` (mai nel repo, §9):
+/// Credenziali OAuth Google via `--dart-define` (mai nel repo, §9):
 /// `GOOGLE_CLIENT_ID` (iOS client id) e, se serve, `GOOGLE_SERVER_CLIENT_ID`.
+/// iCloud usa l'account di sistema e il container configurato in Xcode.
 final cloudServiceProvider = Provider<CloudSyncService>((ref) {
-  const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
-  const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-  return GoogleDriveSyncService(
-    clientId: clientId.isEmpty ? null : clientId,
-    serverClientId: serverClientId.isEmpty ? null : serverClientId,
-  );
+  switch (ref.watch(cloudProviderProvider)) {
+    case CloudProvider.iCloud:
+      return IcloudSyncService();
+    case CloudProvider.googleDrive:
+      const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+      const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+      return GoogleDriveSyncService(
+        clientId: clientId.isEmpty ? null : clientId,
+        serverClientId: serverClientId.isEmpty ? null : serverClientId,
+      );
+  }
 });
 
 /// Stato della sezione cloud nelle Impostazioni.
@@ -53,6 +95,7 @@ class CloudState {
 class CloudSyncController extends Notifier<CloudState> {
   @override
   CloudState build() {
+    ref.watch(cloudProviderProvider); // reinizializza al cambio provider
     _checkSession();
     return const CloudState(busy: true);
   }
