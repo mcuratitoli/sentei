@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
+import '../../domain/services/steepness.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/elevation_profile_chart.dart';
+import '../offline_maps/track_offline_download.dart';
 import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
@@ -36,6 +38,8 @@ class DrawRouteControls extends ConsumerWidget {
 
     final profileVisible = ref.watch(profileVisibleProvider);
     final showingChart = profileVisible && shownMetrics != null;
+    final steepnessOn = ref.watch(steepnessVisibleProvider);
+    final cursor = ref.watch(profileCursorProvider);
 
     void toggleProfile() {
       if (shownMetrics == null && !metricsLoading) {
@@ -124,9 +128,9 @@ class DrawRouteControls extends ConsumerWidget {
               _ColorPicker(selected: track?.color),
             ],
             const SizedBox(height: 4),
+            // Toggle: profilo percorso (+ ripidezza, solo su traccia selezionata).
             Row(
               children: [
-                // Dislivello a sinistra.
                 FilledButton.tonalIcon(
                   onPressed: !canCompute || saving ? null : toggleProfile,
                   icon: metricsLoading
@@ -138,8 +142,30 @@ class DrawRouteControls extends ConsumerWidget {
                       : Icon(showingChart ? Icons.unfold_less : Icons.terrain),
                   label: const Text('Percorso'),
                 ),
+                if (!drawing) ...[
+                  const SizedBox(width: 8),
+                  if (steepnessOn)
+                    FilledButton.icon(
+                      onPressed: () =>
+                          ref.read(steepnessVisibleProvider.notifier).toggle(),
+                      icon: const Icon(Icons.stairs),
+                      label: const Text('Ripidezza'),
+                    )
+                  else
+                    FilledButton.tonalIcon(
+                      onPressed: () =>
+                          ref.read(steepnessVisibleProvider.notifier).toggle(),
+                      icon: const Icon(Icons.stairs),
+                      label: const Text('Ripidezza'),
+                    ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Azioni.
+            Row(
+              children: [
                 const Spacer(),
-                // Azioni primarie a destra.
                 if (drawing) ...[
                   IconButton(
                     tooltip: 'Annulla ultimo punto',
@@ -149,7 +175,6 @@ class DrawRouteControls extends ConsumerWidget {
                     icon: const Icon(Icons.undo),
                   ),
                   FilledButton.icon(
-                    // Disabilitato finché il percorso non è stato calcolato.
                     onPressed: pathLoading
                         ? null
                         : () =>
@@ -158,6 +183,13 @@ class DrawRouteControls extends ConsumerWidget {
                     label: const Text('Fine'),
                   ),
                 ] else ...[
+                  IconButton(
+                    tooltip: 'Salva offline',
+                    onPressed: saving || track == null
+                        ? null
+                        : () => downloadTrackOffline(context, ref, track),
+                    icon: const Icon(Icons.download_for_offline_outlined),
+                  ),
                   IconButton(
                     tooltip: 'Elimina percorso',
                     onPressed: saving
@@ -179,17 +211,27 @@ class DrawRouteControls extends ConsumerWidget {
                 ],
               ],
             ),
-            if (showingChart && !shownMetrics.profile.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ElevationProfileChart(
-                  profile: shownMetrics.profile,
-                  trailSegments: shownMetrics.trailSegments,
-                  cursor: ref.watch(profileCursorProvider),
-                  onCursor: (s) =>
-                      ref.read(profileCursorProvider.notifier).set(s),
+            if (showingChart && !shownMetrics.profile.isEmpty) ...[
+              const SizedBox(height: 8),
+              // Quota (e distanza) del punto indicato dal cursore sul grafico.
+              if (cursor != null)
+                Text(
+                  'Quota ${Format.meters(cursor.elevation)} · '
+                  '${Format.distance(cursor.distanceMeters)}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
+              ElevationProfileChart(
+                profile: shownMetrics.profile,
+                trailSegments: shownMetrics.trailSegments,
+                cursor: cursor,
+                onCursor: (s) =>
+                    ref.read(profileCursorProvider.notifier).set(s),
               ),
+            ],
+            if (steepnessOn && !drawing) const _SteepnessLegend(),
           ],
         ),
       ),
@@ -323,6 +365,40 @@ class _Metric extends StatelessWidget {
                 .bodyMedium
                 ?.copyWith(fontWeight: FontWeight.bold)),
       ],
+    );
+  }
+}
+
+/// Legenda degli scaglioni di pendenza (colore + intervallo).
+class _SteepnessLegend extends StatelessWidget {
+  const _SteepnessLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 4,
+        children: [
+          for (final b in kSteepnessBuckets)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: b.color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(b.label, style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

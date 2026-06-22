@@ -461,6 +461,21 @@ class ProfileVisible extends Notifier<bool> {
 final profileVisibleProvider =
     NotifierProvider<ProfileVisible, bool>(ProfileVisible.new);
 
+/// Visibilità della colorazione per **ripidezza** (pendenza) della traccia
+/// selezionata. Si azzera al cambio di traccia.
+class SteepnessVisible extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(activeTrackIdProvider);
+    return false;
+  }
+
+  void toggle() => state = !state;
+}
+
+final steepnessVisibleProvider =
+    NotifierProvider<SteepnessVisible, bool>(SteepnessVisible.new);
+
 /// Punto del profilo "scrubbed" sul grafico, da evidenziare in mappa.
 class ProfileCursor extends Notifier<ProfileSample?> {
   @override

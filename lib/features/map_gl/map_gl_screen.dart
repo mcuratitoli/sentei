@@ -10,6 +10,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import '../../core/constants.dart';
 import '../../data/location/location_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../domain/services/steepness.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -60,6 +61,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   static const String _trailSourceId = 'sentei-trails';
   static const String _trailLayerId = 'sentei-trails-labels';
   static const double _trailMinZoom = 13;
+  static const String _steepSourceId = 'sentei-steepness';
+  static const String _steepLayerId = 'sentei-steepness-line';
 
   // ---- Setup -------------------------------------------------------------
 
@@ -125,13 +128,64 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
     _savedLines = await map.annotations.createPolylineAnnotationManager();
+    // Colorazione ripidezza: sopra la linea della traccia, colore data-driven.
+    await map.style.addSource(GeoJsonSource(
+      id: _steepSourceId,
+      data: '{"type":"FeatureCollection","features":[]}',
+    ));
+    await map.style.addLayer(LineLayer(
+      id: _steepLayerId,
+      sourceId: _steepSourceId,
+      lineColorExpression: <Object>['get', 'color'],
+      lineWidth: 6,
+      lineJoin: LineJoin.ROUND,
+      lineCap: LineCap.ROUND,
+    ));
     _savedEnds = await map.annotations.createCircleAnnotationManager();
     _liveLine = await map.annotations.createPolylineAnnotationManager();
     _waypointDots = await map.annotations.createCircleAnnotationManager();
     _waypointDots!.dragEvents(onEnd: _onWaypointDragEnd);
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
     await _renderAll();
+    await _renderSteepness();
     await _maybeFetchTrails();
+  }
+
+  /// Disegna la colorazione per ripidezza della traccia selezionata, se il
+  /// toggle è attivo; altrimenti svuota il layer.
+  Future<void> _renderSteepness() async {
+    final map = _map;
+    if (map == null) return;
+    final state = ref.read(tracksProvider);
+    final on = ref.read(steepnessVisibleProvider);
+    DrawnTrack? sel;
+    for (final t in state.tracks) {
+      if (t.id == state.selectedId) {
+        sel = t;
+        break;
+      }
+    }
+    final profile = sel?.metrics?.profile;
+    final segments =
+        (on && profile != null) ? steepnessSegments(profile) : const [];
+    final features = [
+      for (final s in segments)
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates': [
+              for (final p in s.points) [p.longitude, p.latitude],
+            ],
+          },
+          'properties': <String, Object>{'color': s.colorHex},
+        },
+    ];
+    await map.style.setStyleSourceProperty(
+      _steepSourceId,
+      'data',
+      jsonEncode({'type': 'FeatureCollection', 'features': features}),
+    );
   }
 
   // ---- Rendering tracce ---------------------------------------------------
@@ -424,7 +478,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // sostituisce la toolbar (che viene nascosta).
     final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
     // Ridisegna su cambi di stato e sull'aggiornamento del percorso live.
-    ref.listen(tracksProvider, (_, __) => _renderAll());
+    ref.listen(tracksProvider, (_, __) {
+      _renderAll();
+      _renderSteepness();
+    });
+    ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
     }
