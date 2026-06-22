@@ -39,7 +39,7 @@ class SettingsScreen extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Sentèi'),
-            subtitle: Text('App escursionismo'),
+            // subtitle: Text('App escursionismo'),
           ),
         ],
       ),
