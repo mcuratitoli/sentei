@@ -9,7 +9,7 @@ import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
 ///
-/// In **modifica/creazione**: nome, colore, snap, aggiungi/annulla punti, Fine,
+/// In **modifica/creazione**: nome, colore, aggiungi/annulla punti, Fine,
 /// dislivello live on-demand. In **vista selezionata**: dati memorizzati al
 /// "Fine" (distanza, D+/D-, profilo, numeri sentieri), modifica/elimina.
 class DrawRouteControls extends ConsumerWidget {
@@ -137,26 +137,7 @@ class DrawRouteControls extends ConsumerWidget {
               )
             else if (!drawing && (track?.trailRefs.isNotEmpty ?? false))
               _TrailTags(refs: track!.trailRefs),
-            if (drawing) ...[
-              Row(
-                children: [
-                  Icon(
-                      (track?.snapToTrail ?? true)
-                          ? Icons.route
-                          : Icons.timeline,
-                      size: 18),
-                  const SizedBox(width: 6),
-                  const Text('Segui sentieri'),
-                  const Spacer(),
-                  Switch(
-                    value: track?.snapToTrail ?? true,
-                    onChanged: (_) =>
-                        ref.read(tracksProvider.notifier).toggleSnap(),
-                  ),
-                ],
-              ),
-              _ColorPicker(selected: track?.color),
-            ],
+            if (drawing) _ColorPicker(selected: track?.color),
             const SizedBox(height: 4),
             // Controlli compatti: Percorso (profilo) · Ripidezza (icona) · azioni.
             Row(

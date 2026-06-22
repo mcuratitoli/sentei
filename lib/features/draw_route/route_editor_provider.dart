@@ -329,8 +329,6 @@ class Tracks extends Notifier<TracksState> {
 
   void setName(String name) => _updateEditing((t) => t.copyWith(name: name));
   void setColor(Color c) => _updateEditing((t) => t.copyWith(color: c));
-  void toggleSnap() => _updateEditing(
-      (t) => t.clearedComputed().copyWith(snapToTrail: !t.snapToTrail));
 
   void addPoint(LatLng p) => _updateEditing(
       (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
