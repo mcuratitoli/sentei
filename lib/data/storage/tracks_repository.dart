@@ -4,11 +4,10 @@ import 'dart:ui' show Color;
 import 'package:drift/drift.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../domain/models/elevation_profile.dart';
-import '../../domain/services/elevation_calculator.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../features/draw_route/route_editor_provider.dart';
 import 'app_database.dart';
+import 'track_codec.dart';
 
 /// Persiste le tracce su SQLite (drift) convertendo tra [DrawnTrack] di dominio
 /// e righe del database (dati strutturati serializzati in JSON).
@@ -22,7 +21,17 @@ class TracksRepository {
     return rows.map(_fromRow).toList();
   }
 
-  Future<void> save(DrawnTrack track) async {
+  /// Tracce con il loro timestamp di ultima modifica (per la sync cloud).
+  Future<List<({DrawnTrack track, DateTime updatedAt})>>
+      loadAllWithUpdatedAt() async {
+    final rows = await _db.allTracks();
+    return [for (final r in rows) (track: _fromRow(r), updatedAt: r.updatedAt)];
+  }
+
+  /// Salva una traccia. [updatedAt] esplicito quando si applica una versione
+  /// remota (per preservarne il timestamp ed evitare ri-upload inutili);
+  /// altrimenti si usa "adesso".
+  Future<void> save(DrawnTrack track, {DateTime? updatedAt}) async {
     final now = DateTime.now();
     await _db.upsertTrack(TrackRowsCompanion(
       id: Value(track.id),
@@ -34,81 +43,28 @@ class TracksRepository {
       trailRefs: Value(jsonEncode(track.trailRefs)),
       metrics: Value(_encodeMetrics(track.metrics)),
       createdAt: Value(track.createdAt ?? now),
-      updatedAt: Value(now),
+      updatedAt: Value(updatedAt ?? now),
     ));
   }
 
   Future<void> delete(String id) => _db.deleteTrack(id);
 
-  // ---- serializzazione ----------------------------------------------------
+  // ---- serializzazione (delegata a TrackCodec, fonte di verità) -----------
 
   static String _encodePoints(List<LatLng> pts) =>
-      jsonEncode([for (final p in pts) [p.latitude, p.longitude]]);
+      jsonEncode(TrackCodec.pointsToJson(pts));
 
-  static List<LatLng> _decodePoints(String json) => [
-        for (final p in (jsonDecode(json) as List))
-          LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()),
-      ];
+  static List<LatLng> _decodePoints(String json) =>
+      TrackCodec.pointsFromJson(jsonDecode(json) as List);
 
   static String? _encodeMetrics(TrackMetrics? m) {
-    if (m == null) return null;
-    return jsonEncode({
-      'd': m.distanceMeters,
-      'g': m.elevation.gain,
-      'l': m.elevation.loss,
-      'min': m.profile.minElevation,
-      'max': m.profile.maxElevation,
-      'tot': m.profile.totalDistance,
-      's': [
-        for (final s in m.profile.samples)
-          {
-            'd': s.distanceMeters,
-            'e': s.elevation,
-            'la': s.position.latitude,
-            'ln': s.position.longitude,
-          }
-      ],
-      'seg': [
-        for (final t in m.trailSegments)
-          {'f': t.fromMeters, 't': t.toMeters, 'r': t.ref}
-      ],
-    });
+    final map = TrackCodec.metricsToJson(m);
+    return map == null ? null : jsonEncode(map);
   }
 
-  static TrackMetrics? _decodeMetrics(String? json) {
-    if (json == null) return null;
-    final m = jsonDecode(json) as Map<String, dynamic>;
-    final samples = [
-      for (final s in (m['s'] as List))
-        ProfileSample(
-          distanceMeters: (s['d'] as num).toDouble(),
-          elevation: (s['e'] as num).toDouble(),
-          position: LatLng((s['la'] as num).toDouble(), (s['ln'] as num).toDouble()),
-        ),
-    ];
-    final segments = [
-      for (final s in (m['seg'] as List? ?? const []))
-        TrailSegment(
-          fromMeters: (s['f'] as num).toDouble(),
-          toMeters: (s['t'] as num).toDouble(),
-          ref: s['r'] as String,
-        ),
-    ];
-    return TrackMetrics(
-      distanceMeters: (m['d'] as num).toDouble(),
-      elevation: ElevationGainLoss(
-        gain: (m['g'] as num).toDouble(),
-        loss: (m['l'] as num).toDouble(),
-      ),
-      profile: ElevationProfile(
-        samples: samples,
-        minElevation: (m['min'] as num).toDouble(),
-        maxElevation: (m['max'] as num).toDouble(),
-        totalDistance: (m['tot'] as num).toDouble(),
-      ),
-      trailSegments: segments,
-    );
-  }
+  static TrackMetrics? _decodeMetrics(String? json) => json == null
+      ? null
+      : TrackCodec.metricsFromJson(jsonDecode(json) as Map<String, dynamic>);
 
   static DrawnTrack _fromRow(TrackRow r) => DrawnTrack(
         id: r.id,

@@ -238,7 +238,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// Ridisegna tutto dallo stato: tracce finalizzate (linea+estremi) + traccia
   /// in modifica (percorso live + waypoint trascinabili).
   Future<void> _renderAll() async {
-    if (_savedLines == null) return;
+    // I manager si creano in sequenza in _styleSetup: finché non sono TUTTI
+    // pronti non renderizzare (un listener può scattare durante il setup →
+    // null-check su un manager non ancora creato).
+    if (_savedLines == null ||
+        _savedEnds == null ||
+        _liveLine == null ||
+        _waypointDots == null) {
+      return;
+    }
     if (_rendering) {
       _renderAgain = true;
       return;

@@ -30,7 +30,10 @@ class _FakeRepo implements TracksRepository {
   @override
   Future<List<DrawnTrack>> loadAll() async => const [];
   @override
-  Future<void> save(DrawnTrack track) async {}
+  Future<List<({DrawnTrack track, DateTime updatedAt})>>
+      loadAllWithUpdatedAt() async => const [];
+  @override
+  Future<void> save(DrawnTrack track, {DateTime? updatedAt}) async {}
   @override
   Future<void> delete(String id) async {}
 }

@@ -165,6 +165,9 @@ class Tracks extends Notifier<TracksState> {
     return const TracksState();
   }
 
+  /// Ricarica le tracce dal disco (es. dopo una sincronizzazione cloud).
+  Future<void> reloadFromDisk() => _load();
+
   /// Carica le tracce salvate all'avvio.
   Future<void> _load() async {
     final loaded = await ref.read(tracksRepositoryProvider).loadAll();
