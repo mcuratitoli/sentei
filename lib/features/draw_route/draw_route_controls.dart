@@ -173,6 +173,11 @@ class DrawRouteControls extends ConsumerWidget {
                 const Spacer(),
                 if (drawing) ...[
                   IconButton(
+                    tooltip: 'Annulla e chiudi',
+                    onPressed: () => _confirmCancel(context, ref),
+                    icon: const Icon(Icons.close),
+                  ),
+                  IconButton(
                     tooltip: 'Annulla ultimo punto',
                     onPressed: (track?.waypoints.isEmpty ?? true)
                         ? null
@@ -230,6 +235,39 @@ class DrawRouteControls extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Chiede conferma e, se accordata, annulla la creazione/modifica in corso
+/// chiudendo la card. Se non c'è ancora nulla da perdere (zero punti) chiude
+/// direttamente senza dialog.
+Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
+  final st = ref.read(tracksProvider);
+  final hasWork = (st.editing?.waypoints.isNotEmpty ?? false);
+  if (!hasWork) {
+    ref.read(tracksProvider.notifier).cancelEditing();
+    return;
+  }
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Annullare?'),
+      content: const Text(
+          'Le modifiche non salvate al percorso andranno perse.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Continua a modificare'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Annulla percorso'),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) {
+    ref.read(tracksProvider.notifier).cancelEditing();
   }
 }
 

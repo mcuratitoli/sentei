@@ -159,6 +159,11 @@ Future<List<LatLng>> routeAlong(
 class Tracks extends Notifier<TracksState> {
   int _counter = 0;
 
+  /// Snapshot della traccia all'inizio di una **modifica** di traccia esistente
+  /// (per ripristinarla su "Annulla"). `null` quando si sta creando una traccia
+  /// nuova: in quel caso l'annullamento la scarta del tutto.
+  DrawnTrack? _editSnapshot;
+
   @override
   TracksState build() {
     _load();
@@ -198,12 +203,36 @@ class Tracks extends Notifier<TracksState> {
     }
     final track =
         DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
+    _editSnapshot = null; // traccia nuova
     state = TracksState(tracks: [...tracks, track], editingId: track.id);
   }
 
   void editSelected() {
     if (state.selectedId == null) return;
+    _editSnapshot = state.byId(state.selectedId); // per ripristino su Annulla
     state = TracksState(tracks: state.tracks, editingId: state.selectedId);
+  }
+
+  /// Annulla la creazione/modifica in corso e chiude la card.
+  ///
+  /// - Traccia **nuova** (nessuno snapshot): viene scartata del tutto.
+  /// - Modifica di una traccia **esistente**: ripristina lo snapshot iniziale e
+  ///   la riseleziona (i dati su disco non sono stati toccati durante l'editing).
+  void cancelEditing() {
+    final id = state.editingId;
+    if (id == null) return;
+    final snapshot = _editSnapshot;
+    _editSnapshot = null;
+    if (snapshot == null) {
+      state = TracksState(
+        tracks: state.tracks.where((t) => t.id != id).toList(),
+      );
+    } else {
+      state = TracksState(
+        tracks: [for (final t in state.tracks) t.id == id ? snapshot : t],
+        selectedId: id,
+      );
+    }
   }
 
   /// Termina il disegno: scarta tracce < 2 punti; altrimenti calcola e
@@ -213,6 +242,7 @@ class Tracks extends Notifier<TracksState> {
     if (id == null) return;
     final track = state.byId(id);
     if (track == null) return;
+    _editSnapshot = null;
 
     if (track.waypoints.length < 2) {
       state = TracksState(
