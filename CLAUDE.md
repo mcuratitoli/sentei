@@ -294,13 +294,21 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 `drift`+`drift_flutter`, `gpx`, `file_selector`, `share_plus`, `path_provider`, `google_fonts`,
 dev: `drift_dev`, `build_runner`, `flutter_launcher_icons`, `flutter_native_splash`.
 
+**Sync cloud (Google Drive) — FATTO, da testare col setup OAuth dell'utente:** interfaccia comune
+`CloudSyncService` + serializzazione condivisa `TrackCodec` + motore last-write-wins `computeSyncPlan`
+(testato) + backend `GoogleDriveSyncService` (`google_sign_in` v7 + `googleapis` Drive v3, scope `drive.file`,
+cartella "Sentèi", `<id>.json` + `<id>.gpx`). UI in Impostazioni. Credenziali via `--dart-define=GOOGLE_CLIENT_ID`.
+Setup: `docs/cloud-google-drive-setup.md`. **Snap-to-trail sempre attivo** (toggle "Segui sentieri" rimosso).
+
 **Servizi/architettura principali:**
 `data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/overpass_trail_service.dart`
-(numeri sentiero) · `data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository) ·
-`data/gpx/gpx_service.dart` · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`,
-calcolo+salvataggio al "Fine", provider DB) · `features/map/map_screen.dart` (UI mappa + barra).
+(numeri sentiero) · `data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository + `TrackCodec`) ·
+`data/cloud/` (sync: interfaccia + Google Drive) · `data/gpx/gpx_service.dart` (export = percorso instradato
+densificato con quota) · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`) ·
+`features/map_gl/map_gl_screen.dart` (UI mappa Mapbox GL + barra) · `features/settings/` (UI sync cloud).
 
 **Da fare (priorità):**
-1. **Fix IGN** (WMTS Géoplateforme dà 404) + estetica mappe (stile GaiaGPS).
-2. **Download aree offline** (FMTC: tile + DEM) — §6.1.
-3. *Rimandati:* sync **Google Drive** (§6.5); **bundling font** offline.
+1. **Testare il sync Google Drive sul device** dopo il setup OAuth; poi impl **iCloud** (§6.5, richiede Apple Developer Program).
+2. **Fix IGN** (WMTS Géoplateforme dà 404) + estetica mappe (stile GaiaGPS).
+3. **Download aree offline** (FMTC: tile + DEM) — §6.1.
+4. *Rimandati:* **bundling font** offline.
