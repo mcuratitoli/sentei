@@ -15,47 +15,53 @@ _Un'alternativa open e gratuita a GaiaGPS, pensata per il Nord Italia e le zone 
 
 ## ✨ Funzionalità
 
-- 🗺️ **Mappe topografiche affidabili** — OpenTopoMap + cartografia ufficiale SwissTopo (CH) e IGN (FR), con overlay dei sentieri segnati.
-- ✏️ **Disegno tracciati** — crea percorsi sulla mappa con calcolo automatico di **distanza** e **dislivello** (D+/D-).
-- 💾 **Salvataggio** — la tua libreria di tracciati sempre a portata di mano.
+- 🗺️ **Mappa topografica con terreno 3D** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** lungo i tracciati.
+- ✏️ **Disegno tracciati con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza** e **dislivello** (D+/D-) e profilo altimetrico interattivo.
+- 💾 **Salvataggio locale** — libreria di tracciati ordinabile e ricercabile; nascondi/mostra le tracce sulla mappa.
 - 📤 **Import/Export GPX** — compatibile con gli altri strumenti che già usi.
-- ☁️ **Sync su iCloud Drive e Google Drive** — i tuoi tracciati sul tuo cloud personale.
-- 📴 **Offline-first** — scarica le aree e usa l'app dove il segnale non arriva.
+- ☁️ **Sync su iCloud Drive e Google Drive** — i tuoi tracciati sul tuo cloud personale, con **sincronizzazione automatica** dopo salvataggi ed eliminazioni.
+- 📴 **Offline-first** — scarica aree (mappa + elevazione) e usa l'app dove il segnale non arriva.
 
 ## 📱 Piattaforme
 
-iOS e Android, da un unico codebase **Flutter**.
+iOS e Android, da un unico codebase **Flutter**. (Sviluppo e test attuali: iOS.)
 
 ## 🛠️ Stack
 
 | | |
 |---|---|
 | Framework | Flutter (Dart) |
-| Mappa | `flutter_map` (tile raster multi-sorgente) |
-| Dati | OpenStreetMap · OpenTopoMap · SwissTopo · IGN · Waymarked Trails |
-| Offline | tile caching (FMTC) + elevazione da DEM Terrarium |
+| Mappa | **Mapbox GL** (`mapbox_maps_flutter`) — stile Outdoors, terreno 3D |
+| Dati | Mapbox Outdoors · OpenStreetMap (numeri sentiero CAI via Overpass) · DEM Terrarium (quota) |
+| Routing | **BRouter** (snap-to-trail escursionistico) |
+| Offline | Mapbox OfflineManager/TileStore + DEM Terrarium cacheato |
 | Storage | SQLite (`drift`) + file GPX |
 | Cloud | iCloud Drive · Google Drive |
 
 ## 🚀 Avvio rapido
 
 ```bash
-flutter pub get      # installa le dipendenze
-flutter devices      # elenca i device disponibili
-flutter run          # avvia su device/simulatore
-flutter test         # esegue i test
+flutter pub get
+flutter run \
+  --dart-define=MAPBOX_TOKEN=pk... \
+  --dart-define=GOOGLE_CLIENT_ID=...apps.googleusercontent.com \
+  -d <device-id>
 ```
+
+> Servono un **token Mapbox** (`pk`, a runtime) + il **secret download token** (`sk`) in `~/.netrc` per scaricare l'SDK in build. Setup completo da zero (nuovo Mac, segreti, firma iOS): **[`docs/dev-setup.md`](./docs/dev-setup.md)**.
 
 ## 🗺️ Roadmap
 
-- **Fase 0** — Setup + mappa con sorgenti selezionabili
-- **Fase 1 (MVP)** — Disegno tracciati, distanza/dislivello, GPX, aree offline
-- **Fase 2** — Sync cloud + snap-to-trail (routing sui sentieri)
-- **Fase 3** — Rifiniture: ricerca località, waypoint, statistiche
+- **Fase 0** — Setup + mappa ✅
+- **Fase 1 (MVP)** — Disegno + snap-to-trail, distanza/dislivello, GPX, aree offline ✅ *(download offline da validare su device)*
+- **Fase 2** — Sync cloud (Drive + iCloud, auto-sync) ✅ · registrazione traccia live ⏳
+- **Fase 3** — Rifiniture: ricerca località, waypoint, statistiche ⏳
+
+Stato dettagliato e prossimi passi: **[`docs/ROADMAP.md`](./docs/ROADMAP.md)**.
 
 ## 📖 Documentazione
 
-Le scelte architetturali, le sorgenti dati e le note di licenza sono in **[`CLAUDE.md`](./CLAUDE.md)**.
+Scelte architetturali, sorgenti dati e licenze in **[`CLAUDE.md`](./CLAUDE.md)**. Setup sviluppo: **[`docs/dev-setup.md`](./docs/dev-setup.md)**. Cloud: [`docs/cloud-google-drive-setup.md`](./docs/cloud-google-drive-setup.md) · [`docs/cloud-icloud-setup.md`](./docs/cloud-icloud-setup.md). Beta: [`docs/testflight-setup.md`](./docs/testflight-setup.md).
 
 ## ⚖️ Licenze & attribuzioni
 
