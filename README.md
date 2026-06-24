@@ -61,7 +61,11 @@ Stato dettagliato e prossimi passi: **[`docs/ROADMAP.md`](./docs/ROADMAP.md)**.
 
 ## 📖 Documentazione
 
-Scelte architetturali, sorgenti dati e licenze in **[`CLAUDE.md`](./CLAUDE.md)**. Setup sviluppo: **[`docs/dev-setup.md`](./docs/dev-setup.md)**. Cloud: [`docs/cloud-google-drive-setup.md`](./docs/cloud-google-drive-setup.md) · [`docs/cloud-icloud-setup.md`](./docs/cloud-icloud-setup.md). Beta: [`docs/testflight-setup.md`](./docs/testflight-setup.md).
+Scelte architetturali, sorgenti dati e licenze in **[`CLAUDE.md`](./CLAUDE.md)**. Setup sviluppo: **[`docs/dev-setup.md`](./docs/dev-setup.md)**. Cloud: [`docs/cloud-google-drive-setup.md`](./docs/cloud-google-drive-setup.md) · [`docs/cloud-icloud-setup.md`](./docs/cloud-icloud-setup.md). Beta: [`docs/testflight-setup.md`](./docs/testflight-setup.md). Privacy: [`docs/privacy-policy.html`](./docs/privacy-policy.html).
+
+## 🎯 Natura del progetto
+
+**Sentèi è un progetto personale e senza fini di lucro**, sviluppato e distribuito unicamente per **scopi ricreativi e di test personale**. Non è un prodotto commerciale: nessuna pubblicità, nessuna monetizzazione, nessuna raccolta di dati su server propri. Le mappe e i servizi di terze parti sono usati nei limiti delle rispettive licenze per uso non commerciale.
 
 ## ⚖️ Licenze & attribuzioni
 
