@@ -69,6 +69,35 @@ flutter test           # suite di test (logica geo/sync)
 dart format .          # formattazione
 ```
 
+## Troubleshooting build iOS
+
+> Il progetto iOS usa **Swift Package Manager** (NON CocoaPods) per le dipendenze
+> native (Mapbox, Google Sign-In, ecc.). Gli artefatti SPM stanno in
+> `~/Library/Caches/org.swift.swiftpm` e in `DerivedData/.../SourcePackages`.
+
+- **`flutter build ipa` fallisce con `...xcframework.zip already exists in file system`
+  o `The network connection was lost`** → cache SPM corrotta/parziale (download
+  interrotto). Fix:
+  ```bash
+  rm -rf ~/Library/Caches/org.swift.swiftpm
+  find ~/Library/Developer/Xcode/DerivedData -maxdepth 2 -type d -name SourcePackages -exec rm -rf {} +
+  ```
+  poi ri-builda (riscarica tutti gli xcframework da zero, ~minuti).
+- **Download SDK Mapbox `401/403`** → manca/è errato il `sk` in `~/.netrc` (vedi §2).
+
+## Lavorare da un altro Mac (sincronizzazione segreti)
+
+Il repo NON contiene i segreti, quindi sul secondo Mac servono:
+1. **`~/.netrc`** con lo stesso token `sk` Mapbox. Puoi **copiare il file** in modo
+   sicuro (è un secret: AirDrop/password manager, non email/chat in chiaro) **oppure**
+   rigenerare un token con scope **Downloads:Read** su account.mapbox.com — è
+   account-wide, lo stesso vale su entrambe le macchine. `chmod 600 ~/.netrc`.
+2. **Login Apple ID in Xcode** (Settings → Accounts) col proprietario del team
+   `W8XCSNY6V3` — necessario per firmare.
+3. (Android) stesso token in `~/.gradle/gradle.properties` come `MAPBOX_DOWNLOADS_TOKEN=sk...`.
+4. I valori `pk` Mapbox e `GOOGLE_CLIENT_ID` (`--dart-define`) non sono segreti e
+   sono in `docs/testflight-setup.md` / `docs/cloud-google-drive-setup.md`.
+
 ## Dove guardare per ripartire
 
 - **Stato e prossimi passi:** `docs/ROADMAP.md` (sezione "Ripartenza rapida" in cima).

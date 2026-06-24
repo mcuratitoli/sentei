@@ -4,6 +4,10 @@
 	<dict>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Sentèi usa la tua posizione per mostrarti sulla mappa durante le escursioni.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Sentèi usa la tua posizione per mostrarti sulla mappa durante le escursioni.</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>Sentèi usa la tua posizione per mostrarti sulla mappa durante le escursioni.</string>
 		<key>ITSAppUsesNonExemptEncryption</key>
 		<false/>
 		<key>CADisableMinimumFrameDurationOnPhone</key>

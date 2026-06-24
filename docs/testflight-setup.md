@@ -61,9 +61,19 @@ Gli amici non sono nel tuo team → **tester esterni**:
 
 ## Aggiornamenti successivi
 
-Ogni upload richiede un **build number** nuovo: incrementa il `+N` in
-`pubspec.yaml` (`version: 1.0.0+2`, `+3`, …) prima di ribuildare. Le build
-successive per un gruppo già approvato non rifanno la Beta App Review.
+⚠️ **Ogni upload richiede un build number nuovo:** incrementa il `+N` in
+`pubspec.yaml` (`version: 1.0.0+2`, `+3`, …) **prima** di ribuildare, altrimenti
+Transporter rifiuta l'upload (numero già usato). Le build successive per un gruppo
+già approvato non rifanno la Beta App Review.
+
+## Warning di validazione già risolti
+
+- **90683 — `Missing purpose string ... NSLocationAlwaysAndWhenInUseUsageDescription`**:
+  il plugin `geolocator` referenzia l'API di location "always" (anche se l'app usa
+  solo il foreground), quindi Apple pretende la purpose string. Aggiunte in
+  `ios/Runner/Info.plist`: `NSLocationAlwaysAndWhenInUseUsageDescription` +
+  `NSLocationAlwaysUsageDescription` (oltre a `NSLocationWhenInUseUsageDescription`).
+  Risolto dalla build `1.0.0+2` in poi.
 
 ## Note
 
