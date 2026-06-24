@@ -52,9 +52,11 @@ flutter run \
 
 ## 🗺️ Roadmap
 
+> **Stato attuale:** app funzionante, testata su iPhone fisico + simulatore; **prima beta in distribuzione chiusa su TestFlight**. Cloud Drive/iCloud attivi su iOS.
+
 - **Fase 0** — Setup + mappa ✅
-- **Fase 1 (MVP)** — Disegno + snap-to-trail, distanza/dislivello, GPX, aree offline ✅ *(download offline da validare su device)*
-- **Fase 2** — Sync cloud (Drive + iCloud, auto-sync) ✅ · registrazione traccia live ⏳
+- **Fase 1 (MVP)** — Disegno + snap-to-trail, distanza/dislivello, GPX, aree offline ✅ *(download offline implementato, da validare in modalità aereo su device)*
+- **Fase 2** — Sync cloud (Drive + iCloud, auto-sync) ✅ *(su iOS; Drive su Android ancora da configurare)* · registrazione traccia live ⏳
 - **Fase 3** — Rifiniture: ricerca località, waypoint, statistiche ⏳
 
 Stato dettagliato e prossimi passi: **[`docs/ROADMAP.md`](./docs/ROADMAP.md)**.
