@@ -899,29 +899,27 @@ class _SideControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // La bussola appare solo quando la mappa è ruotata (come quella nativa).
-    final rotated = bearing.abs() > 1;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (rotated) ...[
-          _RoundMapButton(
-            tooltip: 'Nord in alto',
-            onPressed: onResetNorth,
-            child: Transform.rotate(
-              // L'ago punta sempre al nord reale: ruota in senso opposto.
-              angle: -bearing * math.pi / 180.0,
-              child: Icon(Icons.navigation, size: 22, color: scheme.primary),
-            ),
+        // Bussola sempre presente: l'ago segue l'orientamento (nord-su se non
+        // ruotata); tap → nord in alto.
+        _RoundMapButton(
+          tooltip: 'Nord in alto',
+          onPressed: onResetNorth,
+          child: Transform.rotate(
+            // L'ago punta sempre al nord reale: ruota in senso opposto.
+            angle: -bearing * math.pi / 180.0,
+            child: Icon(Icons.navigation, size: 18, color: scheme.primary),
           ),
-          const SizedBox(height: 10),
-        ],
+        ),
+        const SizedBox(height: 9),
         _RoundMapButton(
           tooltip: 'La mia posizione',
           onPressed: onLocate,
-          child: const Icon(Icons.my_location, size: 22),
+          child: const Icon(Icons.my_location, size: 18),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 9),
         _RoundMapButton(
           tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
           onPressed: onToggle3D,
@@ -929,7 +927,7 @@ class _SideControls extends StatelessWidget {
             is3D ? '2D' : '3D',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              fontSize: 12,
               color: scheme.onSurface,
             ),
           ),
@@ -964,8 +962,8 @@ class _RoundMapButton extends StatelessWidget {
         child: Tooltip(
           message: tooltip ?? '',
           child: SizedBox(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             child: Center(child: child),
           ),
         ),
