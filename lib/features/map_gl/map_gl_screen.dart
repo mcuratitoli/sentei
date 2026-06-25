@@ -109,19 +109,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     await _trySetup();
   }
 
-  /// Posiziona la bussola Mapbox in alto a destra, appena sotto la safe area,
-  /// così i bottoni custom (posizione / 3D) le si allineano sotto. Nasconde
-  /// scale bar e logo/attribution ridondanti spostandoli in basso a sinistra.
+  /// Disabilita la **bussola nativa** Mapbox: si sovrapponeva ai bottoni custom
+  /// in alto a destra (posizione / 3D). La **scale bar** (km in base allo zoom)
+  /// resta ai default Mapbox, in alto a sinistra.
   Future<void> _configureOrnaments(MapboxMap map) async {
     if (_ornamentsConfigured) return;
     _ornamentsConfigured = true;
-    final topPad = mounted ? MediaQuery.of(context).padding.top : 0.0;
-    await map.compass.updateSettings(CompassSettings(
-      position: OrnamentPosition.TOP_RIGHT,
-      marginTop: topPad + 8,
-      marginRight: 12,
-    ));
-    await map.scaleBar.updateSettings(ScaleBarSettings(enabled: false));
+    await map.compass.updateSettings(CompassSettings(enabled: false));
   }
 
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
@@ -714,49 +708,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
           ),
-          // Controlli in alto a destra (sotto la bussola Mapbox): posizione e
-          // 2D/3D. Nascosti durante la ricerca per non sovrapporsi al pannello.
-          if (!_searchOpen)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  // 48 ≈ altezza bussola + margini: i bottoni le stanno sotto.
-                  padding: const EdgeInsets.only(top: 48, right: 12),
-                  child: _SideControls(
-                    is3D: _is3D,
-                    onLocate: _locate,
-                    onToggle3D: _toggle3D,
-                  ),
+          // Controlli in alto a destra: posizione e 2D/3D. La bussola nativa è
+          // disabilitata (vi si sovrapponeva), quindi stanno in cima a destra.
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8, right: 12),
+                child: _SideControls(
+                  is3D: _is3D,
+                  onLocate: _locate,
+                  onToggle3D: _toggle3D,
                 ),
               ),
             ),
-          // Pannello di ricerca luoghi (apribile dalla lente).
-          if (_searchOpen)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: _SearchPanel(
-                    controller: _searchCtrl,
-                    searching: _searching,
-                    results: _searchResults,
-                    onChanged: _onSearchChanged,
-                    onSubmitted: (_) {
-                      if (_searchResults.isNotEmpty) {
-                        _goToResult(_searchResults.first);
-                      }
-                    },
-                    onPick: _goToResult,
-                    onClose: _closeSearch,
-                  ),
-                ),
-              ),
-            ),
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
@@ -764,6 +731,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const DrawRouteControls(),
+                  // Pannello di ricerca luoghi (dalla lente): sopra la menubar,
+                  // con i risultati che crescono verso l'alto.
+                  if (_searchOpen)
+                    _SearchPanel(
+                      controller: _searchCtrl,
+                      searching: _searching,
+                      results: _searchResults,
+                      onChanged: _onSearchChanged,
+                      onSubmitted: (_) {
+                        if (_searchResults.isNotEmpty) {
+                          _goToResult(_searchResults.first);
+                        }
+                      },
+                      onPick: _goToResult,
+                      onClose: _closeSearch,
+                    ),
                   // La toolbar c'è solo quando NON è mostrata la card: così la
                   // card di dettaglio occupa il fondo dello schermo.
                   if (!showCard)
@@ -937,8 +920,9 @@ class _RoundMapButton extends StatelessWidget {
   }
 }
 
-/// Pannello di ricerca luoghi: campo testo + elenco risultati. Scegliendo un
-/// risultato (o all'invio) la mappa si sposta sul luogo.
+/// Pannello di ricerca luoghi, ancorato **in basso** (sopra la menubar): la
+/// lista risultati cresce verso l'alto, il campo testo è una pillola arrotondata
+/// coordinata con la barra. Scegliendo un risultato (o all'invio) la mappa vola lì.
 class _SearchPanel extends StatelessWidget {
   const _SearchPanel({
     required this.controller,
@@ -961,80 +945,96 @@ class _SearchPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      elevation: 6,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
+    final width = MediaQuery.of(context).size.width - 16;
+    return SizedBox(
+      width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Chiudi',
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: onClose,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    decoration: const InputDecoration(
-                      hintText: 'Cerca un luogo',
-                      border: InputBorder.none,
-                    ),
-                    onChanged: onChanged,
-                    onSubmitted: onSubmitted,
-                  ),
-                ),
-                if (searching)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                else if (controller.text.isNotEmpty)
-                  IconButton(
-                    tooltip: 'Cancella',
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      controller.clear();
-                      onChanged('');
+          // Risultati: sopra il campo, crescono verso l'alto.
+          if (results.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: scheme.surface,
+                elevation: 6,
+                borderRadius: BorderRadius.circular(24),
+                clipBehavior: Clip.antiAlias,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 260),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: results.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, i) {
+                      final r = results[i];
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.place_outlined),
+                        title: Text(r.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: r.context.isEmpty
+                            ? null
+                            : Text(r.context,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                        onTap: () => onPick(r),
+                      );
                     },
                   ),
-              ],
-            ),
-          ),
-          if (results.isNotEmpty)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: results.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final r = results[i];
-                  return ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.place_outlined),
-                    title: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: r.context.isEmpty
-                        ? null
-                        : Text(r.context,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                    onTap: () => onPick(r),
-                  );
-                },
+                ),
               ),
             ),
+          // Campo di ricerca (pillola arrotondata come la menubar).
+          Material(
+            color: scheme.surface,
+            elevation: 6,
+            borderRadius: BorderRadius.circular(28),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Chiudi',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: onClose,
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      decoration: const InputDecoration(
+                        hintText: 'Cerca un luogo',
+                        border: InputBorder.none,
+                      ),
+                      onChanged: onChanged,
+                      onSubmitted: onSubmitted,
+                    ),
+                  ),
+                  if (searching)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 14),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else if (controller.text.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Cancella',
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        controller.clear();
+                        onChanged('');
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
