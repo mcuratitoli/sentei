@@ -60,6 +60,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   bool _renderAgain = false;
   bool _is3D = false;
   bool _ornamentsConfigured = false;
+  // Orientamento corrente della camera (per la bussola custom e il toggle 2D/3D).
+  double _bearing = 0;
+  double _pitch = 0;
 
   // Ricerca luoghi (apribile dalla lente nella barra in basso).
   bool _searchOpen = false;
@@ -582,6 +585,33 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     if (mounted) setState(() => _is3D = to3D);
   }
 
+  /// Aggiorna l'orientamento (bussola custom + stato 2D/3D) seguendo la camera.
+  void _onCameraChange(CameraChangedEventData data) {
+    final b = data.cameraState.bearing;
+    final p = data.cameraState.pitch;
+    final is3D = p > 1;
+    if ((b - _bearing).abs() < 0.5 &&
+        (p - _pitch).abs() < 0.5 &&
+        is3D == _is3D) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _bearing = b;
+        _pitch = p;
+        _is3D = is3D;
+      });
+    }
+  }
+
+  /// Riporta il nord in alto (e azzera l'eventuale rotazione) mantenendo il pitch.
+  Future<void> _resetNorth() async {
+    await _map?.flyTo(
+      CameraOptions(bearing: 0),
+      MapAnimationOptions(duration: 400),
+    );
+  }
+
   /// Centra/inquadra la mappa su una traccia (richiesto dalla lista tracce).
   Future<void> _focusTrack(String id) async {
     final map = _map;
@@ -707,6 +737,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
+            onCameraChangeListener: _onCameraChange,
           ),
           // Controlli in alto a destra: posizione e 2D/3D. La bussola nativa è
           // disabilitata (vi si sovrapponeva), quindi stanno in cima a destra.
@@ -718,8 +749,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 padding: const EdgeInsets.only(top: 8, right: 12),
                 child: _SideControls(
                   is3D: _is3D,
+                  bearing: _bearing,
                   onLocate: _locate,
                   onToggle3D: _toggle3D,
+                  onResetNorth: _resetNorth,
                 ),
               ),
             ),
@@ -747,6 +780,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                       onPick: _goToResult,
                       onClose: _closeSearch,
                     ),
+                  // Respiro tra la ricerca e la menubar.
+                  if (_searchOpen) const SizedBox(height: 12),
                   // La toolbar c'è solo quando NON è mostrata la card: così la
                   // card di dettaglio occupa il fondo dello schermo.
                   if (!showCard)
@@ -844,24 +879,43 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
-/// Controlli in alto a destra (sotto la bussola): posizione e 2D/3D.
-/// Stile e dimensione coordinati con la bussola Mapbox e la barra in basso.
+/// Controlli in alto a destra: bussola (solo se ruotata) · posizione · 2D/3D.
+/// Stile e dimensione (~44px) coordinati con la barra in basso.
 class _SideControls extends StatelessWidget {
   const _SideControls({
     required this.is3D,
+    required this.bearing,
     required this.onLocate,
     required this.onToggle3D,
+    required this.onResetNorth,
   });
 
   final bool is3D;
+  final double bearing;
   final VoidCallback onLocate;
   final VoidCallback onToggle3D;
+  final VoidCallback onResetNorth;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // La bussola appare solo quando la mappa è ruotata (come quella nativa).
+    final rotated = bearing.abs() > 1;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (rotated) ...[
+          _RoundMapButton(
+            tooltip: 'Nord in alto',
+            onPressed: onResetNorth,
+            child: Transform.rotate(
+              // L'ago punta sempre al nord reale: ruota in senso opposto.
+              angle: -bearing * math.pi / 180.0,
+              child: Icon(Icons.navigation, size: 22, color: scheme.primary),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         _RoundMapButton(
           tooltip: 'La mia posizione',
           onPressed: onLocate,
@@ -876,7 +930,7 @@ class _SideControls extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: scheme.onSurface,
             ),
           ),
         ),
