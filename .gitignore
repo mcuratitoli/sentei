@@ -47,3 +47,6 @@ app.*.map.json
 # Other
 /temp-logo/
 .tokensave
+
+# Android Gradle build output
+android/build/

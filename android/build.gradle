@@ -5,14 +5,31 @@ allprojects {
     }
 }
 
-rootProject.buildDir = '../build'
+def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
 subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.layout.buildDirectory.value(newBuildDir.dir(project.name))
 }
+
+// Alcuni plugin (es. mapbox_maps_flutter 2.25) compilano contro compileSdk 35,
+// ma altre dipendenze (flutter_plugin_android_lifecycle) richiedono 36+.
+// Forza compileSdk 36 su tutti i moduli Android per evitare il conflitto AAR.
+// NB: va registrato PRIMA di evaluationDependsOn (che forza la valutazione).
+subprojects {
+    afterEvaluate { project ->
+        if (project.extensions.findByName("android") != null) {
+            project.android {
+                compileSdk = 36
+            }
+        }
+    }
+}
+
 subprojects {
     project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
