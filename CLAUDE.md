@@ -307,8 +307,13 @@ Setup: `docs/cloud-google-drive-setup.md`. **Snap-to-trail sempre attivo** (togg
 densificato con quota) · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`) ·
 `features/map_gl/map_gl_screen.dart` (UI mappa Mapbox GL + barra) · `features/settings/` (UI sync cloud).
 
+**Distribuzione (giu 2026):**
+- **iOS:** beta **live su TestFlight** (build `1.0.0+2`, tester esterni approvati). Privacy policy su GitHub Pages, repo pubblico. Guide: `docs/testflight-setup.md`, `docs/testflight-amici.md`.
+- **Android:** **APK sideload generato** (`app-release.apk`, debug-signed). Toolchain migrata a **Gradle 9.1 / AGP 9.0.1 / Kotlin 2.3.20 / Java 17** + `compileSdk=36` forzato sui moduli. Guida: `docs/android-apk-setup.md`.
+
 **Da fare (priorità):**
-1. **Testare il sync Google Drive sul device** dopo il setup OAuth; poi impl **iCloud** (§6.5, richiede Apple Developer Program).
-2. **Fix IGN** (WMTS Géoplateforme dà 404) + estetica mappe (stile GaiaGPS).
-3. **Download aree offline** (FMTC: tile + DEM) — §6.1.
-4. *Rimandati:* **bundling font** offline.
+1. **Verifiche sul device fisico:** download mappe/elevazione offline in modalità aereo; ricerca luoghi e focus-traccia (UI nuove).
+2. **Drive su Android** (manca client OAuth + SHA-1) + APK `--split-per-abi` per file più leggeri.
+3. *Rimandati:* **bundling font** offline; **registrazione traccia live** (background, Fase 2).
+
+> **Nota IGN/multi-sorgente:** OBSOLETO dopo la migrazione a Mapbox GL (mappa = singolo stile Mapbox).
