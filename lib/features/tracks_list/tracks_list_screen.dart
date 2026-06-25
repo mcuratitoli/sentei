@@ -11,6 +11,7 @@ import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../draw_route/route_editor_provider.dart';
+import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 
 enum _SortMode { date, alpha }
@@ -129,6 +130,8 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
                   ),
                   onTap: () {
                     ref.read(tracksProvider.notifier).select(t.id);
+                    // Centra la mappa sulla traccia così non va cercata a mano.
+                    ref.read(mapFocusProvider.notifier).focusTrack(t.id);
                     context.pop();
                   },
                 );

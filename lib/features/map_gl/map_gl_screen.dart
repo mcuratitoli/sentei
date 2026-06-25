@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -9,6 +10,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../core/constants.dart';
 import '../../data/location/location_service.dart';
+import '../../data/search/geocoding_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
 import '../draw_route/draw_route_controls.dart';
@@ -57,6 +59,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   bool _rendering = false;
   bool _renderAgain = false;
   bool _is3D = false;
+  bool _ornamentsConfigured = false;
+
+  // Ricerca luoghi (apribile dalla lente nella barra in basso).
+  bool _searchOpen = false;
+  bool _searching = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  List<GeocodeResult> _searchResults = const [];
 
   // Cache area numeri sentiero già scaricata (gradi).
   double? _tS, _tW, _tN, _tE;
@@ -95,7 +105,23 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       pulsingEnabled: true,
       puckBearingEnabled: true,
     ));
+    await _configureOrnaments(map);
     await _trySetup();
+  }
+
+  /// Posiziona la bussola Mapbox in alto a destra, appena sotto la safe area,
+  /// così i bottoni custom (posizione / 3D) le si allineano sotto. Nasconde
+  /// scale bar e logo/attribution ridondanti spostandoli in basso a sinistra.
+  Future<void> _configureOrnaments(MapboxMap map) async {
+    if (_ornamentsConfigured) return;
+    _ornamentsConfigured = true;
+    final topPad = mounted ? MediaQuery.of(context).padding.top : 0.0;
+    await map.compass.updateSettings(CompassSettings(
+      position: OrnamentPosition.TOP_RIGHT,
+      marginTop: topPad + 8,
+      marginRight: 12,
+    ));
+    await map.scaleBar.updateSettings(ScaleBarSettings(enabled: false));
   }
 
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
@@ -562,6 +588,99 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     if (mounted) setState(() => _is3D = to3D);
   }
 
+  /// Centra/inquadra la mappa su una traccia (richiesto dalla lista tracce).
+  Future<void> _focusTrack(String id) async {
+    final map = _map;
+    if (map == null) return;
+    final t = ref.read(tracksProvider).byId(id);
+    if (t == null) return;
+    final path =
+        t.routedPath.length >= 2 ? t.routedPath : t.waypoints;
+    if (path.isEmpty) return;
+    // La card di dettaglio occupa il fondo: più padding sotto.
+    final padding =
+        MbxEdgeInsets(top: 90, left: 50, bottom: 260, right: 50);
+    if (path.length == 1) {
+      await map.flyTo(
+        CameraOptions(
+          center: Point(
+              coordinates:
+                  Position(path.first.longitude, path.first.latitude)),
+          zoom: 14,
+        ),
+        MapAnimationOptions(duration: 700),
+      );
+      return;
+    }
+    final coords = [
+      for (final p in path) Point(coordinates: Position(p.longitude, p.latitude)),
+    ];
+    final cam = await map.cameraForCoordinates(coords, padding, null, null);
+    await map.flyTo(cam, MapAnimationOptions(duration: 800));
+  }
+
+  // ---- Ricerca luoghi -----------------------------------------------------
+
+  void _openSearch() => setState(() => _searchOpen = true);
+
+  void _closeSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchOpen = false;
+      _searching = false;
+      _searchResults = const [];
+      _searchCtrl.clear();
+    });
+  }
+
+  void _onSearchChanged(String v) {
+    _searchDebounce?.cancel();
+    if (v.trim().isEmpty) {
+      setState(() {
+        _searchResults = const [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _searchDebounce =
+        Timer(const Duration(milliseconds: 350), () => _runSearch(v));
+  }
+
+  Future<void> _runSearch(String q) async {
+    ll.LatLng? prox;
+    final cam = await _map?.getCameraState();
+    if (cam != null) {
+      final c = cam.center.coordinates;
+      prox = ll.LatLng(c.lat.toDouble(), c.lng.toDouble());
+    }
+    final results =
+        await ref.read(geocodingServiceProvider).search(q, proximity: prox);
+    if (!mounted || !_searchOpen) return;
+    setState(() {
+      _searchResults = results;
+      _searching = false;
+    });
+  }
+
+  Future<void> _goToResult(GeocodeResult r) async {
+    await _map?.flyTo(
+      CameraOptions(
+        center:
+            Point(coordinates: Position(r.center.longitude, r.center.latitude)),
+        zoom: 14,
+      ),
+      MapAnimationOptions(duration: 800),
+    );
+    _closeSearch();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   // ---- UI -----------------------------------------------------------------
 
@@ -579,6 +698,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
+    ref.listen(mapFocusProvider, (_, next) {
+      if (next != null) _focusTrack(next.trackId);
+    });
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
     }
@@ -592,6 +714,49 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
           ),
+          // Controlli in alto a destra (sotto la bussola Mapbox): posizione e
+          // 2D/3D. Nascosti durante la ricerca per non sovrapporsi al pannello.
+          if (!_searchOpen)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  // 48 ≈ altezza bussola + margini: i bottoni le stanno sotto.
+                  padding: const EdgeInsets.only(top: 48, right: 12),
+                  child: _SideControls(
+                    is3D: _is3D,
+                    onLocate: _locate,
+                    onToggle3D: _toggle3D,
+                  ),
+                ),
+              ),
+            ),
+          // Pannello di ricerca luoghi (apribile dalla lente).
+          if (_searchOpen)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: _SearchPanel(
+                    controller: _searchCtrl,
+                    searching: _searching,
+                    results: _searchResults,
+                    onChanged: _onSearchChanged,
+                    onSubmitted: (_) {
+                      if (_searchResults.isNotEmpty) {
+                        _goToResult(_searchResults.first);
+                      }
+                    },
+                    onPick: _goToResult,
+                    onClose: _closeSearch,
+                  ),
+                ),
+              ),
+            ),
           Align(
             alignment: Alignment.bottomCenter,
             child: SafeArea(
@@ -603,9 +768,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                   // card di dettaglio occupa il fondo dello schermo.
                   if (!showCard)
                     _BottomBar(
-                      onLocate: _locate,
-                      is3D: _is3D,
-                      onToggle3D: _toggle3D,
+                      onSearch: _openSearch,
                       tracksHidden: ref.watch(tracksHiddenProvider),
                       onToggleHide: () {
                         final notifier = ref.read(tracksProvider.notifier);
@@ -627,13 +790,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   }
 }
 
-/// Barra flottante in basso (dock): posizione · 3D/2D · + · tracce · impostazioni.
-/// (La bussola/nord è fornita nativamente da Mapbox.)
+/// Barra flottante in basso (dock): ricerca · occhio · + · tracce · impostazioni.
+/// (La bussola/nord e i bottoni posizione/3D stanno in alto a destra.)
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
-    required this.onLocate,
-    required this.is3D,
-    required this.onToggle3D,
+    required this.onSearch,
     required this.tracksHidden,
     required this.onToggleHide,
     required this.onNewTrack,
@@ -641,9 +802,7 @@ class _BottomBar extends StatelessWidget {
     required this.onSettings,
   });
 
-  final VoidCallback onLocate;
-  final bool is3D;
-  final VoidCallback onToggle3D;
+  final VoidCallback onSearch;
   final bool tracksHidden;
   final VoidCallback onToggleHide;
   final VoidCallback onNewTrack;
@@ -666,21 +825,9 @@ class _BottomBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'La mia posizione',
-                icon: const Icon(Icons.my_location),
-                onPressed: onLocate,
-              ),
-              IconButton(
-                tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
-                onPressed: onToggle3D,
-                icon: Text(
-                  is3D ? '2D' : '3D',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: scheme.onSurface,
-                  ),
-                ),
+                tooltip: 'Cerca un luogo',
+                icon: const Icon(Icons.search),
+                onPressed: onSearch,
               ),
               IconButton(
                 tooltip: tracksHidden
@@ -709,6 +856,186 @@ class _BottomBar extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Controlli in alto a destra (sotto la bussola): posizione e 2D/3D.
+/// Stile e dimensione coordinati con la bussola Mapbox e la barra in basso.
+class _SideControls extends StatelessWidget {
+  const _SideControls({
+    required this.is3D,
+    required this.onLocate,
+    required this.onToggle3D,
+  });
+
+  final bool is3D;
+  final VoidCallback onLocate;
+  final VoidCallback onToggle3D;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _RoundMapButton(
+          tooltip: 'La mia posizione',
+          onPressed: onLocate,
+          child: const Icon(Icons.my_location, size: 22),
+        ),
+        const SizedBox(height: 10),
+        _RoundMapButton(
+          tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
+          onPressed: onToggle3D,
+          child: Text(
+            is3D ? '2D' : '3D',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bottone circolare flottante (~44px) coerente con la barra in basso.
+class _RoundMapButton extends StatelessWidget {
+  const _RoundMapButton({
+    required this.child,
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final Widget child;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: Tooltip(
+          message: tooltip ?? '',
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pannello di ricerca luoghi: campo testo + elenco risultati. Scegliendo un
+/// risultato (o all'invio) la mappa si sposta sul luogo.
+class _SearchPanel extends StatelessWidget {
+  const _SearchPanel({
+    required this.controller,
+    required this.searching,
+    required this.results,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onPick,
+    required this.onClose,
+  });
+
+  final TextEditingController controller;
+  final bool searching;
+  final List<GeocodeResult> results;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final ValueChanged<GeocodeResult> onPick;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Chiudi',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: onClose,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    decoration: const InputDecoration(
+                      hintText: 'Cerca un luogo',
+                      border: InputBorder.none,
+                    ),
+                    onChanged: onChanged,
+                    onSubmitted: onSubmitted,
+                  ),
+                ),
+                if (searching)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                else if (controller.text.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Cancella',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      controller.clear();
+                      onChanged('');
+                    },
+                  ),
+              ],
+            ),
+          ),
+          if (results.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: results.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final r = results[i];
+                  return ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.place_outlined),
+                    title: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: r.context.isEmpty
+                        ? null
+                        : Text(r.context,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onTap: () => onPick(r),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
