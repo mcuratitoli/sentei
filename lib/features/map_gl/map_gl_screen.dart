@@ -612,6 +612,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     );
   }
 
+  /// Centra la mappa su una traccia, differendo l'operazione se la mappa non è
+  /// la route attiva (es. lista tracciati è ancora in primo piano durante il pop).
+  /// `cameraForCoordinates` necessita che la mappa sia visibile per calcolare
+  /// correttamente i bounds; se chiamata in background restituisce valori invalidi.
+  void _scheduleFocusTrack(String id) {
+    if (ModalRoute.of(context)?.isCurrent ?? true) {
+      _focusTrack(id);
+    } else {
+      // Attendi che l'animazione di pop della lista tracce sia completata (~300ms)
+      // prima di spostare la camera; altrimenti cameraForCoordinates fallisce.
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) _focusTrack(id);
+      });
+    }
+  }
+
   /// Centra/inquadra la mappa su una traccia (richiesto dalla lista tracce).
   Future<void> _focusTrack(String id) async {
     final map = _map;
@@ -723,7 +739,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
-      if (next != null) _focusTrack(next.trackId);
+      if (next != null) _scheduleFocusTrack(next.trackId);
     });
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
