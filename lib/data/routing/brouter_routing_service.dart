@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -16,21 +17,20 @@ class BRouterRoutingService implements RoutingService {
   BRouterRoutingService({
     http.Client? client,
     this.baseUrl = 'https://brouter.de/brouter',
-    this.timeout = const Duration(seconds: 20),
+    this.timeout = const Duration(seconds: 12),
     this.profiles = const ['hiking-mountain', 'trekking'],
-    this.retryDelay = const Duration(milliseconds: 400),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;
   final Duration timeout;
 
-  /// Profili provati **in ordine**. Il server pubblico BRouter a volte uccide
-  /// il calcolo ("operation killed by thread-priority-watchdog"): si ritenta e,
-  /// se i profili `hiking-*` falliscono (ricerca troppo costosa in alta quota),
-  /// si ripiega su `trekking`, che resta sui sentieri ma è più leggero.
+  /// Profili provati **in parallelo**. Il server pubblico BRouter a volte uccide
+  /// il calcolo ("operation killed by thread-priority-watchdog", ~8s) per i
+  /// tratti alpini impegnativi: lanciando entrambe le richieste simultaneamente
+  /// si attende solo il più veloce tra i due esiti (successo o fallimento),
+  /// invece di pagarli in sequenza.
   final List<String> profiles;
-  final Duration retryDelay;
 
   @override
   Future<RouteResult> route(List<LatLng> waypoints, {String? profile}) async {
@@ -42,28 +42,56 @@ class BRouterRoutingService implements RoutingService {
         waypoints.map((p) => '${p.longitude},${p.latitude}').join('|');
     final chain = profile != null ? [profile] : profiles;
 
-    RoutingException last = const RoutingException('routing non riuscito');
-    for (var i = 0; i < chain.length; i++) {
-      final uri = Uri.parse(baseUrl).replace(queryParameters: {
-        'lonlats': lonlats,
-        'profile': chain[i],
-        'alternativeidx': '0',
-        'format': 'geojson',
-      });
-      try {
-        final res = await _client.get(uri).timeout(timeout);
-        if (res.statusCode == 200) return parseGeoJson(res.body);
-        last = RoutingException('HTTP ${res.statusCode}: ${res.body.trim()}');
-      } catch (e) {
-        last = RoutingException('Rete/timeout: $e');
-      }
-      if (i < chain.length - 1) {
-        debugPrint('[routing] profilo "${chain[i]}" fallito (${last.message}), '
-            'provo "${chain[i + 1]}"…');
-        await Future<void>.delayed(retryDelay);
-      }
+    if (chain.length == 1) {
+      return _fetchProfile(lonlats, chain.first);
     }
-    throw last;
+
+    // Tutte le richieste partono in parallelo: ritorna al primo successo,
+    // lancia eccezione solo se TUTTE falliscono.
+    final completer = Completer<RouteResult>();
+    var remaining = chain.length;
+    RoutingException? lastError;
+
+    for (final p in chain) {
+      _fetchProfile(lonlats, p).then(
+        (result) {
+          if (!completer.isCompleted) {
+            debugPrint('[routing] profilo "$p" riuscito');
+            completer.complete(result);
+          }
+        },
+        // ignore: avoid_types_on_closure_parameters
+        onError: (Object e) {
+          lastError =
+              e is RoutingException ? e : RoutingException('Rete/timeout: $e');
+          debugPrint('[routing] profilo "$p" fallito (${lastError!.message})');
+          remaining--;
+          if (remaining == 0 && !completer.isCompleted) {
+            completer.completeError(lastError!, StackTrace.current);
+          }
+        },
+      );
+    }
+
+    return completer.future;
+  }
+
+  Future<RouteResult> _fetchProfile(String lonlats, String profile) async {
+    final uri = Uri.parse(baseUrl).replace(queryParameters: {
+      'lonlats': lonlats,
+      'profile': profile,
+      'alternativeidx': '0',
+      'format': 'geojson',
+    });
+    try {
+      final res = await _client.get(uri).timeout(timeout);
+      if (res.statusCode == 200) return parseGeoJson(res.body);
+      throw RoutingException('HTTP ${res.statusCode}: ${res.body.trim()}');
+    } on RoutingException {
+      rethrow;
+    } catch (e) {
+      throw RoutingException('Rete/timeout: $e');
+    }
   }
 
   /// Parsa la risposta GeoJSON di BRouter. Esposto per i test.
