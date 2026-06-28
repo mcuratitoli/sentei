@@ -4,14 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../data/location/location_service.dart';
+import '../../data/search/combined_geocoding_service.dart';
 import '../../data/search/geocoding_service.dart';
 import '../../data/trails/trail_network_service.dart';
 
 final trailNetworkServiceProvider =
     Provider<TrailNetworkService>((ref) => TrailNetworkService());
 
+/// Nominatim (OSM) come fonte primaria + Mapbox come complemento.
+/// Nominatim copre rifugi, vette, passi e altri POI alpini non presenti
+/// nel database proprietario Mapbox.
 final geocodingServiceProvider =
-    Provider<GeocodingService>((ref) => GeocodingService());
+    Provider<CombinedGeocodingService>((ref) => CombinedGeocodingService());
 
 final locationServiceProvider =
     Provider<LocationService>((ref) => const LocationService());
