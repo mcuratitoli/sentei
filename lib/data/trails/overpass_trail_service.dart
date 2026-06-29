@@ -85,9 +85,11 @@ class OverpassTrailService {
   Future<List<_Relation>> _fetchRelations(List<LatLng> path) async {
     final sample = _sample(path, maxPoints);
     final coords = sample.map((p) => '${p.latitude},${p.longitude}').join(',');
+    // Cerca direttamente le relazioni route=hiking nel raggio, senza passare per
+    // le way con highway. Questo copre anche sentieri su ghiacciaio e tracciati
+    // alpini che non hanno il tag highway (frequente in Valle d'Aosta e alta quota).
     final query = '[out:json][timeout:25];'
-        'way(around:$aroundMeters,$coords)["highway"]->.w;'
-        'rel(bw.w)["route"="hiking"];'
+        'rel["route"="hiking"](around:$aroundMeters,$coords);'
         'out geom;';
 
     final List<dynamic> elements;

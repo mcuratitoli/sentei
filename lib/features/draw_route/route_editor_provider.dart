@@ -106,6 +106,7 @@ class TracksState {
     this.editingId,
     this.selectedId,
     this.savingId,
+    this.geometryNonce = 0,
   });
 
   final List<DrawnTrack> tracks;
@@ -114,6 +115,11 @@ class TracksState {
 
   /// Id della traccia per cui è in corso calcolo+salvataggio dopo il "Fine".
   final String? savingId;
+
+  /// Incrementato ad ogni cambio di geometria (waypoint/percorso/colore/lista).
+  /// Non cambia su modifiche di soli metadati (nome): usato dal listener mappa
+  /// per saltare ri-render inutili e prevenire il flickering al typing del nome.
+  final int geometryNonce;
 
   /// Calcolo+salvataggio in corso.
   bool get saving => savingId != null;
@@ -179,17 +185,17 @@ class Tracks extends Notifier<TracksState> {
   /// Carica le tracce salvate all'avvio.
   Future<void> _load() async {
     final loaded = await ref.read(tracksRepositoryProvider).loadAll();
-    if (loaded.isEmpty) return;
     var maxN = -1;
     for (final t in loaded) {
       final n = int.tryParse(t.id.replaceFirst('t', ''));
       if (n != null && n > maxN) maxN = n;
     }
-    _counter = maxN + 1;
+    if (maxN >= 0) _counter = maxN + 1;
     state = TracksState(
       tracks: loaded,
       editingId: state.editingId,
       selectedId: state.selectedId,
+      geometryNonce: loaded.isEmpty ? state.geometryNonce : state.geometryNonce + 1,
     );
   }
 
@@ -207,13 +213,13 @@ class Tracks extends Notifier<TracksState> {
     final track =
         DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
     _editSnapshot = null; // traccia nuova
-    state = TracksState(tracks: [...tracks, track], editingId: track.id);
+    state = TracksState(tracks: [...tracks, track], editingId: track.id, geometryNonce: state.geometryNonce + 1);
   }
 
   void editSelected() {
     if (state.selectedId == null) return;
     _editSnapshot = state.byId(state.selectedId); // per ripristino su Annulla
-    state = TracksState(tracks: state.tracks, editingId: state.selectedId);
+    state = TracksState(tracks: state.tracks, editingId: state.selectedId, geometryNonce: state.geometryNonce);
   }
 
   /// Annulla la creazione/modifica in corso e chiude la card.
@@ -229,11 +235,13 @@ class Tracks extends Notifier<TracksState> {
     if (snapshot == null) {
       state = TracksState(
         tracks: state.tracks.where((t) => t.id != id).toList(),
+        geometryNonce: state.geometryNonce + 1,
       );
     } else {
       state = TracksState(
         tracks: [for (final t in state.tracks) t.id == id ? snapshot : t],
         selectedId: id,
+        geometryNonce: state.geometryNonce + 1,
       );
     }
   }
@@ -250,6 +258,7 @@ class Tracks extends Notifier<TracksState> {
     if (track.waypoints.length < 2) {
       state = TracksState(
         tracks: state.tracks.where((t) => t.id != id).toList(),
+        geometryNonce: state.geometryNonce + 1,
       );
       return;
     }
@@ -257,7 +266,7 @@ class Tracks extends Notifier<TracksState> {
     // Deseleziona (si possono disegnare altre tracce); il calcolo prosegue in
     // background (savingId = id, per animare la traccia) e i dati restano
     // memorizzati per quando la traccia verrà selezionata.
-    state = TracksState(tracks: state.tracks, savingId: id);
+    state = TracksState(tracks: state.tracks, savingId: id, geometryNonce: state.geometryNonce);
 
     final path =
         await routeAlong(ref.read(routingServiceProvider), track.waypoints,
@@ -288,7 +297,8 @@ class Tracks extends Notifier<TracksState> {
       state = TracksState(
           tracks: state.tracks,
           editingId: state.editingId,
-          selectedId: state.selectedId);
+          selectedId: state.selectedId,
+          geometryNonce: state.geometryNonce);
       return;
     }
     state = TracksState(
@@ -302,6 +312,7 @@ class Tracks extends Notifier<TracksState> {
       editingId: state.editingId,
       selectedId: state.selectedId,
       // savingId azzerato → fine animazione.
+      geometryNonce: state.geometryNonce + 1,
     );
 
     // Persiste su disco e propaga al cloud (auto-sync, best-effort).
@@ -316,9 +327,9 @@ class Tracks extends Notifier<TracksState> {
   }
 
   void select(String id) =>
-      state = TracksState(tracks: state.tracks, selectedId: id);
+      state = TracksState(tracks: state.tracks, selectedId: id, geometryNonce: state.geometryNonce);
 
-  void deselect() => state = TracksState(tracks: state.tracks);
+  void deselect() => state = TracksState(tracks: state.tracks, geometryNonce: state.geometryNonce);
 
   void remove([String? id]) {
     final target = id ?? state.activeId;
@@ -327,6 +338,7 @@ class Tracks extends Notifier<TracksState> {
       tracks: state.tracks.where((t) => t.id != target).toList(),
       editingId: state.editingId == target ? null : state.editingId,
       selectedId: state.selectedId == target ? null : state.selectedId,
+      geometryNonce: state.geometryNonce + 1,
     );
     ref.read(tracksRepositoryProvider).delete(target); // best-effort
     // Auto-sync: propaga l'eliminazione al cloud (best-effort, no-op se offline).
@@ -343,6 +355,7 @@ class Tracks extends Notifier<TracksState> {
         tracks: [...state.tracks, track],
         editingId: state.editingId,
         selectedId: state.selectedId,
+        geometryNonce: state.geometryNonce + 1,
       );
       final now = DateTime.now();
       try {
@@ -359,17 +372,18 @@ class Tracks extends Notifier<TracksState> {
 
   /// Modifica la traccia in editing; ogni cambio ai waypoint azzera i dati
   /// calcolati (verranno rifatti al prossimo "Fine").
-  void _updateEditing(DrawnTrack Function(DrawnTrack) f) {
+  void _updateEditing(DrawnTrack Function(DrawnTrack) f, {bool affectsGeometry = true}) {
     final id = state.editingId;
     if (id == null) return;
     state = TracksState(
       tracks: [for (final t in state.tracks) t.id == id ? f(t) : t],
       editingId: id,
       selectedId: state.selectedId,
+      geometryNonce: affectsGeometry ? state.geometryNonce + 1 : state.geometryNonce,
     );
   }
 
-  void setName(String name) => _updateEditing((t) => t.copyWith(name: name));
+  void setName(String name) => _updateEditing((t) => t.copyWith(name: name), affectsGeometry: false);
   void setColor(Color c) => _updateEditing((t) => t.copyWith(color: c));
 
   void addPoint(LatLng p) => _updateEditing(

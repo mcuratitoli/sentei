@@ -217,6 +217,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     await _renderAll();
     await _renderSteepness();
     await _maybeFetchTrails();
+    // Prima apertura senza tracce salvate → centra sulla posizione GPS.
+    if (!_centeredOnSaved) unawaited(_locateSilently());
   }
 
   /// Evidenzia sulla mappa il punto selezionato sul grafico (profileCursor).
@@ -574,6 +576,27 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     }
   }
 
+  /// Centra sulla posizione GPS silenziosamente (senza SnackBar su errore).
+  /// Usato all'apertura dell'app se non ci sono tracce salvate: se il GPS
+  /// non è disponibile o i permessi vengono rifiutati, resta sul centro default.
+  /// Il controllo `_centeredOnSaved` previene il conflitto con `_maybeCenter`.
+  Future<void> _locateSilently() async {
+    try {
+      final pos = await ref.read(userLocationProvider.notifier).locate();
+      if (!mounted || _centeredOnSaved) return;
+      _centeredOnSaved = true;
+      await _map?.flyTo(
+        CameraOptions(
+          center: Point(coordinates: Position(pos.longitude, pos.latitude)),
+          zoom: 15,
+        ),
+        MapAnimationOptions(duration: 800),
+      );
+    } catch (_) {
+      // GPS non disponibile o permessi negati → rimane sul centro default.
+    }
+  }
+
   /// Alterna 2D (pitch 0) e 3D (pitch 65). L'etichetta del bottone mostra la
   /// modalità *impostabile* (quella verso cui si passa al tap).
   Future<void> _toggle3D() async {
@@ -730,11 +753,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // Card visibile (traccia selezionata o in modifica): occupa il fondo e
     // sostituisce la toolbar (che viene nascosta).
     final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
-    // Ridisegna su cambi di stato e sull'aggiornamento del percorso live.
-    ref.listen(tracksProvider, (_, __) {
-      _renderAll();
-      _renderSteepness();
-    });
+    // Ridisegna solo su cambi di GEOMETRIA (waypoint/percorso/colore/lista tracce),
+    // non su modifiche di puri metadati (nome) → evita il flickering al typing.
+    ref.listen(
+      tracksProvider.select((s) => (s.geometryNonce, s.editingId, s.selectedId)),
+      (_, __) {
+        _renderAll();
+        _renderSteepness();
+      },
+    );
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());

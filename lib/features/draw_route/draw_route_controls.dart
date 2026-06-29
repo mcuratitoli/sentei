@@ -124,15 +124,21 @@ class DrawRouteControls extends ConsumerWidget {
               )
             else if (saving)
               const Padding(
-                padding: EdgeInsets.only(top: 6),
+                padding: EdgeInsets.only(top: 8),
                 child: Row(children: [
                   SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                  SizedBox(width: 8),
-                  Text('Calcolo dislivello e sentieri…',
-                      style: TextStyle(fontSize: 12)),
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Ricerca segnavia CAI…',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
                 ]),
               )
             else if (!drawing && (track?.trailRefs.isNotEmpty ?? false))
