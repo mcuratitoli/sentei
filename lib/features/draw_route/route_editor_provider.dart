@@ -13,7 +13,8 @@ import '../../data/offline/terrarium_tile_cache.dart';
 import '../../data/routing/brouter_routing_service.dart';
 import '../../data/storage/app_database.dart';
 import '../../data/storage/tracks_repository.dart';
-import '../../data/trails/overpass_trail_service.dart';
+import '../../data/trails/combined_trail_service.dart';
+import '../../data/trails/trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
@@ -429,9 +430,10 @@ final activeTrackIdProvider =
 final routingServiceProvider =
     Provider<RoutingService>((ref) => BRouterRoutingService());
 
-/// Servizio Overpass per i numeri dei sentieri (ref CAI).
+/// Servizio per i numeri dei sentieri (ref CAI): OSM2CAI (catasto ufficiale)
+/// primario + Overpass (OSM grezzo) fallback per le zone di confine.
 final trailServiceProvider =
-    Provider<OverpassTrailService>((ref) => OverpassTrailService());
+    Provider<TrailService>((ref) => CombinedTrailService());
 
 /// Cache su disco delle tile Terrarium (condivisa: elevazione online + offline).
 final terrariumCacheProvider =

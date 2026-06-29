@@ -4,13 +4,16 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-import '../../domain/models/elevation_profile.dart';
+import 'trail_service.dart';
 
 /// Recupera i **numeri dei sentieri** (tag `ref` delle relazioni
 /// `route=hiking` OSM, es. CAI "203") attraversati da un percorso, via
 /// **Overpass API**. Best-effort: in caso di errore/timeout ritorna lista vuota
 /// (i tag sono un di più, non devono bloccare nulla).
-class OverpassTrailService {
+///
+/// La segmentazione (matching punto→sentiero) è ereditata da [TrailService];
+/// qui si implementa solo lo scarico delle relazioni da Overpass.
+class OverpassTrailService extends TrailService {
   OverpassTrailService({
     http.Client? client,
     this.endpoint = 'https://overpass-api.de/api/interpreter',
@@ -29,60 +32,10 @@ class OverpassTrailService {
   /// Raggio (m) entro cui cercare i sentieri attorno ai punti campionati.
   final int aroundMeters;
 
-  /// Attribuisce a ciascun tratto del percorso il **numero del sentiero**
-  /// (ref CAI), restituendo segmenti per distanza cumulata. Scarica una volta
-  /// le geometrie delle relazioni `route=hiking` vicine e fa il matching locale
-  /// (al punto del percorso si assegna il sentiero più vicino entro soglia;
-  /// a parità si preferisce quello più "locale", con meno punti). Best-effort.
-  Future<List<TrailSegment>> trailSegmentsAlong(List<LatLng> path) async {
-    if (path.length < 2) return const [];
-
-    final relations = await _fetchRelations(path);
-    if (relations.isEmpty) return const [];
-
-    const distance = Distance();
-    // Distanze cumulate lungo il percorso.
-    final cum = <double>[0];
-    for (var i = 1; i < path.length; i++) {
-      cum.add(cum[i - 1] + distance(path[i - 1], path[i]));
-    }
-
-    // Campiona ogni ~50 m e assegna il ref.
-    const sampleStep = 50.0;
-    const threshold = 25.0; // m
-    final segments = <TrailSegment>[];
-    String? runRef;
-    double runStart = 0;
-    double lastSampleDist = -sampleStep;
-
-    for (var i = 0; i < path.length; i++) {
-      if (i != 0 &&
-          i != path.length - 1 &&
-          cum[i] - lastSampleDist < sampleStep) {
-        continue;
-      }
-      lastSampleDist = cum[i];
-      final ref = _nearestRef(path[i], relations, threshold);
-
-      if (ref != runRef) {
-        if (runRef != null) {
-          segments.add(TrailSegment(
-              fromMeters: runStart, toMeters: cum[i], ref: runRef));
-        }
-        runRef = ref;
-        runStart = cum[i];
-      }
-    }
-    if (runRef != null) {
-      segments.add(TrailSegment(
-          fromMeters: runStart, toMeters: cum.last, ref: runRef));
-    }
-    return segments;
-  }
-
   /// Scarica le relazioni `route=hiking` vicine al percorso con la geometria,
   /// filtrando i punti al bounding box del percorso (+ margine).
-  Future<List<_Relation>> _fetchRelations(List<LatLng> path) async {
+  @override
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
     final sample = _sample(path, maxPoints);
     final coords = sample.map((p) => '${p.latitude},${p.longitude}').join(',');
     // Cerca direttamente le relazioni route=hiking nel raggio, senza passare per
@@ -121,7 +74,7 @@ class OverpassTrailService {
         lon >= minLon - m &&
         lon <= maxLon + m;
 
-    final relations = <_Relation>[];
+    final relations = <TrailRelation>[];
     for (final e in elements) {
       final el = e as Map<String, dynamic>;
       final ref = (el['tags']?['ref'] as String?)?.trim();
@@ -135,34 +88,9 @@ class OverpassTrailService {
           if (inBox(lat, lon)) pts.add(LatLng(lat, lon));
         }
       }
-      if (pts.isNotEmpty) relations.add(_Relation(ref, pts));
+      if (pts.isNotEmpty) relations.add(TrailRelation(ref, pts));
     }
     return relations;
-  }
-
-  /// Ref del sentiero più vicino a [p] entro [threshold] metri; a parità di
-  /// vicinanza preferisce la relazione con meno punti (più locale/specifica).
-  String? _nearestRef(LatLng p, List<_Relation> relations, double threshold) {
-    const distance = Distance();
-    String? best;
-    var bestDist = threshold;
-    var bestCount = 1 << 30;
-    for (final r in relations) {
-      var d = double.infinity;
-      for (final q in r.points) {
-        final dd = distance(p, q);
-        if (dd < d) d = dd;
-        if (d == 0) break;
-      }
-      if (d <= threshold &&
-          (d < bestDist - 1 ||
-              (d <= bestDist + 1 && r.points.length < bestCount))) {
-        best = r.ref;
-        bestDist = d;
-        bestCount = r.points.length;
-      }
-    }
-    return best;
   }
 
   /// Campiona al massimo [max] punti dal percorso, estremi inclusi.
@@ -176,11 +104,4 @@ class OverpassTrailService {
     if (out.last != path.last) out.add(path.last);
     return out;
   }
-}
-
-/// Relazione sentiero scaricata da Overpass: ref + punti (geometria filtrata).
-class _Relation {
-  const _Relation(this.ref, this.points);
-  final String ref;
-  final List<LatLng> points;
 }
