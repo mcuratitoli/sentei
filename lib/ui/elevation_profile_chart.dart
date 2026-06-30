@@ -46,8 +46,14 @@ class ElevationProfileChart extends StatelessWidget {
       );
     }
 
+    // La banda del grado CAI si aggiunge in altezza (non comprime il grafico):
+    // l'area "profilo + banda segnavia" resta `height`, la scale sta sotto.
+    final hasScale = trailSegments.any((s) => s.caiScale != null);
+    final totalHeight =
+        height + (hasScale ? _ProfilePainter.scaleBandHeight : 0);
+
     return SizedBox(
-      height: height,
+      height: totalHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
@@ -122,6 +128,7 @@ class _ProfilePainter extends CustomPainter {
   final bool steepness;
 
   static const double _bandHeight = 18;
+  static const double scaleBandHeight = 16;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -129,7 +136,10 @@ class _ProfilePainter extends CustomPainter {
     if (samples.length < 2 || profile.totalDistance <= 0) return;
 
     final hasBands = trailSegments.isNotEmpty;
-    final chartH = size.height - (hasBands ? _bandHeight : 0);
+    final hasScale = trailSegments.any((s) => s.caiScale != null);
+    final bandsH =
+        (hasBands ? _bandHeight : 0) + (hasScale ? scaleBandHeight : 0);
+    final chartH = size.height - bandsH;
 
     final eleRange = (profile.maxElevation - profile.minElevation).abs();
     final span = eleRange < 1 ? 1.0 : eleRange;
@@ -188,35 +198,38 @@ class _ProfilePainter extends CustomPainter {
       );
     }
 
-    // Banda dei numeri sentiero sotto l'asse X.
+    // Banda dei numeri sentiero (ref CAI) sotto l'asse X.
     if (hasBands) {
       final top = chartH + 1;
+      final bottom = chartH + _bandHeight;
       for (final seg in trailSegments) {
+        final x0 = dxFor(seg.fromMeters);
+        final x1 = dxFor(seg.toMeters);
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTRB(x0 + 1, top, x1 - 1, bottom),
+          const Radius.circular(4),
+        );
+        canvas.drawRRect(rect, Paint()..color = bandColor);
+        _bandLabel(canvas, seg.ref, bandTextColor, x0, x1, top, _bandHeight);
+      }
+    }
+
+    // Banda del grado di difficoltà CAI (T/E/EE/EEA), colorata per difficoltà,
+    // allineata ai tratti dei numeri sentiero. Solo i tratti con scale nota.
+    if (hasScale) {
+      final top = chartH + _bandHeight + 1;
+      for (final seg in trailSegments) {
+        final scale = seg.caiScale;
+        if (scale == null) continue;
         final x0 = dxFor(seg.fromMeters);
         final x1 = dxFor(seg.toMeters);
         final rect = RRect.fromRectAndRadius(
           Rect.fromLTRB(x0 + 1, top, x1 - 1, size.height),
           const Radius.circular(4),
         );
-        canvas.drawRRect(rect, Paint()..color = bandColor);
-        // Etichetta ref se c'è spazio.
-        final tp = TextPainter(
-          text: TextSpan(
-            text: seg.ref,
-            style: TextStyle(
-                color: bandTextColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w600),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        if (tp.width <= (x1 - x0) - 4) {
-          tp.paint(
-            canvas,
-            Offset((x0 + x1) / 2 - tp.width / 2,
-                top + (_bandHeight - tp.height) / 2),
-          );
-        }
+        canvas.drawRRect(rect, Paint()..color = _scaleColor(scale));
+        _bandLabel(
+            canvas, scale, const Color(0xFFFFFFFF), x0, x1, top, scaleBandHeight);
       }
     }
 
@@ -232,6 +245,42 @@ class _ProfilePainter extends CustomPainter {
           ..strokeWidth = 1.5,
       );
       canvas.drawCircle(Offset(x, y), 4, Paint()..color = cursorColor);
+    }
+  }
+
+  /// Disegna [text] centrato nel tratto [x0]..[x1] della banda, se c'è spazio.
+  void _bandLabel(Canvas canvas, String text, Color color, double x0,
+      double x1, double top, double bandH) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+            color: color, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    if (tp.width <= (x1 - x0) - 4) {
+      tp.paint(
+        canvas,
+        Offset((x0 + x1) / 2 - tp.width / 2, top + (bandH - tp.height) / 2),
+      );
+    }
+  }
+
+  /// Colore per il grado di difficoltà CAI: T verde, E blu, EE arancio,
+  /// EEA rosso; grigio per valori non standard.
+  static Color _scaleColor(String scale) {
+    switch (scale.toUpperCase().trim()) {
+      case 'T':
+        return const Color(0xFF2E7D32);
+      case 'E':
+        return const Color(0xFF1565C0);
+      case 'EE':
+        return const Color(0xFFEF6C00);
+      case 'EEA':
+        return const Color(0xFFC62828);
+      default:
+        return const Color(0xFF616161);
     }
   }
 

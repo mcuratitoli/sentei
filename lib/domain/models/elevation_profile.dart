@@ -1,18 +1,23 @@
 import 'package:latlong2/latlong.dart';
 
 /// Tratto del percorso percorso su un dato sentiero (ref CAI), espresso in
-/// distanza cumulata da..a (metri). Serve a mostrare i numeri sentiero lungo
-/// l'asse X del profilo altimetrico.
+/// distanza cumulata da..a (metri). Serve a mostrare i numeri sentiero e il
+/// grado di difficoltà CAI lungo l'asse X del profilo altimetrico.
 class TrailSegment {
   const TrailSegment({
     required this.fromMeters,
     required this.toMeters,
     required this.ref,
+    this.caiScale,
   });
 
   final double fromMeters;
   final double toMeters;
   final String ref;
+
+  /// Grado di difficoltà CAI del sentiero (T/E/EE/EEA). `null` se il tag
+  /// `cai_scale` non è disponibile sulla relazione (copertura parziale OSM).
+  final String? caiScale;
 }
 
 /// Un campione del profilo altimetrico: quota e posizione a una certa distanza

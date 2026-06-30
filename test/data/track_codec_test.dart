@@ -21,7 +21,9 @@ void main() {
       maxElevation: 1050,
       totalDistance: 1234.5,
     ),
-    trailSegments: const [TrailSegment(fromMeters: 0, toMeters: 100, ref: '203')],
+    trailSegments: const [
+      TrailSegment(fromMeters: 0, toMeters: 100, ref: '203', caiScale: 'EE'),
+    ],
   );
 
   final track = DrawnTrack(
@@ -58,6 +60,7 @@ void main() {
     expect(m.profile.samples.length, 2);
     expect(m.profile.samples.last.elevation, 1050);
     expect(m.trailSegments.single.ref, '203');
+    expect(m.trailSegments.single.caiScale, 'EE');
   });
 
   test('fromJson tollera campi assenti (valori di default)', () {

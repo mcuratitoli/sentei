@@ -15,7 +15,7 @@ _Un'alternativa open e gratuita a GaiaGPS, pensata per il Nord Italia e le zone 
 
 ## ✨ Funzionalità
 
-- 🗺️ **Mappa topografica con terreno 3D** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** lungo i tracciati.
+- 🗺️ **Mappa topografica con terreno 3D** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** (dal catasto ufficiale **OSM2CAI/REI**, con fallback OpenStreetMap) lungo i tracciati.
 - ✏️ **Disegno tracciati con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza** e **dislivello** (D+/D-) e profilo altimetrico interattivo.
 - 💾 **Salvataggio locale** — libreria di tracciati ordinabile e ricercabile; nascondi/mostra le tracce sulla mappa.
 - 📤 **Import/Export GPX** — compatibile con gli altri strumenti che già usi.
@@ -32,7 +32,7 @@ iOS e Android, da un unico codebase **Flutter**. (Sviluppo e test attuali: iOS.)
 |---|---|
 | Framework | Flutter (Dart) |
 | Mappa | **Mapbox GL** (`mapbox_maps_flutter`) — stile Outdoors, terreno 3D |
-| Dati | Mapbox Outdoors · OpenStreetMap (numeri sentiero CAI via Overpass) · DEM Terrarium (quota) |
+| Dati | Mapbox Outdoors · **OSM2CAI** (catasto ufficiale CAI/REI) + OpenStreetMap/Overpass per i numeri sentiero · DEM Terrarium (quota) |
 | Routing | **BRouter** (snap-to-trail escursionistico) |
 | Offline | Mapbox OfflineManager/TileStore + DEM Terrarium cacheato |
 | Storage | SQLite (`drift`) + file GPX |
@@ -71,7 +71,7 @@ Scelte architetturali, sorgenti dati e licenze in **[`CLAUDE.md`](./CLAUDE.md)**
 
 ## ⚖️ Licenze & attribuzioni
 
-I dati cartografici appartengono ai rispettivi proprietari (OpenStreetMap, OpenTopoMap, SwissTopo, IGN) e sono usati nel rispetto delle relative licenze, con attribuzione in-app. **Sentèi** è un progetto personale ispirato a GaiaGPS e non ne riusa codice o dati proprietari.
+I dati cartografici appartengono ai rispettivi proprietari (OpenStreetMap, OpenTopoMap, SwissTopo, IGN) e sono usati nel rispetto delle relative licenze, con attribuzione in-app. I numeri dei sentieri provengono dal **Catasto della Rete Escursionistica Italiana (OSM2CAI/INFOMONT — CAI + Wikimedia Italia, licenza ODbL)** con fallback su OpenStreetMap. **Sentèi** è un progetto personale ispirato a GaiaGPS e non ne riusa codice o dati proprietari.
 
 ---
 

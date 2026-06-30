@@ -43,7 +43,12 @@ abstract final class TrackCodec {
       ],
       'seg': [
         for (final t in m.trailSegments)
-          {'f': t.fromMeters, 't': t.toMeters, 'r': t.ref}
+          {
+            'f': t.fromMeters,
+            't': t.toMeters,
+            'r': t.ref,
+            if (t.caiScale != null) 'sc': t.caiScale,
+          }
       ],
     };
   }
@@ -65,6 +70,7 @@ abstract final class TrackCodec {
           fromMeters: (s['f'] as num).toDouble(),
           toMeters: (s['t'] as num).toDouble(),
           ref: s['r'] as String,
+          caiScale: s['sc'] as String?,
         ),
     ];
     return TrackMetrics(

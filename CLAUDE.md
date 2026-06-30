@@ -87,6 +87,7 @@ delle tile; il download offline deve essere limitato per area e con rate limitin
 | OpenTopoMap | raster XYZ | `https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png` | © OpenTopoMap (CC-BY-SA). Attribuzione obbligatoria, fair use. |
 | OSM standard | raster XYZ | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | Usage policy restrittiva: NON per download di massa. Solo base/fallback. |
 | Waymarked Trails (hiking) | overlay XYZ | `https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png` | Overlay percorsi escursionistici segnati. |
+| OSM2CAI / INFOMONT (numeri sentiero) | REST GeoJSON | `https://osm2cai.cai.it/api/geojson/hiking_routes/bounding_box` | Catasto ufficiale REI (CAI + Wikimedia Italia), licenza **ODbL**. Solo Italia. Espone `ref` CAI/REI validati. Vedi `docs/osm2cai-investigation.md`. |
 | SwissTopo (pixelkarte) | WMTS | `https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg` | Gratuito per uso non commerciale, vincoli di licenza geo.admin.ch. |
 | IGN (Plan IGN / Géoplateforme) | WMTS | `https://data.geopf.fr/wmts?...&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&...` | Géoplateforme open. SCAN 25 topografico ha condizioni più restrittive — verificare. |
 | Terrain RGB (elevazione) | raster XYZ | `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` | DEM SRTM/Copernicus codificato Terrarium — cacheabile offline per il dislivello. |
@@ -152,8 +153,16 @@ test/
     li calcola comunque seguendo i sentieri. Fallback a linea retta solo se entrambi falliscono.
   - *Alternative valutate:* GraphHopper/Valhalla/OpenRouteService (richiedono API key) — tenute di
     riserva se la reliability del servizio pubblico BRouter non basta.
-- **Numeri sentieri (ref CAI):** non disponibili da BRouter → recuperati via **Overpass API**
-  (`OverpassTrailService`, relazioni `route=hiking` vicine al percorso → tag `ref`), mostrati come chip.
+- **Numeri sentieri (ref CAI):** non disponibili da BRouter → recuperati dietro l'interfaccia comune
+  `TrailService` (`data/trails/`, template method: segmentazione punto→sentiero condivisa, le
+  sottoclassi forniscono solo `fetchRelations`). Strategia combinata (`CombinedTrailService`):
+  - *Primario:* **OSM2CAI / INFOMONT** (`Osm2CaiTrailService`), catasto ufficiale CAI+Wikimedia Italia
+    (open ODbL). `POST /api/geojson/hiking_routes/bounding_box` (`osm2cai_status=1,2,3,4`), preferenza
+    `ref` CAI → `ref_REI` → `ref_osm`. Espone il ref anche dove il tag OSM grezzo manca (es. Valle d'Aosta).
+    **Solo Italia.** Indagine endpoint: `docs/osm2cai-investigation.md`.
+  - *Fallback:* **Overpass API** (`OverpassTrailService`, relazioni `route=hiking` vicine → tag `ref`),
+    copre l'intero arco alpino incluse le zone di confine FR/CH dove OSM2CAI non arriva.
+  Risultato mostrato come chip + banda per-tratto (`TrailSegment`).
 
 ### 6.3 Calcolo distanza/dislivello
 - Distanza: haversine cumulativo su punti densificati (interpolazione ogni ~10-25 m).
@@ -288,7 +297,8 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   fallback a linea retta solo se tutto fallisce.
 - **Dislivello D+/D-** (DEM Terrarium, smoothing deadband) + **profilo altimetrico** con scrubbing
   (evidenzia il punto in mappa) e **banda numeri sentiero CAI** sull'asse X.
-- **Numeri sentieri** via **Overpass** (relazioni `route=hiking`): elenco (chip) + per-tratto (`TrailSegment`).
+- **Numeri sentieri** via `TrailService` combinato: **OSM2CAI** (catasto ufficiale CAI/REI) primario +
+  **Overpass** (relazioni `route=hiking`) fallback per le zone di confine: elenco (chip) + per-tratto (`TrailSegment`).
 - **Persistenza locale** `drift`/SQLite (`data/storage/`), lista tracciati ordinabile/ricercabile, **export/import GPX** (`gpx`, `file_selector`, `share_plus`).
 - **UI:** palette blu (seed `#1565C0`), font **Lato**, **barra flottante in basso**, logo+splash (sorgenti in `branding/`).
 
@@ -303,8 +313,10 @@ cartella "Sentèi", `<id>.json` + `<id>.gpx`). UI in Impostazioni. Credenziali v
 Setup: `docs/cloud-google-drive-setup.md`. **Snap-to-trail sempre attivo** (toggle "Segui sentieri" rimosso).
 
 **Servizi/architettura principali:**
-`data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/overpass_trail_service.dart`
-(numeri sentiero) · `data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository + `TrackCodec`) ·
+`data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/` (numeri sentiero:
+`trail_service.dart` interfaccia + segmentazione condivisa, `osm2cai_trail_service.dart` primario,
+`overpass_trail_service.dart` fallback, `combined_trail_service.dart` strategia) ·
+`data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository + `TrackCodec`) ·
 `data/cloud/` (sync: interfaccia + Google Drive) · `data/gpx/gpx_service.dart` (export = percorso instradato
 densificato con quota) · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`) ·
 `features/map_gl/map_gl_screen.dart` (UI mappa Mapbox GL + barra) · `features/settings/` (UI sync cloud).
