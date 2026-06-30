@@ -77,8 +77,10 @@ class OverpassTrailService extends TrailService {
     final relations = <TrailRelation>[];
     for (final e in elements) {
       final el = e as Map<String, dynamic>;
-      final ref = (el['tags']?['ref'] as String?)?.trim();
+      final tags = el['tags'] as Map<String, dynamic>?;
+      final ref = (tags?['ref'] as String?)?.trim();
       if (ref == null || ref.isEmpty) continue;
+      final caiScale = (tags?['cai_scale'] as String?)?.trim();
       final pts = <LatLng>[];
       for (final mbr in (el['members'] as List? ?? const [])) {
         if (mbr['type'] != 'way') continue;
@@ -88,7 +90,10 @@ class OverpassTrailService extends TrailService {
           if (inBox(lat, lon)) pts.add(LatLng(lat, lon));
         }
       }
-      if (pts.isNotEmpty) relations.add(TrailRelation(ref, pts));
+      if (pts.isNotEmpty) {
+        relations.add(TrailRelation(ref, pts,
+            caiScale: (caiScale?.isEmpty ?? true) ? null : caiScale));
+      }
     }
     return relations;
   }

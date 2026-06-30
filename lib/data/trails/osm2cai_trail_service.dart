@@ -88,10 +88,13 @@ class Osm2CaiTrailService extends TrailService {
         props['ref_osm'],
       ]);
       if (ref == null) continue;
+      final caiScale = _firstNonEmpty([props['cai_scale'], props['cai_scale_osm']]);
 
       final pts = <LatLng>[];
       _collectLineCoords(feat['geometry'], pts, inBox);
-      if (pts.isNotEmpty) relations.add(TrailRelation(ref, pts));
+      if (pts.isNotEmpty) {
+        relations.add(TrailRelation(ref, pts, caiScale: caiScale));
+      }
     }
     return relations;
   }

@@ -19,7 +19,7 @@ const _osm2caiBody = '''
   "features": [
     {
       "type": "Feature",
-      "properties": { "ref": "5", "ref_osm": "999" },
+      "properties": { "ref": "5", "ref_osm": "999", "cai_scale": "EE" },
       "geometry": {
         "type": "LineString",
         "coordinates": [ [7.8694, 45.9369], [7.8694, 45.9378] ]
@@ -52,7 +52,7 @@ const _overpassBody = '''
   "elements": [
     {
       "type": "relation",
-      "tags": { "ref": "10" },
+      "tags": { "ref": "10", "cai_scale": "E" },
       "members": [
         {
           "type": "way",
@@ -78,6 +78,7 @@ void main() {
       final segs = await svc.trailSegmentsAlong([_a, _b]);
       expect(segs, isNotEmpty);
       expect(segs.map((s) => s.ref).toSet(), {'5'});
+      expect(segs.first.caiScale, 'EE');
     });
 
     test('ripiega su ref_REI quando ref è vuoto (e parsa MultiLineString)',
@@ -112,6 +113,7 @@ void main() {
       );
       final segs = await svc.trailSegmentsAlong([_a, _b]);
       expect(segs.map((s) => s.ref).toSet(), {'10'});
+      expect(segs.first.caiScale, 'E');
     });
   });
 }

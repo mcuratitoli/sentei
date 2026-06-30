@@ -6,9 +6,12 @@ import '../../domain/models/elevation_profile.dart';
 /// dalla fonte (Overpass OSM grezzo o catasto CAI/OSM2CAI). Le sottoclassi di
 /// [TrailService] la producono; la logica di matching è condivisa.
 class TrailRelation {
-  const TrailRelation(this.ref, this.points);
+  const TrailRelation(this.ref, this.points, {this.caiScale});
   final String ref;
   final List<LatLng> points;
+
+  /// Grado di difficoltà CAI (T/E/EE/EEA), se taggato sulla relazione.
+  final String? caiScale;
 }
 
 /// Interfaccia comune dei servizi che attribuiscono i **numeri sentiero**
@@ -47,9 +50,12 @@ abstract class TrailService {
       cum.add(cum[i - 1] + distance(path[i - 1], path[i]));
     }
 
-    // Campiona ogni ~50 m e assegna il ref.
+    // Campiona ogni ~50 m e assegna il sentiero (ref + grado CAI). La
+    // segmentazione è per `ref`; il grado di difficoltà segue la relazione
+    // abbinata, quindi i confini coincidono con quelli dei numeri sentiero.
     final segments = <TrailSegment>[];
     String? runRef;
+    String? runScale;
     double runStart = 0;
     double lastSampleDist = -_sampleStep;
 
@@ -60,30 +66,39 @@ abstract class TrailService {
         continue;
       }
       lastSampleDist = cum[i];
-      final ref = _nearestRef(path[i], relations, _matchThreshold);
+      final rel = _nearest(path[i], relations, _matchThreshold);
+      final ref = rel?.ref;
 
       if (ref != runRef) {
         if (runRef != null) {
           segments.add(TrailSegment(
-              fromMeters: runStart, toMeters: cum[i], ref: runRef));
+              fromMeters: runStart,
+              toMeters: cum[i],
+              ref: runRef,
+              caiScale: runScale));
         }
         runRef = ref;
+        runScale = rel?.caiScale;
         runStart = cum[i];
       }
     }
     if (runRef != null) {
       segments.add(TrailSegment(
-          fromMeters: runStart, toMeters: cum.last, ref: runRef));
+          fromMeters: runStart,
+          toMeters: cum.last,
+          ref: runRef,
+          caiScale: runScale));
     }
     return segments;
   }
 
-  /// Ref del sentiero più vicino a [p] entro [threshold] metri; a parità di
-  /// vicinanza preferisce la relazione con meno punti (più locale/specifica).
-  String? _nearestRef(
+  /// Relazione del sentiero più vicino a [p] entro [threshold] metri; a parità
+  /// di vicinanza preferisce quella con meno punti (più locale/specifica).
+  /// Ritorna la relazione (ref + grado CAI), non solo il ref.
+  TrailRelation? _nearest(
       LatLng p, List<TrailRelation> relations, double threshold) {
     const distance = Distance();
-    String? best;
+    TrailRelation? best;
     var bestDist = threshold;
     var bestCount = 1 << 30;
     for (final r in relations) {
@@ -96,7 +111,7 @@ abstract class TrailService {
       if (d <= threshold &&
           (d < bestDist - 1 ||
               (d <= bestDist + 1 && r.points.length < bestCount))) {
-        best = r.ref;
+        best = r;
         bestDist = d;
         bestCount = r.points.length;
       }
