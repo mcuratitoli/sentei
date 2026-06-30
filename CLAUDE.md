@@ -217,15 +217,17 @@ dart format .                # formattazione
 ### Ambiente (stato attuale macOS)
 - **Flutter 3.44.2** (stabile). ⚠️ Il `dart` sul PATH è quello di Homebrew (diverso da quello di Flutter):
   per i tool usare **`flutter pub run ...`**, NON `dart run ...` (altrimenti "Flutter SDK not available").
-- Dispositivi noti: **simulatore iPhone 17** UDID `C94F3071-053C-4B09-AE5F-12A1156FE0C7`;
+- Dispositivi noti: **simulatore iPhone 17 Pro** UDID `5315265D-7156-4526-BBD3-6E3691BB49CC`
+  (⚠️ l'UDID cambia a ogni ricreazione del simulatore: se "No supported devices", rilanciare
+  `flutter devices` / `xcrun simctl list devices available`);
   **iPhone fisico** id `00008150-001C25243C20401C` (via cavo; firma: team Apple ID già configurato in Xcode,
   bundle id `com.mattiacuratitoli.sentei`).
 
 ### Avviare il simulatore e l'app
 ```bash
-xcrun simctl boot C94F3071-053C-4B09-AE5F-12A1156FE0C7   # avvia il simulatore (se spento)
+xcrun simctl boot 5315265D-7156-4526-BBD3-6E3691BB49CC   # avvia il simulatore (se spento)
 open -a Simulator
-flutter run -d C94F3071-053C-4B09-AE5F-12A1156FE0C7      # build + install + run
+flutter run -d 5315265D-7156-4526-BBD3-6E3691BB49CC      # build + install + run
 # Sul telefono fisico: collegare via cavo, poi: flutter run -d 00008150-001C25243C20401C
 ```
 > **Hot reload:** in una sessione interattiva si usa `r`. In esecuzioni NON interattive (output reindirizzato)
