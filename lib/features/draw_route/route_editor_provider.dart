@@ -192,10 +192,22 @@ class Tracks extends Notifier<TracksState> {
       if (n != null && n > maxN) maxN = n;
     }
     if (maxN >= 0) _counter = maxN + 1;
+
+    // _load() è async (fire-and-forget da build()) e può risolversi mentre
+    // l'utente sta già disegnando/salvando: preserva l'eventuale traccia in
+    // corso non ancora su disco, altrimenti la sovrascriveremmo con i dati del
+    // disco (su install pulita = lista vuota → traccia azzerata).
+    final inProgressId = state.editingId ?? state.savingId;
+    final preserved = inProgressId != null &&
+            loaded.every((t) => t.id != inProgressId)
+        ? state.byId(inProgressId)
+        : null;
+
     state = TracksState(
-      tracks: loaded,
+      tracks: [...loaded, if (preserved != null) preserved],
       editingId: state.editingId,
       selectedId: state.selectedId,
+      savingId: state.savingId,
       geometryNonce: loaded.isEmpty ? state.geometryNonce : state.geometryNonce + 1,
     );
   }

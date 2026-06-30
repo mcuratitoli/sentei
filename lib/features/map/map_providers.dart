@@ -5,7 +5,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../../data/location/location_service.dart';
 import '../../data/search/combined_geocoding_service.dart';
-import '../../data/search/geocoding_service.dart';
 import '../../data/trails/trail_network_service.dart';
 
 final trailNetworkServiceProvider =

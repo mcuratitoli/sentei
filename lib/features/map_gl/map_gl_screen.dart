@@ -678,7 +678,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     final coords = [
       for (final p in path) Point(coordinates: Position(p.longitude, p.latitude)),
     ];
-    final cam = await map.cameraForCoordinates(coords, padding, null, null);
+    final cam = await map.cameraForCoordinatesPadding(
+        coords, CameraOptions(), padding, null, null);
     await map.flyTo(cam, MapAnimationOptions(duration: 800));
   }
 
