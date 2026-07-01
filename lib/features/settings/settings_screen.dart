@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../ui/cai_difficulty.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
 
@@ -53,7 +54,7 @@ class SettingsScreen extends ConsumerWidget {
                 leading: Icon(CupertinoIcons.map, color: Color(0xFF1565C0)),
                 title: Text('Mappa'),
                 subtitle:
-                    Text('Mapbox Outdoors · terreno 3D · numeri sentiero CAI'),
+                    Text('Mapbox Outdoors · Sentiero CAI'),
               ),
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.cloud_download,
@@ -68,12 +69,21 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const _CloudSection(),
           CupertinoListSection.insetGrouped(
+            header: const Text('Informazioni'),
             children: [
+              CupertinoListTile(
+                leading: const Icon(CupertinoIcons.book,
+                    color: Color(0xFF1565C0)),
+                title: const Text('Legenda difficoltà'),
+                subtitle: const Text('Cosa significano T, E, EE, EEA'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => showDifficultyLegend(context),
+              ),
               CupertinoListTile(
                 leading:
                     const Icon(CupertinoIcons.info, color: Color(0xFF1565C0)),
                 title: const Text('Sentèi'),
-                subtitle: const Text('App per l\'escursionismo alpina'),
+                subtitle: const Text('App per l\'escursionismo'),
                 additionalInfo:
                     Text(ref.watch(appVersionProvider).value ?? '…'),
               ),
@@ -177,6 +187,118 @@ class _CloudProviderSelector extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Mostra la card in overlay con la legenda dei gradi di difficoltà CAI.
+Future<void> showDifficultyLegend(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.white,
+    isScrollControlled: true,
+    showDragHandle: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (_) => const _DifficultyLegendSheet(),
+  );
+}
+
+/// Contenuto della legenda difficoltà: una riga per grado (chip colorato +
+/// etichetta + descrizione), in ordine crescente T → E → EE → EEA.
+class _DifficultyLegendSheet extends StatelessWidget {
+  const _DifficultyLegendSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text(
+                'Difficoltà dei sentieri',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const Text(
+              'Scala CAI (Club Alpino Italiano), in ordine crescente di impegno.',
+              style: TextStyle(fontSize: 14, color: Color(0xFF6E6E73)),
+            ),
+            const SizedBox(height: 16),
+            for (final scale in caiScalesInOrder) ...[
+              _LegendRow(scale: scale),
+              if (scale != caiScalesInOrder.last)
+                const Divider(height: 24, thickness: 0.5),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Una riga della legenda: badge colorato con la sigla + testo esteso.
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({required this.scale});
+
+  final String scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = caiScaleColor(scale);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 46,
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            scale,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                caiScaleLabel(scale),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                caiScaleDescription(scale),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  height: 1.35,
+                  color: Color(0xFF3A3A3C),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

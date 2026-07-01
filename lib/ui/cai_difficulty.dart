@@ -64,3 +64,29 @@ String caiScaleLabel(String scale) {
       return scale;
   }
 }
+
+/// Spiegazione dettagliata del grado CAI (per la legenda in Impostazioni).
+String caiScaleDescription(String scale) {
+  switch (normalizeCaiScale(scale)) {
+    case 'T':
+      return 'Percorsi su stradine, mulattiere o comodi sentieri ben segnalati. '
+          'Non richiedono allenamento specifico oltre alla camminata.';
+    case 'E':
+      return 'Sentieri o tracce su terreno vario (pascoli, detriti, pietraie). '
+          'Possono avere brevi tratti ripidi o esposti con protezioni. '
+          'Richiedono allenamento e calzature adeguate.';
+    case 'EE':
+      return 'Percorsi impegnativi su terreno insidioso: tracce infide, pendii '
+          'ripidi, tratti esposti, roccette o brevi passaggi con neve. '
+          'Richiedono esperienza, passo sicuro e assenza di vertigini.';
+    case 'EEA':
+      return 'Itinerari attrezzati o vie ferrate che richiedono l\'uso di '
+          'dispositivi di autoassicurazione (imbrago, kit da ferrata, casco) '
+          'e conoscenza del loro impiego.';
+    default:
+      return scale;
+  }
+}
+
+/// Gradi CAI in ordine di difficoltà crescente (per la legenda).
+const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA'];
