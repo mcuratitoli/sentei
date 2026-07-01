@@ -53,6 +53,7 @@ class _DrawingBody extends ConsumerWidget {
     final pathLoading =
         track != null && ref.watch(livePathProvider(track.id)).isLoading;
     final canSave = (track?.waypoints.length ?? 0) >= 2;
+    final snap = track?.snapToTrail ?? true;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -60,7 +61,24 @@ class _DrawingBody extends ConsumerWidget {
       children: [
         const _NameField(),
         _ColorPicker(selected: track?.color),
-        const SizedBox(height: 10),
+        // Segui sentieri: OFF = linee dritte tra i punti (fuori sentiero,
+        // ghiacciai, creste senza tracce OSM dove lo snap devierebbe).
+        Row(
+          children: [
+            Icon(snap ? Icons.alt_route : Icons.timeline,
+                size: 18, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
+                  style: Theme.of(context).textTheme.bodyMedium),
+            ),
+            Switch(
+              value: snap,
+              onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
             if (pathLoading) ...[

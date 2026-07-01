@@ -504,6 +504,13 @@ class Tracks extends Notifier<TracksState> {
   void setName(String name) => _updateEditing((t) => t.copyWith(name: name), affectsGeometry: false);
   void setColor(Color c) => _updateEditing((t) => t.copyWith(color: c));
 
+  /// Attiva/disattiva lo snap-to-trail della traccia in modifica. Con OFF il
+  /// percorso è la linea retta tra i waypoint (utile fuori sentiero: ghiacciai,
+  /// creste senza tracce OSM, dove BRouter devierebbe su way non pertinenti).
+  /// Cambia la geometria → azzera i dati calcolati e aggiorna l'anteprima.
+  void setSnap(bool snap) =>
+      _updateEditing((t) => t.clearedComputed().copyWith(snapToTrail: snap));
+
   void addPoint(LatLng p) => _updateEditing(
       (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
 

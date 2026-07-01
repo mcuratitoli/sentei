@@ -160,13 +160,17 @@ void main() {
     expect(state().editing!.metrics, isNull);
   });
 
-  test('setName / setColor / toggleSnap', () {
+  test('setName / setColor / setSnap', () {
     notifier()
       ..startNewDrawing()
       ..setName('Giro del lago')
       ..setColor(kTrackPalette[2]);
     expect(state().editing!.name, 'Giro del lago');
     expect(state().editing!.color, kTrackPalette[2]);
+    // snap ON di default; lo si può spegnere (linee dritte fuori sentiero).
+    expect(state().editing!.snapToTrail, isTrue);
+    notifier().setSnap(false);
+    expect(state().editing!.snapToTrail, isFalse);
   });
 
   test('remove elimina la traccia attiva', () async {
