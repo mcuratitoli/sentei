@@ -4,7 +4,13 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart'
-    show CupertinoActivityIndicator, CupertinoButton, CupertinoIcons;
+    show
+        CupertinoActionSheet,
+        CupertinoActionSheetAction,
+        CupertinoActivityIndicator,
+        CupertinoButton,
+        CupertinoIcons,
+        showCupertinoModalPopup;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,8 +38,18 @@ import '../tracks_list/tracks_list_screen.dart';
 /// Sovrascrivibile con uno stile Mapbox Studio dedicato (simil-GaiaGPS) senza
 /// toccare il codice: `--dart-define=MAP_STYLE_URI=mapbox://styles/<user>/<id>`.
 const String _envMapStyle = String.fromEnvironment('MAP_STYLE_URI');
-String get _mapStyleUri =>
+
+/// Stile "mappa" (topografico). L'override d'ambiente vince se presente.
+String get _outdoorsStyleUri =>
     _envMapStyle.isEmpty ? MapboxStyles.OUTDOORS : _envMapStyle;
+
+/// Stile **satellite** con strade/etichette (utile in escursione: si vedono
+/// nomi e sentieri sopra l'ortofoto).
+const String _satelliteStyleUri =
+    'mapbox://styles/mapbox/satellite-streets-v12';
+
+/// Vista mappa selezionabile dal tasto "livelli" nella barra.
+enum MapStyleChoice { outdoors, satellite }
 
 /// Mappa principale su **Mapbox GL** (migrazione, Fase 4): base Outdoors +
 /// terreno 3D, numeri CAI, posizione utente, e **disegno multi-traccia**
@@ -68,6 +84,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   bool _renderAgain = false;
   bool _is3D = false;
   bool _ornamentsConfigured = false;
+  // Vista mappa corrente. Lo stile iniziale del MapWidget è fisso (Outdoors);
+  // il cambio vista avviene in modo imperativo con `map.loadStyleURI`, così il
+  // prop del widget non cambia e non innesca ricariche doppie.
+  MapStyleChoice _styleChoice = MapStyleChoice.outdoors;
+  // La parte "one-shot" del setup (centratura iniziale) va fatta solo alla
+  // prima apertura, non a ogni cambio stile.
+  bool _postSetupOnce = false;
   // Orientamento corrente della camera (per la bussola custom e il toggle 2D/3D).
   double _bearing = 0;
   double _pitch = 0;
@@ -82,12 +105,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   // Cache area numeri sentiero già scaricata (gradi).
   double? _tS, _tW, _tN, _tE;
 
-  // onStyleLoaded può scattare prima di onMapCreated: setup quando entrambi
-  // sono pronti, una sola volta.
+  // onStyleLoaded può scattare prima di onMapCreated: il setup gira quando
+  // entrambi sono pronti. Va rifatto a **ogni** caricamento stile (un cambio
+  // vista azzera source/layer/annotation), quindi `_settingUp` evita solo la
+  // riesecuzione concorrente per lo stesso load (non è un latch permanente).
   bool _styleLoaded = false;
-  bool _didSetup = false;
-  // Source/layer/manager TUTTI creati: solo allora si può renderizzare. Diverso
-  // da _didSetup (che segna "setup avviato", per non rifarlo due volte).
+  bool _settingUp = false;
+  // Source/layer/manager TUTTI creati: solo allora si può renderizzare.
   bool _ready = false;
 
   static const String _trailSourceId = 'sentei-trails';
@@ -117,7 +141,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       puckBearingEnabled: true,
     ));
     await _configureOrnaments(map);
-    await _trySetup();
+    await _runSetup();
   }
 
   /// Disabilita la **bussola nativa** Mapbox: si sovrapponeva ai bottoni custom
@@ -145,16 +169,28 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
     _styleLoaded = true;
-    await _trySetup();
+    await _runSetup();
   }
 
-  Future<void> _trySetup() async {
-    if (_didSetup || _map == null || !_styleLoaded) return;
-    _didSetup = true;
-    await _styleSetup(_map!);
+  /// Esegue il setup dello stile (terreno, hillshade, layer sentieri, manager
+  /// annotation). Chiamato a ogni `onStyleLoaded` (anche dopo un cambio vista) e
+  /// da `onMapCreated`; `_settingUp` previene la doppia esecuzione concorrente.
+  Future<void> _runSetup() async {
+    if (_map == null || !_styleLoaded || _settingUp) return;
+    _settingUp = true;
+    try {
+      await _styleSetup(_map!);
+    } finally {
+      _settingUp = false;
+    }
   }
 
   Future<void> _styleSetup(MapboxMap map) async {
+    _ready = false; // durante il re-setup i manager sono ricreati
+    // La source dei numeri sentiero viene ricreata vuota: azzera la cache
+    // dell'area già scaricata così le etichette si ripopolano dopo un cambio
+    // stile (senza dover fare pan).
+    _tS = _tW = _tN = _tE = null;
     // Terreno 3D (DEM Mapbox).
     await map.style.addSource(RasterDemSource(
       id: 'mapbox-dem',
@@ -173,7 +209,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     // Hillshade extra per un rilievo più marcato (Outdoors ne ha uno tenue).
     // Inserito SOTTO la prima etichetta così non copre testo/sentieri/strade.
-    // Riusa la stessa DEM del terreno 3D.
+    // Riusa la stessa DEM del terreno 3D. SALTATO in vista satellite: l'ortofoto
+    // ha già il rilievo reale, un hillshade sopra la scurirebbe.
     String? firstSymbolId;
     for (final l in await map.style.getStyleLayers()) {
       if (l?.type == 'symbol') {
@@ -181,17 +218,20 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
         break;
       }
     }
-    final hillshade = HillshadeLayer(
-      id: 'sentei-hillshade',
-      sourceId: 'mapbox-dem',
-      hillshadeExaggeration: 0.5,
-      hillshadeShadowColor: 0x59413A33,
-      hillshadeHighlightColor: 0x33FFFFFF,
-    );
-    if (firstSymbolId != null) {
-      await map.style.addLayerAt(hillshade, LayerPosition(below: firstSymbolId));
-    } else {
-      await map.style.addLayer(hillshade);
+    if (_styleChoice == MapStyleChoice.outdoors) {
+      final hillshade = HillshadeLayer(
+        id: 'sentei-hillshade',
+        sourceId: 'mapbox-dem',
+        hillshadeExaggeration: 0.5,
+        hillshadeShadowColor: 0x59413A33,
+        hillshadeHighlightColor: 0x33FFFFFF,
+      );
+      if (firstSymbolId != null) {
+        await map.style
+            .addLayerAt(hillshade, LayerPosition(below: firstSymbolId));
+      } else {
+        await map.style.addLayer(hillshade);
+      }
     }
     // Numeri sentiero CAI: etichette ripetute lungo i sentieri (Outdoors
     // disegna già le linee). Decluttering automatico di Mapbox.
@@ -239,8 +279,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     await _renderAll();
     await _renderSteepness();
     await _maybeFetchTrails();
-    // Prima apertura senza tracce salvate → centra sulla posizione GPS.
-    if (!_centeredOnSaved) unawaited(_locateSilently());
+    // Centratura iniziale (GPS) solo alla prima apertura, non a ogni cambio
+    // stile: al re-setup dopo uno switch la camera va lasciata dov'è.
+    if (!_postSetupOnce) {
+      _postSetupOnce = true;
+      if (!_centeredOnSaved) unawaited(_locateSilently());
+    }
   }
 
   /// Evidenzia sulla mappa il punto selezionato sul grafico (profileCursor).
@@ -712,10 +756,69 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   void _openSearch() => setState(() => _searchOpen = true);
 
-  /// Bottone "livelli" nella barra: per ora placeholder. In futuro aprirà la
-  /// scelta della vista (mappa / satellite / …).
+  /// Bottone "livelli" nella barra: scelta della vista (mappa / satellite) via
+  /// action sheet iOS.
   void _onLayers() {
-    showIosToast(context, 'Vista mappa / satellite: in arrivo');
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Tipo di mappa'),
+        actions: [
+          _styleSheetAction(ctx, MapStyleChoice.outdoors, 'Mappa',
+              CupertinoIcons.map),
+          _styleSheetAction(ctx, MapStyleChoice.satellite, 'Satellite',
+              CupertinoIcons.globe),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Annulla'),
+        ),
+      ),
+    );
+  }
+
+  CupertinoActionSheetAction _styleSheetAction(
+    BuildContext ctx,
+    MapStyleChoice choice,
+    String label,
+    IconData icon,
+  ) {
+    final selected = _styleChoice == choice;
+    return CupertinoActionSheetAction(
+      onPressed: () {
+        Navigator.pop(ctx);
+        _setStyle(choice);
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 8),
+          Text(label,
+              style: TextStyle(
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400)),
+          if (selected) ...[
+            const SizedBox(width: 8),
+            const Icon(CupertinoIcons.check_mark, size: 18),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Cambia la vista mappa: ricarica lo stile e ri-esegue il setup (terreno,
+  /// hillshade, layer sentieri, manager annotation) al `onStyleLoaded`.
+  Future<void> _setStyle(MapStyleChoice choice) async {
+    final map = _map;
+    if (map == null || choice == _styleChoice) return;
+    final uri = switch (choice) {
+      MapStyleChoice.outdoors => _outdoorsStyleUri,
+      MapStyleChoice.satellite => _satelliteStyleUri,
+    };
+    setState(() => _styleChoice = choice);
+    _ready = false; // i manager verranno ricreati dopo il caricamento
+    // onStyleLoaded → _runSetup ricrea terreno/hillshade/sentieri/annotation.
+    await map.loadStyleURI(uri);
   }
 
   void _closeSearch() {
@@ -815,7 +918,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       body: Stack(
         children: [
           MapWidget(
-            styleUri: _mapStyleUri,
+            styleUri: _outdoorsStyleUri,
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _maybeFetchTrails(),
