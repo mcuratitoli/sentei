@@ -168,12 +168,13 @@ class _SelectedBody extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            _CardIconButton(
-              tooltip: 'Modifica',
-              onPressed: saving
-                  ? null
-                  : () => ref.read(tracksProvider.notifier).editSelected(),
-              icon: Icons.edit_rounded,
+            // Chiudi la card (deseleziona) — stessa X della mini-card punto.
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(40, 40),
+              onPressed: () => ref.read(tracksProvider.notifier).deselect(),
+              child: const Icon(CupertinoIcons.clear_circled_solid,
+                  size: 24, color: Color(0xFFB0B0B5)),
             ),
           ],
         ),
@@ -244,6 +245,13 @@ class _SelectedBody extends ConsumerWidget {
               icon: CupertinoIcons.chart_bar_square,
             ),
             const Spacer(),
+            _CardIconButton(
+              tooltip: 'Modifica',
+              onPressed: saving
+                  ? null
+                  : () => ref.read(tracksProvider.notifier).editSelected(),
+              icon: Icons.edit_rounded,
+            ),
             _CardIconButton(
               tooltip: 'Salva offline',
               onPressed: saving || track == null

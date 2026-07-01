@@ -127,6 +127,21 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     if (_ornamentsConfigured) return;
     _ornamentsConfigured = true;
     await map.compass.updateSettings(CompassSettings(enabled: false));
+    // Logo Mapbox e attribuzione (icona "i") NON possono essere rimossi (lo
+    // vietano i termini d'uso Mapbox), ma si possono **riposizionare**. Li
+    // solleviamo dal bordo inferiore così non toccano la barra flottante e
+    // restano leggibili.
+    await map.logo.updateSettings(LogoSettings(
+      position: OrnamentPosition.BOTTOM_LEFT,
+      marginLeft: 14,
+      marginBottom: 108,
+    ));
+    await map.attribution.updateSettings(AttributionSettings(
+      position: OrnamentPosition.BOTTOM_RIGHT,
+      marginRight: 14,
+      marginBottom: 110,
+      iconColor: 0xFF3A3A3C, // antracite, coerente con la barra
+    ));
   }
 
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
@@ -970,12 +985,15 @@ class _PointInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      // Sollevata rispetto alla posizione della menubar, così "galleggia" più
+      // in alto sulla mappa.
+      margin: const EdgeInsets.only(bottom: 30),
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width - 16,
       ),
       child: GlassSurface(
-        opacity: 0.92,
+        // Stessa trasparenza della ricerca/menubar (default), un filo più
+        // trasparente di prima.
         borderRadius: BorderRadius.circular(22),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
