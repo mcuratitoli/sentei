@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../domain/models/elevation_profile.dart';
@@ -10,7 +12,7 @@ import 'cai_difficulty.dart';
 /// i **numeri dei sentieri** (ref CAI) attraversati in ciascun tratto.
 ///
 /// Widget di presentazione: nessuna dipendenza da Riverpod.
-class ElevationProfileChart extends StatelessWidget {
+class ElevationProfileChart extends StatefulWidget {
   const ElevationProfileChart({
     super.key,
     required this.profile,
@@ -38,20 +40,87 @@ class ElevationProfileChart extends StatelessWidget {
   final double height;
 
   @override
+  State<ElevationProfileChart> createState() => _ElevationProfileChartState();
+}
+
+class _ElevationProfileChartState extends State<ElevationProfileChart> {
+  OverlayEntry? _tip;
+  Timer? _tipTimer;
+
+  @override
+  void dispose() {
+    _removeTip();
+    super.dispose();
+  }
+
+  void _removeTip() {
+    _tipTimer?.cancel();
+    _tipTimer = null;
+    _tip?.remove();
+    _tip = null;
+  }
+
+  /// Grado CAI del tratto sotto [local] se il tap cade nella **banda difficoltà**
+  /// (striscia inferiore del grafico); altrimenti `null` (→ scrubbing normale).
+  String? _difficultyAt(Offset local, double width, double totalHeight) {
+    final total = widget.profile.totalDistance;
+    if (total <= 0) return null;
+    if (local.dy < totalHeight - _ProfilePainter.scaleBandHeight) return null;
+    for (final s in widget.trailSegments) {
+      final scale = s.caiScale;
+      if (scale == null) continue;
+      final x0 = s.fromMeters / total * width;
+      final x1 = s.toMeters / total * width;
+      if (local.dx >= x0 && local.dx <= x1) return scale;
+    }
+    return null;
+  }
+
+  /// Mostra un tooltip che spiega il grado CAI (es. "EE — Escursionisti
+  /// Esperti"), ancorato al punto toccato; si chiude al tap o dopo 3s.
+  void _showTip(Offset globalPos, String scale) {
+    _removeTip();
+    final overlay = Overlay.of(context);
+    final text = '$scale — ${caiScaleLabel(scale)}';
+    _tip = OverlayEntry(
+      builder: (ctx) {
+        final size = MediaQuery.of(ctx).size;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _removeTip,
+              ),
+            ),
+            Positioned(
+              left: (globalPos.dx - 110).clamp(8.0, size.width - 228),
+              top: (globalPos.dy - 54).clamp(8.0, size.height - 60),
+              child: _DifficultyTip(text: text),
+            ),
+          ],
+        );
+      },
+    );
+    overlay.insert(_tip!);
+    _tipTimer = Timer(const Duration(seconds: 3), _removeTip);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    if (profile.isEmpty) {
+    if (widget.profile.isEmpty) {
       return SizedBox(
-        height: height,
+        height: widget.height,
         child: const Center(child: Text('Profilo non disponibile')),
       );
     }
 
     // La banda del grado CAI si aggiunge in altezza (non comprime il grafico):
     // l'area "profilo + banda segnavia" resta `height`, la scale sta sotto.
-    final hasScale = trailSegments.any((s) => s.caiScale != null);
+    final hasScale = widget.trailSegments.any((s) => s.caiScale != null);
     final totalHeight =
-        height + (hasScale ? _ProfilePainter.scaleBandHeight : 0);
+        widget.height + (hasScale ? _ProfilePainter.scaleBandHeight : 0);
 
     return SizedBox(
       height: totalHeight,
@@ -60,29 +129,39 @@ class ElevationProfileChart extends StatelessWidget {
           final width = constraints.maxWidth;
 
           void report(double dx) {
-            if (onCursor == null || profile.totalDistance <= 0) return;
+            if (widget.onCursor == null || widget.profile.totalDistance <= 0) {
+              return;
+            }
             final frac = (dx / width).clamp(0.0, 1.0);
-            final target = frac * profile.totalDistance;
-            onCursor!(_nearestByDistance(profile.samples, target));
+            final target = frac * widget.profile.totalDistance;
+            widget.onCursor!(_nearestByDistance(widget.profile.samples, target));
           }
 
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTapDown: (d) => report(d.localPosition.dx),
+            onTapDown: (d) {
+              final scale =
+                  _difficultyAt(d.localPosition, width, totalHeight);
+              if (scale != null) {
+                _showTip(d.globalPosition, scale);
+                return; // tap sulla banda difficoltà → tooltip, non scrubbing
+              }
+              report(d.localPosition.dx);
+            },
             onHorizontalDragStart: (d) => report(d.localPosition.dx),
             onHorizontalDragUpdate: (d) => report(d.localPosition.dx),
-            onHorizontalDragEnd: (_) => onCursor?.call(null),
-            onTapUp: (_) => onCursor?.call(null),
+            onHorizontalDragEnd: (_) => widget.onCursor?.call(null),
+            onTapUp: (_) => widget.onCursor?.call(null),
             child: CustomPaint(
               painter: _ProfilePainter(
-                profile: profile,
-                trailSegments: trailSegments,
+                profile: widget.profile,
+                trailSegments: widget.trailSegments,
                 color: scheme.primary,
                 cursorColor: scheme.error,
                 bandColor: scheme.secondaryContainer,
                 bandTextColor: scheme.onSecondaryContainer,
-                cursor: cursor,
-                steepness: steepness,
+                cursor: widget.cursor,
+                steepness: widget.steepness,
               ),
               size: Size.infinite,
             ),
@@ -104,6 +183,43 @@ class ElevationProfileChart extends StatelessWidget {
       }
     }
     return best;
+  }
+}
+
+/// Bolla-tooltip scura (stile iOS) con la spiegazione del grado di difficoltà.
+class _DifficultyTip extends StatelessWidget {
+  const _DifficultyTip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xF01C1C1E),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x40000000),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Color(0xFFFFFFFF),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 }
 

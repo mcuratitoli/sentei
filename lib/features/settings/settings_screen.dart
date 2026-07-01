@@ -11,12 +11,19 @@ import 'package:flutter/cupertino.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
 
 /// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
 const Color _kGroupedBg = Color(0xFFF2F2F7);
+
+/// Versione app (unica per Android e iOS, da `pubspec.yaml`): "1.0.0 (2)".
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final info = await PackageInfo.fromPlatform();
+  return '${info.version} (${info.buildNumber})';
+});
 
 /// Impostazioni dell'app. La mappa è **Mapbox Outdoors** (con terreno 3D e
 /// numeri sentiero CAI); non c'è più un selettore di sorgente.
@@ -61,11 +68,14 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const _CloudSection(),
           CupertinoListSection.insetGrouped(
-            children: const [
+            children: [
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.info, color: Color(0xFF1565C0)),
-                title: Text('Sentèi'),
-                subtitle: Text('App per l\'escursionismo alpina'),
+                leading:
+                    const Icon(CupertinoIcons.info, color: Color(0xFF1565C0)),
+                title: const Text('Sentèi'),
+                subtitle: const Text('App per l\'escursionismo alpina'),
+                additionalInfo:
+                    Text(ref.watch(appVersionProvider).value ?? '…'),
               ),
             ],
           ),
