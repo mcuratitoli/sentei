@@ -1,10 +1,13 @@
 import 'package:flutter/cupertino.dart'
     show
         CupertinoActivityIndicator,
+        CupertinoAlertDialog,
         CupertinoButton,
+        CupertinoDialogAction,
         CupertinoIcons,
         CupertinoSwitch,
-        CupertinoTextField;
+        CupertinoTextField,
+        showCupertinoDialog;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -292,18 +295,19 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     ref.read(tracksProvider.notifier).cancelEditing();
     return;
   }
-  final ok = await showDialog<bool>(
+  final ok = await showCupertinoDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => CupertinoAlertDialog(
       title: const Text('Annullare?'),
       content:
           const Text('Le modifiche non salvate al percorso andranno perse.'),
       actions: [
-        TextButton(
+        CupertinoDialogAction(
           onPressed: () => Navigator.pop(ctx, false),
           child: const Text('Continua a modificare'),
         ),
-        FilledButton(
+        CupertinoDialogAction(
+          isDestructiveAction: true,
           onPressed: () => Navigator.pop(ctx, true),
           child: const Text('Annulla percorso'),
         ),

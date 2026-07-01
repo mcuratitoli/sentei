@@ -1,9 +1,21 @@
+import 'package:flutter/cupertino.dart'
+    show
+        CupertinoActivityIndicator,
+        CupertinoButton,
+        CupertinoIcons,
+        CupertinoListSection,
+        CupertinoListTile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/offline/terrarium_tile_cache.dart';
+import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import 'offline_maps_providers.dart';
+
+/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
+const Color _kGroupedBg = Color(0xFFF2F2F7);
+const Color _kTint = Color(0xFF1565C0);
 
 /// Gestione **mappe offline**: scarica l'area visualizzata (mappa Mapbox) e
 /// gestisce le aree già scaricate (lista, dimensione, elimina).
@@ -65,15 +77,11 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
       );
       ref.invalidate(downloadedRegionsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Area "$name" scaricata')),
-        );
+        showIosToast(context, 'Area "$name" scaricata');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download fallito: $e')),
-        );
+        showIosToast(context, 'Download fallito: $e');
       }
     } finally {
       if (mounted) setState(() => _downloading = false);
@@ -97,62 +105,107 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
     final regions = ref.watch(downloadedRegionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mappe offline')),
-      body: Column(
+      backgroundColor: _kGroupedBg,
+      appBar: AppBar(
+        title: const Text('Mappe offline'),
+        centerTitle: true,
+        backgroundColor: _kGroupedBg,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0.4,
+      ),
+      body: ListView(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_downloading) ...[
-                  LinearProgressIndicator(value: _progress == 0 ? null : _progress),
-                  const SizedBox(height: 8),
-                  Text('$_phase… ${(_progress * 100).round()}%',
-                      textAlign: TextAlign.center),
-                ] else
-                  FilledButton.icon(
-                    icon: const Icon(Icons.download_for_offline),
-                    label: Text(bounds == null
-                        ? 'Apri prima la mappa sull\'area'
-                        : 'Scarica l\'area visualizzata'),
-                    onPressed: bounds == null ? null : () => _download(bounds),
-                  ),
-                const SizedBox(height: 4),
-                Text(
-                  'Scarica mappa + elevazione dell\'area inquadrata, per usarla '
-                  'senza connessione (mappa fino allo zoom 15; D+/profilo offline).',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
+          CupertinoListSection.insetGrouped(
+            header: const Text('Scarica'),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_downloading) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CupertinoActivityIndicator(radius: 9),
+                          const SizedBox(width: 12),
+                          Text('$_phase… ${(_progress * 100).round()}%'),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _progress == 0 ? null : _progress,
+                          minHeight: 5,
+                          backgroundColor: const Color(0xFFE3E3EA),
+                          color: _kTint,
+                        ),
+                      ),
+                    ] else
+                      SizedBox(
+                        width: double.infinity,
+                        child: CupertinoButton.filled(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          borderRadius: BorderRadius.circular(12),
+                          onPressed:
+                              bounds == null ? null : () => _download(bounds),
+                          child: Text(
+                            bounds == null
+                                ? 'Apri prima la mappa sull\'area'
+                                : 'Scarica l\'area visualizzata',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Scarica mappa + elevazione dell\'area inquadrata, per '
+                      'usarla senza connessione (mappa fino allo zoom 15; '
+                      'D+/profilo offline).',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF6E6E73)),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const Divider(height: 1),
-          Expanded(
-            child: regions.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Errore: $e')),
-              data: (list) => list.isEmpty
-                  ? const Center(child: Text('Nessuna area scaricata'))
-                  : ListView.separated(
-                      itemCount: list.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        final r = list[i];
-                        return ListTile(
-                          leading: const Icon(Icons.map_outlined),
+          regions.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(child: CupertinoActivityIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text('Errore: $e')),
+            ),
+            data: (list) => list.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Center(
+                      child: Text('Nessuna area scaricata',
+                          style: TextStyle(color: Color(0xFF6E6E73))),
+                    ),
+                  )
+                : CupertinoListSection.insetGrouped(
+                    header: const Text('Aree scaricate'),
+                    children: [
+                      for (final r in list)
+                        CupertinoListTile(
+                          leading: const Icon(CupertinoIcons.map, color: _kTint),
                           title: Text(r.name),
                           subtitle: Text(_fmtSize(r.sizeBytes)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Elimina',
+                          trailing: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(36, 36),
                             onPressed: () => _delete(r.id),
+                            child: const Icon(CupertinoIcons.delete,
+                                size: 22, color: Color(0xFFC62828)),
                           ),
-                        );
-                      },
-                    ),
-            ),
+                        ),
+                    ],
+                  ),
           ),
         ],
       ),

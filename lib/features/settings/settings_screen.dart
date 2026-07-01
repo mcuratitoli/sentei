@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../ui/cai_difficulty.dart';
+import '../../ui/ios_toast.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
 
@@ -108,9 +109,7 @@ class _CloudSection extends ConsumerWidget {
 
     ref.listen(cloudSyncProvider.select((s) => s.message), (_, msg) {
       if (msg != null && msg.isNotEmpty) {
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(SnackBar(content: Text(msg)));
+        showIosToast(context, msg);
       }
     });
 

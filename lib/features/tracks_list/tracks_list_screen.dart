@@ -20,6 +20,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
@@ -223,9 +224,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     final xml = await file.readAsString();
     final error = await ref.read(tracksProvider.notifier).importGpx(xml);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'Tracciato importato')),
-      );
+      showIosToast(context, error ?? 'Tracciato importato');
     }
   }
 

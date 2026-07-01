@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/offline/terrarium_tile_cache.dart';
+import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import 'offline_maps_providers.dart';
 
@@ -15,9 +16,7 @@ Future<void> downloadTrackOffline(
 ) async {
   final pts = t.routedPath.length >= 2 ? t.routedPath : t.waypoints;
   if (pts.length < 2) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Traccia senza percorso')),
-    );
+    showIosToast(context, 'Traccia senza percorso');
     return;
   }
   var minLa = 90.0, maxLa = -90.0, minLo = 180.0, maxLo = -180.0;
@@ -31,22 +30,24 @@ Future<void> downloadTrackOffline(
   final s = minLa - m, n = maxLa + m, w = minLo - m, e = maxLo + m;
 
   final phase = ValueNotifier<String>('Avvio…');
-  showDialog<void>(
+  showCupertinoDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      content: ValueListenableBuilder<String>(
-        valueListenable: phase,
-        builder: (_, v, __) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 16),
-            Expanded(child: Text('Salvataggio offline\n$v')),
-          ],
+    builder: (_) => CupertinoAlertDialog(
+      title: const Text('Salvataggio offline'),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: ValueListenableBuilder<String>(
+          valueListenable: phase,
+          builder: (_, v, __) => Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CupertinoActivityIndicator(radius: 9),
+              const SizedBox(width: 14),
+              Flexible(child: Text(v)),
+            ],
+          ),
         ),
       ),
     ),
@@ -73,16 +74,12 @@ Future<void> downloadTrackOffline(
     ref.invalidate(downloadedRegionsProvider);
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('"${t.name}" salvata offline')),
-      );
+      showIosToast(context, '"${t.name}" salvata offline');
     }
   } catch (err) {
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Salvataggio offline fallito: $err')),
-      );
+      showIosToast(context, 'Salvataggio offline fallito: $err');
     }
   } finally {
     phase.dispose();

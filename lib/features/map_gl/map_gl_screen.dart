@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoButton;
+import 'package:flutter/cupertino.dart'
+    show CupertinoActivityIndicator, CupertinoButton, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ import '../../data/search/geocoding_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
 import '../../ui/glass.dart';
+import '../../ui/ios_toast.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -573,8 +575,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       );
     } on LocationException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
+        showIosToast(context, e.message);
       }
     }
   }
@@ -834,12 +835,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                   if (!showCard)
                     _BottomBar(
                       onSearch: _openSearch,
-                      tracksHidden: ref.watch(tracksHiddenProvider),
-                      onToggleHide: () {
-                        final notifier = ref.read(tracksProvider.notifier);
-                        ref.read(tracksHiddenProvider.notifier).toggle();
-                        if (ref.read(tracksHiddenProvider)) notifier.deselect();
-                      },
                       onNewTrack:
                           ref.read(tracksProvider.notifier).startNewDrawing,
                       onTracks: () => context.push(TracksListScreen.routePath),
@@ -855,21 +850,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   }
 }
 
-/// Barra flottante in basso (dock): ricerca · occhio · + · tracce · impostazioni.
+/// Barra flottante in basso (dock): ricerca · + · tracce · impostazioni.
 /// (La bussola/nord e i bottoni posizione/3D stanno in alto a destra.)
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onSearch,
-    required this.tracksHidden,
-    required this.onToggleHide,
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
   });
 
   final VoidCallback onSearch;
-  final bool tracksHidden;
-  final VoidCallback onToggleHide;
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
@@ -890,12 +881,6 @@ class _BottomBar extends StatelessWidget {
                 tooltip: 'Cerca un luogo',
                 icon: Icons.search_rounded,
                 onPressed: onSearch,
-              ),
-              _BarButton(
-                tooltip:
-                    tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
-                onPressed: onToggleHide,
-                child: _TrailGlyph(crossed: tracksHidden),
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -923,10 +908,11 @@ class _BottomBar extends StatelessWidget {
                   ),
                 ),
               ),
+              // Lista tracciati: usa il glifo "sentiero" (linea curva con pallini).
               _BarButton(
                 tooltip: 'Tracciati salvati',
-                icon: CupertinoIcons.square_list_fill,
                 onPressed: onTracks,
+                child: const _TrailGlyph(),
               ),
               _BarButton(
                 tooltip: 'Impostazioni',
@@ -981,23 +967,19 @@ class _BarButton extends StatelessWidget {
 }
 
 /// Glifo "sentiero": linea curva con pallini agli estremi (rappresenta un
-/// percorso). Con [crossed] = tracce nascoste, aggiunge una barra diagonale.
+/// percorso). Usato come icona della lista tracciati nella barra in basso.
 class _TrailGlyph extends StatelessWidget {
-  const _TrailGlyph({this.crossed = false});
-
-  final bool crossed;
+  const _TrailGlyph();
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-        size: const ui.Size(24, 24),
-        painter: _TrailPainter(crossed: crossed),
+  Widget build(BuildContext context) => const CustomPaint(
+        size: ui.Size(24, 24),
+        painter: _TrailPainter(),
       );
 }
 
 class _TrailPainter extends CustomPainter {
-  _TrailPainter({required this.crossed});
-
-  final bool crossed;
+  const _TrailPainter();
 
   @override
   void paint(Canvas canvas, ui.Size size) {
@@ -1018,17 +1000,10 @@ class _TrailPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(w * 0.24, h * 0.76), 2.7, dot);
     canvas.drawCircle(Offset(w * 0.76, h * 0.24), 2.7, dot);
-    if (crossed) {
-      canvas.drawLine(
-        Offset(w * 0.16, h * 0.2),
-        Offset(w * 0.84, h * 0.8),
-        stroke,
-      );
-    }
   }
 
   @override
-  bool shouldRepaint(_TrailPainter old) => old.crossed != crossed;
+  bool shouldRepaint(_TrailPainter old) => false;
 }
 
 /// Controlli in alto a destra: bussola (solo se ruotata) · posizione · 2D/3D.
@@ -1256,16 +1231,13 @@ class _SearchPanel extends StatelessWidget {
                   if (searching)
                     const Padding(
                       padding: EdgeInsets.only(right: 14),
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      child: CupertinoActivityIndicator(radius: 9),
                     )
                   else if (controller.text.isNotEmpty)
                     IconButton(
                       tooltip: 'Cancella',
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(CupertinoIcons.clear_circled_solid,
+                          size: 20, color: Color(0xFFB0B0B5)),
                       onPressed: () {
                         controller.clear();
                         onChanged('');
