@@ -896,8 +896,8 @@ class _BottomBar extends StatelessWidget {
                     tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
                 onPressed: onToggleHide,
                 icon: tracksHidden
-                    ? CupertinoIcons.eye_slash
-                    : CupertinoIcons.eye,
+                    ? CupertinoIcons.eye_slash_fill
+                    : CupertinoIcons.eye_fill,
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -927,12 +927,12 @@ class _BottomBar extends StatelessWidget {
               ),
               _BarButton(
                 tooltip: 'Tracciati salvati',
-                icon: CupertinoIcons.square_list,
+                icon: CupertinoIcons.square_list_fill,
                 onPressed: onTracks,
               ),
               _BarButton(
                 tooltip: 'Impostazioni',
-                icon: CupertinoIcons.gear,
+                icon: CupertinoIcons.gear_alt_fill,
                 onPressed: onSettings,
               ),
             ],
@@ -957,7 +957,7 @@ class _BarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8);
+    final color = Theme.of(context).colorScheme.primary;
     Widget button = CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: const ui.Size(46, 46),
