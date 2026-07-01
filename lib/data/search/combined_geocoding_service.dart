@@ -36,6 +36,9 @@ class CombinedGeocodingService {
     return _merge(nominatimResults, mapboxResults);
   }
 
+  /// Reverse geocoding (coordinate → località/provincia/nazione) via Nominatim.
+  Future<ReversePlace?> reverse(LatLng point) => _nominatim.reverse(point);
+
   static List<GeocodeResult> _merge(
     List<GeocodeResult> primary,
     List<GeocodeResult> secondary,

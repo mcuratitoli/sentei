@@ -15,11 +15,13 @@ class NominatimGeocodingService {
   NominatimGeocodingService({
     http.Client? client,
     this.endpoint = 'https://nominatim.openstreetmap.org/search',
+    this.reverseEndpoint = 'https://nominatim.openstreetmap.org/reverse',
     this.timeout = const Duration(seconds: 10),
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String endpoint;
+  final String reverseEndpoint;
   final Duration timeout;
 
   // Paesi dell'arco alpino (IT, CH, FR, AT + SI per completezza).
@@ -27,6 +29,48 @@ class NominatimGeocodingService {
 
   // User-Agent obbligatorio per la Nominatim Usage Policy.
   static const _userAgent = 'sentei/1.0 (app escursionismo Alpi)';
+
+  /// Reverse geocoding: dal punto [point] ricava località, provincia e nazione
+  /// (via Nominatim `/reverse`). `null` su errore di rete.
+  Future<ReversePlace?> reverse(LatLng point) async {
+    final uri = Uri.parse(reverseEndpoint).replace(queryParameters: {
+      'lat': point.latitude.toString(),
+      'lon': point.longitude.toString(),
+      'format': 'jsonv2',
+      'addressdetails': '1',
+      'zoom': '14', // livello "villaggio/quartiere": nome località sensato
+    });
+    try {
+      final res = await _client
+          .get(uri, headers: {
+            'User-Agent': _userAgent,
+            'Accept-Language': 'it,en',
+          })
+          .timeout(timeout);
+      if (res.statusCode != 200) return null;
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      final addr = json['address'] as Map<String, dynamic>? ?? const {};
+      final locality = (addr['city'] ??
+              addr['town'] ??
+              addr['village'] ??
+              addr['municipality'] ??
+              addr['hamlet'] ??
+              addr['locality'])
+          ?.toString();
+      // In Italia `county` è la provincia; altrove ripiega su `state`.
+      final province =
+          (addr['county'] ?? addr['state_district'] ?? addr['state'])
+              ?.toString();
+      final country = addr['country']?.toString();
+      return ReversePlace(
+        locality: locality,
+        province: province,
+        country: country,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<List<GeocodeResult>> search(String query, {LatLng? proximity}) async {
     final q = query.trim();

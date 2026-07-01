@@ -129,17 +129,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     await map.compass.updateSettings(CompassSettings(enabled: false));
     // Logo Mapbox e attribuzione (icona "i") NON possono essere rimossi (lo
     // vietano i termini d'uso Mapbox), ma si possono **riposizionare**. Li
-    // solleviamo dal bordo inferiore così non toccano la barra flottante e
-    // restano leggibili.
+    // mettiamo in alto a sinistra, appena sotto la scale bar (indicatore zoom).
     await map.logo.updateSettings(LogoSettings(
-      position: OrnamentPosition.BOTTOM_LEFT,
-      marginLeft: 14,
-      marginBottom: 108,
+      position: OrnamentPosition.TOP_LEFT,
+      marginLeft: 10,
+      marginTop: 34,
     ));
     await map.attribution.updateSettings(AttributionSettings(
-      position: OrnamentPosition.BOTTOM_RIGHT,
-      marginRight: 14,
-      marginBottom: 110,
+      position: OrnamentPosition.TOP_LEFT,
+      marginLeft: 118,
+      marginTop: 34,
       iconColor: 0xFF3A3A3C, // antracite, coerente con la barra
     ));
   }
@@ -713,6 +712,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   void _openSearch() => setState(() => _searchOpen = true);
 
+  /// Bottone "livelli" nella barra: per ora placeholder. In futuro aprirà la
+  /// scelta della vista (mappa / satellite / …).
+  void _onLayers() {
+    showIosToast(context, 'Vista mappa / satellite: in arrivo');
+  }
+
   void _closeSearch() {
     _searchDebounce?.cancel();
     setState(() {
@@ -859,18 +864,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                     ),
                   // Respiro tra la ricerca e la menubar.
                   if (_searchOpen) const SizedBox(height: 12),
-                  // Mini-card info punto (esplorazione): sostituisce la barra.
-                  if (showPointCard)
+                  // Mini-card info punto (esplorazione): sopra la barra, come la
+                  // ricerca (stessa posizione + piccolo margine).
+                  if (showPointCard) ...[
                     _PointInfoCard(
                       data: inspected,
                       onClose: () =>
                           ref.read(inspectedPointProvider.notifier).clear(),
-                    )
-                  // La toolbar c'è solo quando NON è mostrata una card (traccia o
-                  // punto): così la card di dettaglio occupa il fondo dello schermo.
-                  else if (!showCard)
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // La toolbar c'è quando NON è mostrata la card traccia (che
+                  // occupa il fondo dello schermo); la mini-card punto le sta sopra.
+                  if (!showCard)
                     _BottomBar(
                       onSearch: _openSearch,
+                      onLayers: _onLayers,
                       onNewTrack: () {
                         ref.read(inspectedPointProvider.notifier).clear();
                         ref.read(tracksProvider.notifier).startNewDrawing();
@@ -893,12 +902,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onSearch,
+    required this.onLayers,
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
   });
 
   final VoidCallback onSearch;
+  final VoidCallback onLayers;
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
@@ -919,6 +930,12 @@ class _BottomBar extends StatelessWidget {
                 tooltip: 'Cerca un luogo',
                 icon: Icons.search_rounded,
                 onPressed: onSearch,
+              ),
+              // Livelli/vista (mappa / satellite): placeholder per ora.
+              _BarButton(
+                tooltip: 'Tipo di mappa',
+                icon: CupertinoIcons.square_stack_3d_up,
+                onPressed: onLayers,
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -966,8 +983,9 @@ class _BottomBar extends StatelessWidget {
 }
 
 /// Mini-card mostrata in **esplorazione** toccando un punto della mappa senza
-/// tracce vicine: quota (dal DEM Terrarium, anche offline) + coordinate. Sta al
-/// posto della barra e coesiste con la card traccia (che ha priorità).
+/// tracce vicine: quota (DEM Terrarium, anche offline), località/provincia/
+/// nazione (reverse geocoding) e coordinate. Sta **sopra la barra** (come la
+/// ricerca) e coesiste con la card traccia (che ha priorità).
 class _PointInfoCard extends StatelessWidget {
   const _PointInfoCard({required this.data, required this.onClose});
 
@@ -984,16 +1002,14 @@ class _PointInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      // Sollevata rispetto alla posizione della menubar, così "galleggia" più
-      // in alto sulla mappa.
-      margin: const EdgeInsets.only(bottom: 30),
+    final place = data.place;
+    final hasPlace = place != null && !place.isEmpty;
+    return ConstrainedBox(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width - 16,
       ),
       child: GlassSurface(
-        // Stessa trasparenza della ricerca/menubar (default), un filo più
-        // trasparente di prima.
+        // Stessa trasparenza della ricerca/menubar (default).
         borderRadius: BorderRadius.circular(22),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
@@ -1020,7 +1036,7 @@ class _PointInfoCard extends StatelessWidget {
                         const Text('Quota ',
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.w600)),
-                        if (data.loading)
+                        if (data.elevationLoading)
                           const CupertinoActivityIndicator(radius: 8)
                         else
                           Text(
@@ -1037,6 +1053,31 @@ class _PointInfoCard extends StatelessWidget {
                           ),
                       ],
                     ),
+                    // Località, provincia, nazione (reverse geocoding).
+                    if (data.placeLoading) ...[
+                      const SizedBox(height: 4),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CupertinoActivityIndicator(radius: 6),
+                          SizedBox(width: 6),
+                          Text('Individuazione luogo…',
+                              style: TextStyle(
+                                  fontSize: 13, color: Color(0xFF9A9AA0))),
+                        ],
+                      ),
+                    ] else if (hasPlace) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        place.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13.5,
+                            height: 1.25,
+                            color: Color(0xFF3A3A3C)),
+                      ),
+                    ],
                     const SizedBox(height: 3),
                     // Tap sulle coordinate → copia negli appunti.
                     GestureDetector(
@@ -1055,7 +1096,7 @@ class _PointInfoCard extends StatelessWidget {
                             child: Text(
                               _fmtCoords(data.point),
                               style: const TextStyle(
-                                  fontSize: 13, color: Color(0xFF6E6E73)),
+                                  fontSize: 12.5, color: Color(0xFF6E6E73)),
                             ),
                           ),
                           const SizedBox(width: 5),

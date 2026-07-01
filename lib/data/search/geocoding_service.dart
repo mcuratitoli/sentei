@@ -21,6 +21,27 @@ class GeocodeResult {
   final LatLng center;
 }
 
+/// Esito di un **reverse geocoding** (coordinate → luogo): località, provincia
+/// e nazione del punto. Tutti i campi sono opzionali (possono mancare a seconda
+/// della copertura OSM).
+class ReversePlace {
+  const ReversePlace({this.locality, this.province, this.country});
+
+  final String? locality;
+  final String? province;
+  final String? country;
+
+  bool get isEmpty =>
+      (locality == null || locality!.isEmpty) &&
+      (province == null || province!.isEmpty) &&
+      (country == null || country!.isEmpty);
+
+  /// Etichetta compatta "Località, Provincia, Nazione" (salta i campi vuoti).
+  String get label => [locality, province, country]
+      .where((s) => s != null && s.isNotEmpty)
+      .join(', ');
+}
+
 /// Ricerca di località tramite **Mapbox Geocoding v6** (forward geocoding).
 /// Riusa lo stesso token pubblico `pk` delle mappe (via `--dart-define`).
 class GeocodingService {
