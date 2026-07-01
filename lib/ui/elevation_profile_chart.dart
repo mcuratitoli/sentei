@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/models/elevation_profile.dart';
 import '../domain/services/steepness.dart';
+import 'cai_difficulty.dart';
 
 /// Grafico del profilo altimetrico: area riempita quota vs distanza, con
 /// scrubbing — trascinando il dito/cursore si evidenzia un punto e lo si
@@ -227,7 +228,7 @@ class _ProfilePainter extends CustomPainter {
           Rect.fromLTRB(x0 + 1, top, x1 - 1, size.height),
           const Radius.circular(4),
         );
-        canvas.drawRRect(rect, Paint()..color = _scaleColor(scale));
+        canvas.drawRRect(rect, Paint()..color = caiScaleColor(scale));
         _bandLabel(
             canvas, scale, const Color(0xFFFFFFFF), x0, x1, top, scaleBandHeight);
       }
@@ -264,23 +265,6 @@ class _ProfilePainter extends CustomPainter {
         canvas,
         Offset((x0 + x1) / 2 - tp.width / 2, top + (bandH - tp.height) / 2),
       );
-    }
-  }
-
-  /// Colore per il grado di difficoltà CAI: T verde, E blu, EE arancio,
-  /// EEA rosso; grigio per valori non standard.
-  static Color _scaleColor(String scale) {
-    switch (scale.toUpperCase().trim()) {
-      case 'T':
-        return const Color(0xFF2E7D32);
-      case 'E':
-        return const Color(0xFF1565C0);
-      case 'EE':
-        return const Color(0xFFEF6C00);
-      case 'EEA':
-        return const Color(0xFFC62828);
-      default:
-        return const Color(0xFF616161);
     }
   }
 

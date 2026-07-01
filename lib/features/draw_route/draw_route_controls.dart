@@ -3,51 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
 import '../../domain/services/track_metrics.dart';
+import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
 ///
-/// In **modifica/creazione**: nome, colore, aggiungi/annulla punti, Fine,
-/// dislivello live on-demand. In **vista selezionata**: dati memorizzati al
-/// "Fine" (distanza, D+/D-, profilo, numeri sentieri), modifica/elimina.
+/// - **Creazione/modifica**: vista essenziale — nome, colore, annulla/undo/salva
+///   (niente distanza né profilo: si calcolano al salvataggio).
+/// - **Selezionata**: dati memorizzati (distanza, D+/D-, numeri sentiero, grado
+///   di difficoltà CAI), profilo altimetrico e ripidezza on-demand. Subito dopo
+///   il "Salva" la card **resta aperta** con un indicatore di caricamento finché
+///   percorso/metriche/segnavia non sono pronti.
 class DrawRouteControls extends ConsumerWidget {
   const DrawRouteControls({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final st = ref.watch(tracksProvider);
-    if (!st.showCard) return const SizedBox.shrink();
-
-    final track = st.active;
-    final drawing = st.drawing;
-    final saving = st.saving;
-    // Durante il disegno: calcolo del percorso in corso a ogni nodo.
-    final pathLoading =
-        drawing && track != null && ref.watch(livePathProvider(track.id)).isLoading;
-    final distance = ref.watch(routeDistanceProvider);
-    final liveMetrics = ref.watch(routeMetricsProvider);
-    final canCompute = track?.canCompute ?? false;
-
-    // In modifica le metriche sono live (on-demand); in selezione, memorizzate.
-    final TrackMetrics? shownMetrics =
-        drawing ? liveMetrics.value : track?.metrics;
-    final metricsLoading = drawing && liveMetrics.isLoading;
-
-    final profileVisible = ref.watch(profileVisibleProvider);
-    final showingChart = profileVisible && shownMetrics != null;
-    final steepnessOn = ref.watch(steepnessVisibleProvider);
-    final cursor = ref.watch(profileCursorProvider);
-
-    void toggleProfile() {
-      if (shownMetrics == null && !metricsLoading) {
-        ref.read(routeMetricsProvider.notifier).compute();
-        ref.read(profileVisibleProvider.notifier).show();
-      } else {
-        ref.read(profileVisibleProvider.notifier).toggle();
-      }
-    }
+    final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
+    if (!showCard) return const SizedBox.shrink();
+    final drawing = ref.watch(tracksProvider.select((s) => s.drawing));
 
     return Card(
       // Vicino alla toolbar in basso (poco margine sotto).
@@ -60,186 +36,244 @@ class DrawRouteControls extends ConsumerWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: drawing ? const _DrawingBody() : const _SelectedBody(),
+      ),
+    );
+  }
+}
+
+/// Vista di **creazione/modifica**: minimale. Nome, colore e le sole azioni
+/// annulla · undo · salva.
+class _DrawingBody extends ConsumerWidget {
+  const _DrawingBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final track = ref.watch(tracksProvider.select((s) => s.editing));
+    final pathLoading =
+        track != null && ref.watch(livePathProvider(track.id)).isLoading;
+    final canSave = (track?.waypoints.length ?? 0) >= 2;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _NameField(),
+        _ColorPicker(selected: track?.color),
+        const SizedBox(height: 10),
+        Row(
           children: [
-            if (drawing)
-              const _NameField()
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      (track?.name.isNotEmpty ?? false)
-                          ? track!.name
-                          : 'Senza nome',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Modifica',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: saving
-                        ? null
-                        : () =>
-                            ref.read(tracksProvider.notifier).editSelected(),
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                ],
+            if (pathLoading) ...[
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _Metric(
-                  icon: Icons.straighten,
-                  value: Format.distance(distance),
-                ),
-                if (shownMetrics != null) ...[
-                  const SizedBox(width: 14),
-                  Container(
-                    width: 1,
-                    height: 18,
-                    color: Theme.of(context).dividerColor,
-                  ),
-                  const SizedBox(width: 14),
-                  _GainLoss(metrics: shownMetrics),
-                ],
-              ],
-            ),
-            if (pathLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
-                child: Row(children: [
-                  SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                  SizedBox(width: 8),
-                  Text('Calcolo percorso…', style: TextStyle(fontSize: 12)),
-                ]),
-              )
-            else if (saving)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Row(children: [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Color(0xFF1565C0),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    'Ricerca segnavia CAI…',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                ]),
-              )
-            else if (!drawing && (track?.trailRefs.isNotEmpty ?? false))
-              _TrailTags(refs: track!.trailRefs),
-            if (drawing) _ColorPicker(selected: track?.color),
-            const SizedBox(height: 4),
-            // Controlli compatti: Percorso (profilo) · Ripidezza (icona) · azioni.
-            Row(
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: !canCompute || saving ? null : toggleProfile,
-                  icon: metricsLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(showingChart ? Icons.unfold_less : Icons.terrain),
-                  label: const Text('Percorso'),
-                ),
-                if (!drawing) ...[
-                  const SizedBox(width: 4),
-                  if (steepnessOn)
-                    IconButton.filledTonal(
-                      tooltip: 'Ripidezza',
-                      onPressed: () =>
-                          ref.read(steepnessVisibleProvider.notifier).toggle(),
-                      icon: const Icon(Icons.stairs),
-                    )
-                  else
-                    IconButton(
-                      tooltip: 'Ripidezza',
-                      onPressed: () =>
-                          ref.read(steepnessVisibleProvider.notifier).toggle(),
-                      icon: const Icon(Icons.stairs),
-                    ),
-                ],
-                const Spacer(),
-                if (drawing) ...[
-                  IconButton(
-                    tooltip: 'Annulla e chiudi',
-                    onPressed: () => _confirmCancel(context, ref),
-                    icon: const Icon(Icons.close),
-                  ),
-                  IconButton(
-                    tooltip: 'Annulla ultimo punto',
-                    onPressed: (track?.waypoints.isEmpty ?? true)
-                        ? null
-                        : () => ref.read(tracksProvider.notifier).undo(),
-                    icon: const Icon(Icons.undo),
-                  ),
-                  FilledButton.icon(
-                    onPressed: pathLoading
-                        ? null
-                        : () =>
-                            ref.read(tracksProvider.notifier).finishDrawing(),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Fine'),
-                  ),
-                ] else
-                  IconButton(
-                    tooltip: 'Salva offline',
-                    onPressed: saving || track == null
-                        ? null
-                        : () => downloadTrackOffline(context, ref, track),
-                    icon: const Icon(Icons.download_for_offline_outlined),
-                  ),
-              ],
-            ),
-            if (showingChart && !shownMetrics.profile.isEmpty) ...[
-              const SizedBox(height: 4),
-              // Slot fisso per la quota al cursore (spazio riservato sempre,
-              // così la card non cambia altezza scorrendo il grafico).
-              SizedBox(
-                height: 16,
-                child: Text(
-                  cursor == null
-                      ? 'Tocca il grafico per la quota del punto'
-                      : 'Quota ${Format.meters(cursor.elevation)} · '
-                          '${Format.distance(cursor.distanceMeters)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight:
-                            cursor == null ? FontWeight.normal : FontWeight.bold,
-                        color:
-                            cursor == null ? Theme.of(context).hintColor : null,
-                      ),
-                ),
-              ),
-              ElevationProfileChart(
-                profile: shownMetrics.profile,
-                trailSegments: shownMetrics.trailSegments,
-                cursor: cursor,
-                steepness: steepnessOn,
-                height: 120,
-                onCursor: (s) =>
-                    ref.read(profileCursorProvider.notifier).set(s),
-              ),
+              const SizedBox(width: 8),
+              Text('Calcolo percorso…',
+                  style: Theme.of(context).textTheme.bodySmall),
             ],
+            const Spacer(),
+            IconButton(
+              tooltip: 'Annulla e chiudi',
+              onPressed: () => _confirmCancel(context, ref),
+              icon: const Icon(Icons.close),
+            ),
+            IconButton(
+              tooltip: 'Annulla ultimo punto',
+              onPressed: (track?.waypoints.isEmpty ?? true)
+                  ? null
+                  : () => ref.read(tracksProvider.notifier).undo(),
+              icon: const Icon(Icons.undo),
+            ),
+            const SizedBox(width: 4),
+            FilledButton.icon(
+              onPressed: (!canSave || pathLoading)
+                  ? null
+                  : () => ref.read(tracksProvider.notifier).finishDrawing(),
+              icon: const Icon(Icons.check),
+              label: const Text('Salva'),
+            ),
           ],
         ),
-      ),
+      ],
+    );
+  }
+}
+
+/// Vista **traccia selezionata**: dati memorizzati + profilo/ripidezza on-demand.
+class _SelectedBody extends ConsumerWidget {
+  const _SelectedBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final track = ref.watch(tracksProvider.select((s) => s.active));
+    // Calcolo in corso proprio per la traccia mostrata → indicatore di attesa.
+    final saving = ref.watch(
+        tracksProvider.select((s) => s.saving && s.savingId == s.activeId));
+    // Ricerca lazy di segnavia/difficoltà su una traccia vecchia appena aperta.
+    final resolvingTrails = ref.watch(
+        tracksProvider.select((s) => s.resolvingTrailsId == s.activeId));
+    final distance = ref.watch(routeDistanceProvider);
+    final metrics = track?.metrics;
+    final hasMetrics = metrics != null;
+
+    final profileVisible = ref.watch(profileVisibleProvider);
+    final showingChart =
+        profileVisible && hasMetrics && !metrics.profile.isEmpty;
+    final steepnessOn = ref.watch(steepnessVisibleProvider);
+    final cursor = ref.watch(profileCursorProvider);
+    final difficulty =
+        hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                (track?.name.isNotEmpty ?? false) ? track!.name : 'Senza nome',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Modifica',
+              visualDensity: VisualDensity.compact,
+              onPressed: saving
+                  ? null
+                  : () => ref.read(tracksProvider.notifier).editSelected(),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
+        if (saving)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: Row(children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Calcolo percorso, dislivello e segnavia…',
+                  style:
+                      TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ]),
+          )
+        else ...[
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              _Metric(icon: Icons.straighten, value: Format.distance(distance)),
+              if (hasMetrics) ...[
+                const SizedBox(width: 14),
+                Container(
+                  width: 1,
+                  height: 18,
+                  color: Theme.of(context).dividerColor,
+                ),
+                const SizedBox(width: 14),
+                _GainLoss(metrics: metrics),
+              ],
+            ],
+          ),
+          if (resolvingTrails)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Row(children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text('Ricerca segnavia CAI…', style: TextStyle(fontSize: 12)),
+              ]),
+            )
+          else if ((track?.trailRefs.isNotEmpty ?? false) || difficulty != null)
+            _TrailInfo(
+                refs: track?.trailRefs ?? const [], scale: difficulty),
+        ],
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: (!hasMetrics || saving)
+                  ? null
+                  : () => ref.read(profileVisibleProvider.notifier).toggle(),
+              icon: Icon(showingChart ? Icons.unfold_less : Icons.terrain),
+              label: const Text('Percorso'),
+            ),
+            const SizedBox(width: 4),
+            if (steepnessOn)
+              IconButton.filledTonal(
+                tooltip: 'Colori dislivelli',
+                onPressed: (!hasMetrics || saving)
+                    ? null
+                    : () =>
+                        ref.read(steepnessVisibleProvider.notifier).toggle(),
+                icon: const Icon(Icons.stairs),
+              )
+            else
+              IconButton(
+                tooltip: 'Colori dislivelli',
+                onPressed: (!hasMetrics || saving)
+                    ? null
+                    : () =>
+                        ref.read(steepnessVisibleProvider.notifier).toggle(),
+                icon: const Icon(Icons.stairs),
+              ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Salva offline',
+              onPressed: saving || track == null
+                  ? null
+                  : () => downloadTrackOffline(context, ref, track),
+              icon: const Icon(Icons.download_for_offline_outlined),
+            ),
+          ],
+        ),
+        if (showingChart) ...[
+          const SizedBox(height: 4),
+          // Slot fisso per la quota al cursore (spazio riservato sempre, così la
+          // card non cambia altezza scorrendo il grafico).
+          SizedBox(
+            height: 16,
+            child: Text(
+              cursor == null
+                  ? 'Tocca il grafico per la quota del punto'
+                  : 'Quota ${Format.meters(cursor.elevation)} · '
+                      '${Format.distance(cursor.distanceMeters)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight:
+                        cursor == null ? FontWeight.normal : FontWeight.bold,
+                    color: cursor == null ? Theme.of(context).hintColor : null,
+                  ),
+            ),
+          ),
+          ElevationProfileChart(
+            profile: metrics.profile,
+            trailSegments: metrics.trailSegments,
+            cursor: cursor,
+            steepness: steepnessOn,
+            height: 120,
+            onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -258,8 +292,8 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Annullare?'),
-      content: const Text(
-          'Le modifiche non salvate al percorso andranno perse.'),
+      content:
+          const Text('Le modifiche non salvate al percorso andranno perse.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
@@ -277,22 +311,24 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
   }
 }
 
-/// Chip con i numeri dei sentieri (ref CAI) attraversati dalla traccia.
-class _TrailTags extends StatelessWidget {
-  const _TrailTags({required this.refs});
+/// Numeri dei sentieri (ref CAI) attraversati + grado di difficoltà complessivo.
+class _TrailInfo extends StatelessWidget {
+  const _TrailInfo({required this.refs, required this.scale});
 
   final List<String> refs;
+  final String? scale;
 
   @override
   Widget build(BuildContext context) {
+    final s = scale; // locale: promuovibile dopo il null-check
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Wrap(
         spacing: 6,
-        runSpacing: 2,
+        runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Icon(Icons.signpost_outlined, size: 16),
+          if (refs.isNotEmpty) const Icon(Icons.signpost_outlined, size: 16),
           for (final r in refs)
             Chip(
               label: Text(r),
@@ -301,7 +337,38 @@ class _TrailTags extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
             ),
+          if (s != null) _DifficultyChip(scale: s),
         ],
+      ),
+    );
+  }
+}
+
+/// Chip colorato col grado di difficoltà CAI complessivo del percorso.
+class _DifficultyChip extends StatelessWidget {
+  const _DifficultyChip({required this.scale});
+
+  final String scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = caiScaleColor(scale);
+    return Tooltip(
+      message: 'Difficoltà CAI: ${caiScaleLabel(scale)}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          scale,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
@@ -410,12 +477,10 @@ class _Metric extends StatelessWidget {
 class _GainLoss extends StatelessWidget {
   const _GainLoss({required this.metrics});
 
-  final TrackMetrics? metrics;
+  final TrackMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
-    final m = metrics;
-    if (m == null) return const SizedBox.shrink();
     final style = Theme.of(context)
         .textTheme
         .titleSmall
@@ -427,11 +492,11 @@ class _GainLoss extends StatelessWidget {
       children: [
         const Icon(Icons.trending_up, size: 18, color: up),
         const SizedBox(width: 3),
-        Text(Format.meters(m.elevation.gain), style: style),
+        Text(Format.meters(metrics.elevation.gain), style: style),
         const SizedBox(width: 10),
         const Icon(Icons.trending_down, size: 18, color: down),
         const SizedBox(width: 3),
-        Text(Format.meters(m.elevation.loss), style: style),
+        Text(Format.meters(metrics.elevation.loss), style: style),
       ],
     );
   }

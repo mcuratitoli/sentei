@@ -14,6 +14,10 @@ class TrackRows extends Table {
   TextColumn get routedPath => text().withDefault(const Constant('[]'))();
   TextColumn get trailRefs => text().withDefault(const Constant('[]'))();
   TextColumn get metrics => text().nullable()(); // JSON o null
+  // Segnavia/difficoltà CAI già cercati (a prescindere dall'esito). Le tracce
+  // salvate prima della funzionalità hanno false → backfill lazy alla selezione.
+  BoolColumn get trailsResolved =>
+      boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -27,7 +31,19 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sentei'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          // v2: aggiunge la colonna trailsResolved (default false) alle tracce
+          // esistenti, così vengono risolte in modo lazy alla selezione.
+          if (from < 2) {
+            await m.addColumn(trackRows, trackRows.trailsResolved);
+          }
+        },
+      );
 
   Future<List<TrackRow>> allTracks() =>
       (select(trackRows)..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();

@@ -109,7 +109,7 @@ void main() {
     expect(state().drawing, isFalse);
   });
 
-  test('finishDrawing mantiene tracce valide, deseleziona e memorizza i dati',
+  test('finishDrawing mantiene la traccia selezionata (card aperta) e memorizza',
       () async {
     notifier()
       ..startNewDrawing()
@@ -118,8 +118,12 @@ void main() {
     await notifier().finishDrawing();
 
     expect(state().tracks.length, 1);
-    expect(state().showCard, isFalse);
+    // La card resta aperta sulla traccia salvata (selezionata, non più in
+    // disegno, calcolo concluso).
+    expect(state().showCard, isTrue);
+    expect(state().drawing, isFalse);
     expect(state().saving, isFalse);
+    expect(state().selectedId, state().tracks.first.id);
     // Dati calcolati e memorizzati sulla traccia.
     expect(state().tracks.first.routedPath.length, greaterThanOrEqualTo(2));
     expect(state().tracks.first.metrics, isNotNull);

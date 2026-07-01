@@ -103,6 +103,7 @@ abstract final class TrackCodec {
         'waypoints': pointsToJson(t.waypoints),
         'routedPath': pointsToJson(t.routedPath),
         'trailRefs': t.trailRefs,
+        'trailsResolved': t.trailsResolved,
         'metrics': metricsToJson(t.metrics),
         'createdAt': t.createdAt?.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
@@ -116,6 +117,7 @@ abstract final class TrackCodec {
         waypoints: pointsFromJson((j['waypoints'] as List?) ?? const []),
         routedPath: pointsFromJson((j['routedPath'] as List?) ?? const []),
         trailRefs: ((j['trailRefs'] as List?) ?? const []).cast<String>(),
+        trailsResolved: (j['trailsResolved'] as bool?) ?? false,
         metrics: metricsFromJson(j['metrics'] as Map<String, dynamic>?),
         createdAt: parseDate(j['createdAt']),
       );

@@ -44,6 +44,7 @@ class DrawnTrack {
     this.routedPath = const [],
     this.metrics,
     this.trailRefs = const [],
+    this.trailsResolved = false,
     this.createdAt,
   });
 
@@ -65,6 +66,13 @@ class DrawnTrack {
   /// Numeri dei sentieri (ref CAI) attraversati, calcolati al "Fine".
   final List<String> trailRefs;
 
+  /// Se i segnavia/difficoltà CAI sono **già stati cercati** per questa traccia
+  /// (a prescindere dall'esito: `trailRefs` può essere vuoto perché la zona non
+  /// ne ha). Distingue "cercati e non trovati" da "mai cercati" (tracce vecchie
+  /// salvate prima della funzionalità): solo queste ultime vengono risolte in
+  /// modo lazy alla selezione. Si azzera quando la geometria cambia.
+  final bool trailsResolved;
+
   bool get canCompute => waypoints.length >= 2;
 
   DrawnTrack copyWith({
@@ -75,6 +83,7 @@ class DrawnTrack {
     List<LatLng>? routedPath,
     TrackMetrics? metrics,
     List<String>? trailRefs,
+    bool? trailsResolved,
     DateTime? createdAt,
   }) =>
       DrawnTrack(
@@ -86,6 +95,7 @@ class DrawnTrack {
         routedPath: routedPath ?? this.routedPath,
         metrics: metrics ?? this.metrics,
         trailRefs: trailRefs ?? this.trailRefs,
+        trailsResolved: trailsResolved ?? this.trailsResolved,
         createdAt: createdAt ?? this.createdAt,
       );
 
@@ -107,6 +117,7 @@ class TracksState {
     this.editingId,
     this.selectedId,
     this.savingId,
+    this.resolvingTrailsId,
     this.geometryNonce = 0,
   });
 
@@ -116,6 +127,11 @@ class TracksState {
 
   /// Id della traccia per cui è in corso calcolo+salvataggio dopo il "Fine".
   final String? savingId;
+
+  /// Id della traccia per cui è in corso la ricerca lazy di segnavia/difficoltà
+  /// (backfill di una traccia vecchia alla selezione). Mostra lo spinner nella
+  /// card senza toccare la geometria.
+  final String? resolvingTrailsId;
 
   /// Incrementato ad ogni cambio di geometria (waypoint/percorso/colore/lista).
   /// Non cambia su modifiche di soli metadati (nome): usato dal listener mappa
@@ -276,10 +292,16 @@ class Tracks extends Notifier<TracksState> {
       return;
     }
 
-    // Deseleziona (si possono disegnare altre tracce); il calcolo prosegue in
-    // background (savingId = id, per animare la traccia) e i dati restano
-    // memorizzati per quando la traccia verrà selezionata.
-    state = TracksState(tracks: state.tracks, savingId: id, geometryNonce: state.geometryNonce);
+    // Chiude la modalità disegno ma **mantiene la traccia selezionata**: la card
+    // resta aperta e mostra un indicatore di caricamento mentre il calcolo
+    // prosegue in background (savingId = id → spinner + animazione traccia). I
+    // dati (percorso/metriche/segnavia) vengono riempiti quando pronti.
+    state = TracksState(
+      tracks: state.tracks,
+      selectedId: id,
+      savingId: id,
+      geometryNonce: state.geometryNonce,
+    );
 
     final path =
         await routeAlong(ref.read(routingServiceProvider), track.waypoints,
@@ -294,11 +316,16 @@ class Tracks extends Notifier<TracksState> {
     }
 
     // Numeri sentiero per tratto (per il grafico) + elenco unico (per i chip).
+    // `trailsResolved` = true solo se la ricerca è **andata a buon fine** (anche
+    // con esito vuoto): su errore resta false così la selezione futura ritenta.
     List<TrailSegment> segments = const [];
+    var trailsResolved = false;
     try {
       segments = await ref.read(trailServiceProvider).trailSegmentsAlong(path);
+      trailsResolved = true;
     } catch (_) {
       segments = const [];
+      trailsResolved = false;
     }
     final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
     if (metrics != null && segments.isNotEmpty) {
@@ -318,7 +345,11 @@ class Tracks extends Notifier<TracksState> {
       tracks: [
         for (final t in state.tracks)
           if (t.id == id)
-            t.copyWith(routedPath: path, metrics: metrics, trailRefs: refs)
+            t.copyWith(
+                routedPath: path,
+                metrics: metrics,
+                trailRefs: refs,
+                trailsResolved: trailsResolved)
           else
             t,
       ],
@@ -339,8 +370,82 @@ class Tracks extends Notifier<TracksState> {
     }
   }
 
-  void select(String id) =>
-      state = TracksState(tracks: state.tracks, selectedId: id, geometryNonce: state.geometryNonce);
+  void select(String id) {
+    state = TracksState(
+        tracks: state.tracks,
+        selectedId: id,
+        geometryNonce: state.geometryNonce);
+    // Backfill lazy: se la traccia non ha mai cercato segnavia/difficoltà, li
+    // cerca ora (una volta sola). Best-effort, non blocca la selezione.
+    unawaited(_resolveTrailsIfNeeded(id));
+  }
+
+  /// Cerca segnavia + grado di difficoltà per una traccia **selezionata** che
+  /// non li ha mai cercati (`trailsResolved == false`: tipicamente tracce vecchie
+  /// salvate prima della funzionalità). Se erano già stati cercati — anche con
+  /// esito vuoto — non fa nulla (niente ricalcolo a ogni riselezione).
+  Future<void> _resolveTrailsIfNeeded(String id) async {
+    final track = state.byId(id);
+    if (track == null) return;
+    if (track.trailsResolved) return; // già cercati (anche se vuoti)
+    if (track.routedPath.length < 2) return; // niente geometria su cui cercare
+    if (state.resolvingTrailsId != null) return; // una ricerca alla volta
+
+    // Spinner nella card (geometria invariata → geometryNonce fermo).
+    state = TracksState(
+      tracks: state.tracks,
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      resolvingTrailsId: id,
+      geometryNonce: state.geometryNonce,
+    );
+
+    List<TrailSegment> segments = const [];
+    var resolved = false;
+    try {
+      segments = await ref
+          .read(trailServiceProvider)
+          .trailSegmentsAlong(track.routedPath);
+      resolved = true;
+    } catch (_) {
+      resolved = false;
+    }
+    final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
+
+    // Applica i risultati (se la traccia esiste ancora) e togli lo spinner.
+    final stillThere = state.byId(id) != null;
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id && resolved)
+            t.copyWith(
+              trailRefs: refs,
+              metrics: t.metrics?.copyWith(trailSegments: segments),
+              trailsResolved: true,
+            )
+          else
+            t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      // resolvingTrailsId azzerato.
+      geometryNonce: state.geometryNonce,
+    );
+
+    // Persiste il backfill (best-effort) + auto-sync cloud.
+    if (resolved && stillThere) {
+      final saved = state.byId(id);
+      if (saved != null) {
+        final now = DateTime.now();
+        try {
+          await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
+        } catch (_) {/* best-effort */}
+        unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+      }
+    }
+  }
 
   void deselect() => state = TracksState(tracks: state.tracks, geometryNonce: state.geometryNonce);
 
@@ -483,51 +588,18 @@ final routeDistanceProvider = Provider<double>((ref) {
   return const PathGeometry().totalDistance(live);
 });
 
-/// Metriche calcolate **on-demand durante il disegno** (tasto Dislivello).
-/// In vista selezionata si usano invece quelle memorizzate sulla traccia.
-class RouteMetrics extends AsyncNotifier<TrackMetrics?> {
-  @override
-  Future<TrackMetrics?> build() async {
-    ref.watch(activeTrackIdProvider); // reset al cambio traccia
-    return null;
-  }
-
-  Future<void> compute() async {
-    final track = ref.read(tracksProvider).active;
-    if (track == null) return;
-    final path = ref.read(livePathProvider(track.id)).value ??
-        (track.routedPath.length >= 2 ? track.routedPath : const <LatLng>[]);
-    if (path.length < 2) {
-      state = const AsyncData(null);
-      return;
-    }
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final service = ref.read(elevationServiceProvider);
-      return const TrackMetricsCalculator().compute(path, service);
-    });
-  }
-
-  void reset() => state = const AsyncData(null);
-}
-
-final routeMetricsProvider =
-    AsyncNotifierProvider<RouteMetrics, TrackMetrics?>(RouteMetrics.new);
-
-/// Visibilità del grafico del profilo (toggle dal tasto Dislivello).
+/// Visibilità del grafico del profilo (toggle dal tasto "Percorso").
 class ProfileVisible extends Notifier<bool> {
   @override
   bool build() {
-    ref.watch(activeTrackIdProvider); // reset al cambio traccia
-    final st = ref.read(tracksProvider);
-    // Aperto di default quando si **seleziona** una traccia con profilo già
-    // calcolato; in disegno resta chiuso (il profilo è on-demand, tasto
-    // "Percorso"). Il toggle manuale persiste finché non si cambia traccia.
-    return !st.drawing && (st.active?.metrics?.profile.isEmpty == false);
+    ref.watch(activeTrackIdProvider); // reset (chiuso) al cambio traccia
+    // Il grafico è **chiuso di default**: si apre esplicitamente col tasto
+    // "Percorso". Coerente sia sulle tracce appena salvate sia su quelle
+    // esistenti riselezionate.
+    return false;
   }
 
   void toggle() => state = !state;
-  void show() => state = true;
 }
 
 final profileVisibleProvider =

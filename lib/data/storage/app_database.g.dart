@@ -64,6 +64,16 @@ class $TrackRowsTable extends TrackRows
   late final GeneratedColumn<String> metrics = GeneratedColumn<String>(
       'metrics', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _trailsResolvedMeta =
+      const VerificationMeta('trailsResolved');
+  @override
+  late final GeneratedColumn<bool> trailsResolved = GeneratedColumn<bool>(
+      'trails_resolved', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("trails_resolved" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -86,6 +96,7 @@ class $TrackRowsTable extends TrackRows
         routedPath,
         trailRefs,
         metrics,
+        trailsResolved,
         createdAt,
         updatedAt
       ];
@@ -140,6 +151,12 @@ class $TrackRowsTable extends TrackRows
       context.handle(_metricsMeta,
           metrics.isAcceptableOrUnknown(data['metrics']!, _metricsMeta));
     }
+    if (data.containsKey('trails_resolved')) {
+      context.handle(
+          _trailsResolvedMeta,
+          trailsResolved.isAcceptableOrUnknown(
+              data['trails_resolved']!, _trailsResolvedMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -177,6 +194,8 @@ class $TrackRowsTable extends TrackRows
           .read(DriftSqlType.string, data['${effectivePrefix}trail_refs'])!,
       metrics: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}metrics']),
+      trailsResolved: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}trails_resolved'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -199,6 +218,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   final String routedPath;
   final String trailRefs;
   final String? metrics;
+  final bool trailsResolved;
   final DateTime createdAt;
   final DateTime updatedAt;
   const TrackRow(
@@ -210,6 +230,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       required this.routedPath,
       required this.trailRefs,
       this.metrics,
+      required this.trailsResolved,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -225,6 +246,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     if (!nullToAbsent || metrics != null) {
       map['metrics'] = Variable<String>(metrics);
     }
+    map['trails_resolved'] = Variable<bool>(trailsResolved);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -242,6 +264,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       metrics: metrics == null && nullToAbsent
           ? const Value.absent()
           : Value(metrics),
+      trailsResolved: Value(trailsResolved),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -259,6 +282,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       routedPath: serializer.fromJson<String>(json['routedPath']),
       trailRefs: serializer.fromJson<String>(json['trailRefs']),
       metrics: serializer.fromJson<String?>(json['metrics']),
+      trailsResolved: serializer.fromJson<bool>(json['trailsResolved']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -275,6 +299,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'routedPath': serializer.toJson<String>(routedPath),
       'trailRefs': serializer.toJson<String>(trailRefs),
       'metrics': serializer.toJson<String?>(metrics),
+      'trailsResolved': serializer.toJson<bool>(trailsResolved),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -289,6 +314,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           String? routedPath,
           String? trailRefs,
           Value<String?> metrics = const Value.absent(),
+          bool? trailsResolved,
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       TrackRow(
@@ -300,6 +326,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
         routedPath: routedPath ?? this.routedPath,
         trailRefs: trailRefs ?? this.trailRefs,
         metrics: metrics.present ? metrics.value : this.metrics,
+        trailsResolved: trailsResolved ?? this.trailsResolved,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -315,6 +342,9 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           data.routedPath.present ? data.routedPath.value : this.routedPath,
       trailRefs: data.trailRefs.present ? data.trailRefs.value : this.trailRefs,
       metrics: data.metrics.present ? data.metrics.value : this.metrics,
+      trailsResolved: data.trailsResolved.present
+          ? data.trailsResolved.value
+          : this.trailsResolved,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -331,6 +361,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('routedPath: $routedPath, ')
           ..write('trailRefs: $trailRefs, ')
           ..write('metrics: $metrics, ')
+          ..write('trailsResolved: $trailsResolved, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -339,7 +370,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
 
   @override
   int get hashCode => Object.hash(id, name, color, snapToTrail, waypoints,
-      routedPath, trailRefs, metrics, createdAt, updatedAt);
+      routedPath, trailRefs, metrics, trailsResolved, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -352,6 +383,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.routedPath == this.routedPath &&
           other.trailRefs == this.trailRefs &&
           other.metrics == this.metrics &&
+          other.trailsResolved == this.trailsResolved &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -365,6 +397,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
   final Value<String> routedPath;
   final Value<String> trailRefs;
   final Value<String?> metrics;
+  final Value<bool> trailsResolved;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -377,6 +410,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.routedPath = const Value.absent(),
     this.trailRefs = const Value.absent(),
     this.metrics = const Value.absent(),
+    this.trailsResolved = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -390,6 +424,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.routedPath = const Value.absent(),
     this.trailRefs = const Value.absent(),
     this.metrics = const Value.absent(),
+    this.trailsResolved = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -407,6 +442,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     Expression<String>? routedPath,
     Expression<String>? trailRefs,
     Expression<String>? metrics,
+    Expression<bool>? trailsResolved,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -420,6 +456,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       if (routedPath != null) 'routed_path': routedPath,
       if (trailRefs != null) 'trail_refs': trailRefs,
       if (metrics != null) 'metrics': metrics,
+      if (trailsResolved != null) 'trails_resolved': trailsResolved,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -435,6 +472,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       Value<String>? routedPath,
       Value<String>? trailRefs,
       Value<String?>? metrics,
+      Value<bool>? trailsResolved,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
@@ -447,6 +485,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       routedPath: routedPath ?? this.routedPath,
       trailRefs: trailRefs ?? this.trailRefs,
       metrics: metrics ?? this.metrics,
+      trailsResolved: trailsResolved ?? this.trailsResolved,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -480,6 +519,9 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     if (metrics.present) {
       map['metrics'] = Variable<String>(metrics.value);
     }
+    if (trailsResolved.present) {
+      map['trails_resolved'] = Variable<bool>(trailsResolved.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -503,6 +545,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
           ..write('routedPath: $routedPath, ')
           ..write('trailRefs: $trailRefs, ')
           ..write('metrics: $metrics, ')
+          ..write('trailsResolved: $trailsResolved, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -531,6 +574,7 @@ typedef $$TrackRowsTableCreateCompanionBuilder = TrackRowsCompanion Function({
   Value<String> routedPath,
   Value<String> trailRefs,
   Value<String?> metrics,
+  Value<bool> trailsResolved,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -544,6 +588,7 @@ typedef $$TrackRowsTableUpdateCompanionBuilder = TrackRowsCompanion Function({
   Value<String> routedPath,
   Value<String> trailRefs,
   Value<String?> metrics,
+  Value<bool> trailsResolved,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -581,6 +626,10 @@ class $$TrackRowsTableFilterComposer
 
   ColumnFilters<String> get metrics => $composableBuilder(
       column: $table.metrics, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get trailsResolved => $composableBuilder(
+      column: $table.trailsResolved,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -622,6 +671,10 @@ class $$TrackRowsTableOrderingComposer
   ColumnOrderings<String> get metrics => $composableBuilder(
       column: $table.metrics, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get trailsResolved => $composableBuilder(
+      column: $table.trailsResolved,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -662,6 +715,9 @@ class $$TrackRowsTableAnnotationComposer
   GeneratedColumn<String> get metrics =>
       $composableBuilder(column: $table.metrics, builder: (column) => column);
 
+  GeneratedColumn<bool> get trailsResolved => $composableBuilder(
+      column: $table.trailsResolved, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -700,6 +756,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<String> routedPath = const Value.absent(),
             Value<String> trailRefs = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
+            Value<bool> trailsResolved = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -713,6 +770,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             routedPath: routedPath,
             trailRefs: trailRefs,
             metrics: metrics,
+            trailsResolved: trailsResolved,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
@@ -726,6 +784,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<String> routedPath = const Value.absent(),
             Value<String> trailRefs = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
+            Value<bool> trailsResolved = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
@@ -739,6 +798,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             routedPath: routedPath,
             trailRefs: trailRefs,
             metrics: metrics,
+            trailsResolved: trailsResolved,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
