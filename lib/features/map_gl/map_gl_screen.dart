@@ -6,12 +6,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart'
     show CupertinoActivityIndicator, CupertinoButton, CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 import '../../core/constants.dart';
+import '../../core/util/format.dart';
 import '../../data/location/location_service.dart';
 import '../../data/search/geocoding_service.dart';
 import '../../domain/services/path_geometry.dart';
@@ -23,6 +25,7 @@ import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
+import 'inspected_point_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
 
 /// Stile della mappa. Default: Mapbox **Outdoors** (topo stock migliore).
@@ -441,12 +444,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   Future<void> _onTap(MapContentGestureContext context) async {
     final pos = context.point.coordinates;
     final p = ll.LatLng(pos.lat.toDouble(), pos.lng.toDouble());
+    // Un tap sulla mappa chiude sempre la ricerca aperta (che sia per
+    // selezionare una traccia o ispezionare un punto).
+    if (_searchOpen) _closeSearch();
     final state = ref.read(tracksProvider);
     if (state.drawing) {
+      ref.read(inspectedPointProvider.notifier).clear();
       ref.read(tracksProvider.notifier).addPoint(p);
-    } else if (ref.read(tracksHiddenProvider)) {
-      // Tracce nascoste: niente da selezionare.
-      ref.read(tracksProvider.notifier).deselect();
     } else {
       final cam = await _map?.getCameraState();
       _selectNearest(p, cam?.zoom ?? 14);
@@ -474,9 +478,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       }
     }
     if (nearest != null && best <= threshold) {
+      ref.read(inspectedPointProvider.notifier).clear();
       notifier.select(nearest);
     } else {
+      // Nessuna traccia vicina: in esplorazione mostriamo le info del punto.
       notifier.deselect();
+      ref.read(inspectedPointProvider.notifier).inspect(point);
     }
   }
 
@@ -758,6 +765,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // Card visibile (traccia selezionata o in modifica): occupa il fondo e
     // sostituisce la toolbar (che viene nascosta).
     final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
+    // Info punto in esplorazione (mini-card): solo se non c'è la card traccia.
+    final inspected = ref.watch(inspectedPointProvider);
+    final showPointCard = inspected != null && !showCard;
+    // La card traccia (selezione/disegno) ha priorità: azzera il punto ispezionato.
+    ref.listen(tracksProvider.select((s) => s.showCard), (_, show) {
+      if (show) ref.read(inspectedPointProvider.notifier).clear();
+    });
     // Ridisegna solo su cambi di GEOMETRIA (waypoint/percorso/colore/lista tracce),
     // non su modifiche di puri metadati (nome) → evita il flickering al typing.
     ref.listen(
@@ -830,13 +844,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                     ),
                   // Respiro tra la ricerca e la menubar.
                   if (_searchOpen) const SizedBox(height: 12),
-                  // La toolbar c'è solo quando NON è mostrata la card: così la
-                  // card di dettaglio occupa il fondo dello schermo.
-                  if (!showCard)
+                  // Mini-card info punto (esplorazione): sostituisce la barra.
+                  if (showPointCard)
+                    _PointInfoCard(
+                      data: inspected,
+                      onClose: () =>
+                          ref.read(inspectedPointProvider.notifier).clear(),
+                    )
+                  // La toolbar c'è solo quando NON è mostrata una card (traccia o
+                  // punto): così la card di dettaglio occupa il fondo dello schermo.
+                  else if (!showCard)
                     _BottomBar(
                       onSearch: _openSearch,
-                      onNewTrack:
-                          ref.read(tracksProvider.notifier).startNewDrawing,
+                      onNewTrack: () {
+                        ref.read(inspectedPointProvider.notifier).clear();
+                        ref.read(tracksProvider.notifier).startNewDrawing();
+                      },
                       onTracks: () => context.push(TracksListScreen.routePath),
                       onSettings: () => context.push(SettingsScreen.routePath),
                     ),
@@ -918,6 +941,120 @@ class _BottomBar extends StatelessWidget {
                 tooltip: 'Impostazioni',
                 icon: CupertinoIcons.gear_alt_fill,
                 onPressed: onSettings,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mini-card mostrata in **esplorazione** toccando un punto della mappa senza
+/// tracce vicine: quota (dal DEM Terrarium, anche offline) + coordinate. Sta al
+/// posto della barra e coesiste con la card traccia (che ha priorità).
+class _PointInfoCard extends StatelessWidget {
+  const _PointInfoCard({required this.data, required this.onClose});
+
+  final InspectedPoint data;
+  final VoidCallback onClose;
+
+  static String _fmtCoords(ll.LatLng p) {
+    final ns = p.latitude >= 0 ? 'N' : 'S';
+    final ew = p.longitude >= 0 ? 'E' : 'O';
+    return '${p.latitude.abs().toStringAsFixed(5)}°$ns  '
+        '${p.longitude.abs().toStringAsFixed(5)}°$ew';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width - 16,
+      ),
+      child: GlassSurface(
+        opacity: 0.92,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(CupertinoIcons.placemark_fill,
+                    color: scheme.primary, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Quota ',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600)),
+                        if (data.loading)
+                          const CupertinoActivityIndicator(radius: 8)
+                        else
+                          Text(
+                            data.elevation != null
+                                ? Format.meters(data.elevation!)
+                                : 'non disponibile',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: data.elevation != null
+                                  ? scheme.primary
+                                  : const Color(0xFF8E8E93),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    // Tap sulle coordinate → copia negli appunti.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(
+                          text: '${data.point.latitude.toStringAsFixed(6)}, '
+                              '${data.point.longitude.toStringAsFixed(6)}',
+                        ));
+                        showIosToast(context, 'Coordinate copiate');
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _fmtCoords(data.point),
+                              style: const TextStyle(
+                                  fontSize: 13, color: Color(0xFF6E6E73)),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          const Icon(CupertinoIcons.doc_on_doc,
+                              size: 13, color: Color(0xFF9A9AA0)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const ui.Size(40, 40),
+                onPressed: onClose,
+                child: const Icon(CupertinoIcons.clear_circled_solid,
+                    size: 24, color: Color(0xFFB0B0B5)),
               ),
             ],
           ),
@@ -1159,34 +1296,36 @@ class _SearchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.of(context).size.width - 16;
     return SizedBox(
       width: width,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Risultati: sopra il campo, crescono verso l'alto.
+          // Risultati: sopra il campo, crescono verso l'alto. Stesso vetro
+          // della menubar per coerenza.
           if (results.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: scheme.surface,
-                elevation: 6,
+              child: GlassSurface(
                 borderRadius: BorderRadius.circular(24),
-                clipBehavior: Clip.antiAlias,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 260),
                   child: ListView.separated(
                     shrinkWrap: true,
                     padding: EdgeInsets.zero,
                     itemCount: results.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: _kBarIcon.withValues(alpha: 0.12),
+                    ),
                     itemBuilder: (context, i) {
                       final r = results[i];
                       return ListTile(
                         dense: true,
-                        leading: const Icon(Icons.place_outlined),
+                        leading: const Icon(CupertinoIcons.placemark,
+                            size: 20, color: _kBarIcon),
                         title: Text(r.name,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: r.context.isEmpty
@@ -1200,19 +1339,16 @@ class _SearchPanel extends StatelessWidget {
                 ),
               ),
             ),
-          // Campo di ricerca (pillola arrotondata come la menubar).
-          Material(
-            color: scheme.surface,
-            elevation: 6,
+          // Campo di ricerca (pillola in vetro come la menubar).
+          GlassSurface(
             borderRadius: BorderRadius.circular(28),
-            clipBehavior: Clip.antiAlias,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 children: [
                   IconButton(
                     tooltip: 'Chiudi',
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(CupertinoIcons.back, color: _kBarIcon),
                     onPressed: onClose,
                   ),
                   Expanded(
