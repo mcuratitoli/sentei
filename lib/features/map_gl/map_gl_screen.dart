@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +15,7 @@ import '../../data/location/location_service.dart';
 import '../../data/search/geocoding_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
+import '../../ui/glass.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -876,43 +879,60 @@ class _BottomBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: scheme.surface,
-        elevation: 6,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: GlassSurface(
+        borderRadius: BorderRadius.circular(30),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
+              _BarButton(
                 tooltip: 'Cerca un luogo',
-                icon: const Icon(Icons.search),
+                icon: CupertinoIcons.search,
                 onPressed: onSearch,
               ),
-              IconButton(
-                tooltip: tracksHidden
-                    ? 'Mostra le tracce'
-                    : 'Nascondi le tracce',
+              _BarButton(
+                tooltip:
+                    tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
                 onPressed: onToggleHide,
-                icon: Icon(tracksHidden
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined),
+                icon: tracksHidden
+                    ? CupertinoIcons.eye_slash
+                    : CupertinoIcons.eye,
               ),
-              FloatingActionButton.small(
-                heroTag: 'gl-new',
-                onPressed: onNewTrack,
-                child: const Icon(Icons.add),
+              // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const ui.Size(46, 46),
+                  onPressed: onNewTrack,
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: scheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: scheme.primary.withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(CupertinoIcons.add,
+                        color: Color(0xFFFFFFFF), size: 26),
+                  ),
+                ),
               ),
-              IconButton(
+              _BarButton(
                 tooltip: 'Tracciati salvati',
-                icon: const Icon(Icons.list_alt),
+                icon: CupertinoIcons.square_list,
                 onPressed: onTracks,
               ),
-              IconButton(
+              _BarButton(
                 tooltip: 'Impostazioni',
-                icon: const Icon(Icons.settings_outlined),
+                icon: CupertinoIcons.gear,
                 onPressed: onSettings,
               ),
             ],
@@ -920,6 +940,38 @@ class _BottomBar extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Icona tappabile della barra in vetro: press-dim iOS, niente ripple Material.
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8);
+    Widget button = CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const ui.Size(46, 46),
+      onPressed: onPressed,
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: Icon(icon, size: 24, color: color),
+      ),
+    );
+    if (tooltip != null) {
+      button = Tooltip(message: tooltip!, child: button);
+    }
+    return button;
   }
 }
 
@@ -954,14 +1006,16 @@ class _SideControls extends StatelessWidget {
           child: Transform.rotate(
             // L'ago punta sempre al nord reale: ruota in senso opposto.
             angle: -bearing * math.pi / 180.0,
-            child: Icon(Icons.navigation, size: 18, color: scheme.primary),
+            child: Icon(CupertinoIcons.location_north_fill,
+                size: 18, color: scheme.primary),
           ),
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 10),
         _RoundMapButton(
           tooltip: 'La mia posizione',
           onPressed: onLocate,
-          child: const Icon(Icons.my_location, size: 18),
+          child: Icon(CupertinoIcons.location_fill,
+              size: 19, color: scheme.primary),
         ),
         const SizedBox(height: 9),
         _RoundMapButton(
@@ -981,7 +1035,8 @@ class _SideControls extends StatelessWidget {
   }
 }
 
-/// Bottone circolare flottante (~44px) coerente con la barra in basso.
+/// Bottone circolare flottante in **vetro** (~44px, stile Apple Maps), coerente
+/// con la barra in basso.
 class _RoundMapButton extends StatelessWidget {
   const _RoundMapButton({
     required this.child,
@@ -995,23 +1050,11 @@ class _RoundMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface,
-      elevation: 6,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Tooltip(
-          message: tooltip ?? '',
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Center(child: child),
-          ),
-        ),
-      ),
+    return GlassCircleButton(
+      size: 44,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      child: child,
     );
   }
 }
