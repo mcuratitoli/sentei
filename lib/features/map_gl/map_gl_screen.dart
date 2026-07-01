@@ -896,8 +896,8 @@ class _BottomBar extends StatelessWidget {
                     tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
                 onPressed: onToggleHide,
                 icon: tracksHidden
-                    ? CupertinoIcons.eye_slash_fill
-                    : CupertinoIcons.eye_fill,
+                    ? CupertinoIcons.eye_slash
+                    : CupertinoIcons.eye,
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -927,12 +927,12 @@ class _BottomBar extends StatelessWidget {
               ),
               _BarButton(
                 tooltip: 'Tracciati salvati',
-                icon: CupertinoIcons.list_bullet,
+                icon: CupertinoIcons.square_list,
                 onPressed: onTracks,
               ),
               _BarButton(
                 tooltip: 'Impostazioni',
-                icon: CupertinoIcons.gear_alt_fill,
+                icon: CupertinoIcons.gear,
                 onPressed: onSettings,
               ),
             ],
@@ -995,24 +995,9 @@ class _SideControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final rotated = bearing.abs() > 0.5;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Bussola: appare solo a mappa ruotata (come Apple Maps); ago a due
-        // tinte (rosso nord / grigio sud) per distinguerla dalla posizione.
-        if (rotated) ...[
-          GlassCircleButton(
-            size: 44,
-            tooltip: 'Nord in alto',
-            onPressed: onResetNorth,
-            child: Transform.rotate(
-              angle: -bearing * math.pi / 180.0,
-              child: const _CompassNeedle(),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
         // Posizione + 2D/3D raggruppati in un'unica pillola con separatore.
         GlassSurface(
           borderRadius: BorderRadius.circular(22),
@@ -1043,6 +1028,18 @@ class _SideControls extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Bussola sempre visibile, staccata sotto: ago a due tinte (rosso nord /
+        // grigio sud); tap → nord in alto.
+        GlassCircleButton(
+          size: 44,
+          tooltip: 'Nord in alto',
+          onPressed: onResetNorth,
+          child: Transform.rotate(
+            angle: -bearing * math.pi / 180.0,
+            child: const _CompassNeedle(),
           ),
         ),
       ],

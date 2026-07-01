@@ -1,6 +1,16 @@
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/cupertino.dart'
+    show
+        CupertinoActionSheet,
+        CupertinoActionSheetAction,
+        CupertinoColors,
+        CupertinoIcons,
+        CupertinoListSection,
+        CupertinoListTile,
+        CupertinoSearchTextField,
+        showCupertinoModalPopup;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +25,9 @@ import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 
 enum _SortMode { date, alpha }
+
+/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
+const Color _kGroupedBg = Color(0xFFF2F2F7);
 
 /// Libreria dei tracciati salvati (1.D) + export/import GPX (§6.4), con
 /// ordinamento (data/alfabetico) e ricerca sul titolo.
@@ -37,8 +50,9 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     final all = ref.watch(tracksProvider).tracks;
 
     final q = _query.trim().toLowerCase();
-    final filtered =
-        q.isEmpty ? [...all] : all.where((t) => t.name.toLowerCase().contains(q)).toList();
+    final filtered = q.isEmpty
+        ? [...all]
+        : all.where((t) => t.name.toLowerCase().contains(q)).toList();
     filtered.sort((a, b) {
       switch (_sort) {
         case _SortMode.alpha:
@@ -51,36 +65,31 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     });
 
     return Scaffold(
+      backgroundColor: _kGroupedBg,
       appBar: AppBar(
         title: const Text('Tracciati'),
+        centerTitle: true,
+        backgroundColor: _kGroupedBg,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0.4,
         actions: [
-          PopupMenuButton<_SortMode>(
+          IconButton(
             tooltip: 'Ordina',
-            icon: const Icon(Icons.sort),
-            initialValue: _sort,
-            onSelected: (m) => setState(() => _sort = m),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: _SortMode.date, child: Text('Per data')),
-              PopupMenuItem(value: _SortMode.alpha, child: Text('Alfabetico')),
-            ],
+            icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
+            onPressed: _showSortSheet,
           ),
           IconButton(
             tooltip: 'Importa GPX',
-            icon: const Icon(Icons.file_download_outlined),
+            icon: const Icon(CupertinoIcons.tray_arrow_down),
             onPressed: _importGpx,
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
+          preferredSize: const Size.fromHeight(52),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: TextField(
-              decoration: const InputDecoration(
-                isDense: true,
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Cerca per nome',
-                border: OutlineInputBorder(),
-              ),
+            child: CupertinoSearchTextField(
+              placeholder: 'Cerca per nome',
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
@@ -88,55 +97,118 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       ),
       body: filtered.isEmpty
           ? Center(
-              child: Text(
-                all.isEmpty
-                    ? 'Nessun tracciato salvato.\nDisegnane uno dalla mappa o importa un GPX.'
-                    : 'Nessun risultato per "$_query".',
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  all.isEmpty
+                      ? 'Nessun tracciato salvato.\nDisegnane uno dalla mappa o importa un GPX.'
+                      : 'Nessun risultato per "$_query".',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: CupertinoColors.systemGrey),
+                ),
               ),
             )
-          : ListView.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final t = filtered[i];
-                final distance = t.metrics?.distanceMeters ??
-                    const PathGeometry().totalDistance(t.routedPath);
-                final gain = t.metrics?.elevation.gain;
-                return ListTile(
-                  leading: CircleAvatar(backgroundColor: t.color, radius: 10),
-                  title: Text(t.name.isNotEmpty ? t.name : 'Senza nome'),
-                  subtitle: Text([
-                    Format.distance(distance),
-                    if (gain != null) 'D+ ${Format.meters(gain)}',
-                    if (t.trailRefs.isNotEmpty) 'sent. ${t.trailRefs.join(", ")}',
-                  ].join(' · ')),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (v) {
-                      if (v == 'export') {
-                        _exportGpx(t);
-                      } else if (v == 'offline') {
-                        downloadTrackOffline(context, ref, t);
-                      } else if (v == 'delete') {
-                        ref.read(tracksProvider.notifier).remove(t.id);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'export', child: Text('Esporta GPX')),
-                      PopupMenuItem(
-                          value: 'offline', child: Text('Salva offline')),
-                      PopupMenuItem(value: 'delete', child: Text('Elimina')),
-                    ],
-                  ),
-                  onTap: () {
-                    ref.read(tracksProvider.notifier).select(t.id);
-                    // Centra la mappa sulla traccia così non va cercata a mano.
-                    ref.read(mapFocusProvider.notifier).focusTrack(t.id);
-                    context.pop();
-                  },
-                );
-              },
+          : ListView(
+              children: [
+                CupertinoListSection.insetGrouped(
+                  children: [
+                    for (final t in filtered) _trackTile(t),
+                  ],
+                ),
+              ],
             ),
+    );
+  }
+
+  Widget _trackTile(DrawnTrack t) {
+    final distance = t.metrics?.distanceMeters ??
+        const PathGeometry().totalDistance(t.routedPath);
+    final gain = t.metrics?.elevation.gain;
+    return CupertinoListTile(
+      leading: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(color: t.color, shape: BoxShape.circle),
+      ),
+      title: Text(t.name.isNotEmpty ? t.name : 'Senza nome'),
+      subtitle: Text([
+        Format.distance(distance),
+        if (gain != null) 'D+ ${Format.meters(gain)}',
+        if (t.trailRefs.isNotEmpty) 'sent. ${t.trailRefs.join(", ")}',
+      ].join(' · ')),
+      trailing: IconButton(
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(CupertinoIcons.ellipsis_circle,
+            color: CupertinoColors.systemGrey),
+        onPressed: () => _showTrackActions(t),
+      ),
+      onTap: () {
+        ref.read(tracksProvider.notifier).select(t.id);
+        // Centra la mappa sulla traccia così non va cercata a mano.
+        ref.read(mapFocusProvider.notifier).focusTrack(t.id);
+        context.pop();
+      },
+    );
+  }
+
+  Future<void> _showSortSheet() async {
+    final picked = await showCupertinoModalPopup<_SortMode>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Ordina i tracciati'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(ctx, _SortMode.date),
+            child: const Text('Per data (recenti prima)'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(ctx, _SortMode.alpha),
+            child: const Text('Alfabetico'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Annulla'),
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _sort = picked);
+  }
+
+  Future<void> _showTrackActions(DrawnTrack t) async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(t.name.isNotEmpty ? t.name : 'Senza nome'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _exportGpx(t);
+            },
+            child: const Text('Esporta GPX'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              downloadTrackOffline(context, ref, t);
+            },
+            child: const Text('Salva offline'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(tracksProvider.notifier).remove(t.id);
+            },
+            child: const Text('Elimina'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Annulla'),
+        ),
+      ),
     );
   }
 

@@ -1,11 +1,22 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/cupertino.dart'
+    show
+        CupertinoActivityIndicator,
+        CupertinoIcons,
+        CupertinoListSection,
+        CupertinoListTile,
+        CupertinoListTileChevron,
+        CupertinoSlidingSegmentedControl;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
+
+/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
+const Color _kGroupedBg = Color(0xFFF2F2F7);
 
 /// Impostazioni dell'app. La mappa è **Mapbox Outdoors** (con terreno 3D e
 /// numeri sentiero CAI); non c'è più un selettore di sorgente.
@@ -18,28 +29,45 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Impostazioni')),
+      backgroundColor: _kGroupedBg,
+      appBar: AppBar(
+        title: const Text('Impostazioni'),
+        centerTitle: true,
+        backgroundColor: _kGroupedBg,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0.4,
+      ),
       body: ListView(
         children: [
-          const ListTile(
-            leading: Icon(Icons.map_outlined),
-            title: Text('Mappa'),
-            subtitle: Text('Mapbox Outdoors · terreno 3D · numeri sentiero CAI'),
+          CupertinoListSection.insetGrouped(
+            header: const Text('Mappa'),
+            children: [
+              const CupertinoListTile(
+                leading: Icon(CupertinoIcons.map, color: Color(0xFF1565C0)),
+                title: Text('Mappa'),
+                subtitle:
+                    Text('Mapbox Outdoors · terreno 3D · numeri sentiero CAI'),
+              ),
+              CupertinoListTile(
+                leading: const Icon(CupertinoIcons.cloud_download,
+                    color: Color(0xFF1565C0)),
+                title: const Text('Mappe offline'),
+                subtitle:
+                    const Text('Scarica aree per l\'uso senza connessione'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => context.push(OfflineMapsScreen.routePath),
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.download_for_offline_outlined),
-            title: const Text('Mappe offline'),
-            subtitle: const Text('Scarica aree per l\'uso senza connessione'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push(OfflineMapsScreen.routePath),
-          ),
-          const Divider(),
           const _CloudSection(),
-          const Divider(),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Sentèi'),
-            // subtitle: Text('App escursionismo'),
+          CupertinoListSection.insetGrouped(
+            children: const [
+              CupertinoListTile(
+                leading: Icon(CupertinoIcons.info, color: Color(0xFF1565C0)),
+                title: Text('Sentèi'),
+                subtitle: Text('App per l\'escursionismo alpina'),
+              ),
+            ],
           ),
         ],
       ),
@@ -66,44 +94,43 @@ class _CloudSection extends ConsumerWidget {
       }
     });
 
-    const spinner = SizedBox(
-      width: 22,
-      height: 22,
-      child: CircularProgressIndicator(strokeWidth: 2.5),
-    );
+    const spinner = CupertinoActivityIndicator(radius: 11);
+    const tint = Color(0xFF1565C0);
 
-    return Column(
+    return CupertinoListSection.insetGrouped(
+      header: const Text('Sincronizzazione cloud'),
       children: [
         // iCloud è iOS-only: il selettore ha senso solo lì.
         if (Platform.isIOS) const _CloudProviderSelector(),
         if (!cloud.signedIn)
-          ListTile(
-            leading: const Icon(Icons.cloud_outlined),
+          CupertinoListTile(
+            leading: const Icon(CupertinoIcons.cloud, color: tint),
             title: Text(providerName),
             subtitle: const Text('Accedi per sincronizzare le tracce'),
-            trailing: cloud.busy ? spinner : const Icon(Icons.login),
-            enabled: !cloud.busy,
+            trailing: cloud.busy
+                ? spinner
+                : const Icon(CupertinoIcons.arrow_right_circle),
             onTap: cloud.busy ? null : notifier.signIn,
           )
         else ...[
-          ListTile(
-            leading: const Icon(Icons.cloud_done_outlined),
+          CupertinoListTile(
+            leading: const Icon(CupertinoIcons.cloud_fill, color: tint),
             title: Text(providerName),
             subtitle: Text(cloud.account ?? 'Connesso'),
           ),
-          ListTile(
-            leading: const Icon(Icons.sync),
+          CupertinoListTile(
+            leading: const Icon(CupertinoIcons.arrow_2_circlepath, color: tint),
             title: const Text('Sincronizza ora'),
             subtitle:
                 const Text('Carica e scarica le tracce (last-write-wins)'),
-            trailing: cloud.busy ? spinner : const Icon(Icons.chevron_right),
-            enabled: !cloud.busy,
+            trailing:
+                cloud.busy ? spinner : const CupertinoListTileChevron(),
             onTap: cloud.busy ? null : notifier.syncNow,
           ),
-          ListTile(
-            leading: const Icon(Icons.logout),
+          CupertinoListTile(
+            leading: const Icon(CupertinoIcons.square_arrow_right,
+                color: Color(0xFFC62828)),
             title: const Text('Disconnetti'),
-            enabled: !cloud.busy,
             onTap: cloud.busy ? null : notifier.signOut,
           ),
         ],
@@ -120,23 +147,25 @@ class _CloudProviderSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(cloudProviderProvider);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: SegmentedButton<CloudProvider>(
-        segments: const [
-          ButtonSegment(
-            value: CloudProvider.googleDrive,
-            label: Text('Google Drive'),
-            icon: Icon(Icons.add_to_drive),
-          ),
-          ButtonSegment(
-            value: CloudProvider.iCloud,
-            label: Text('iCloud'),
-            icon: Icon(Icons.cloud),
-          ),
-        ],
-        selected: {selected},
-        onSelectionChanged: (s) =>
-            ref.read(cloudProviderProvider.notifier).set(s.first),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: CupertinoSlidingSegmentedControl<CloudProvider>(
+          groupValue: selected,
+          children: const {
+            CloudProvider.googleDrive: Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('Google Drive'),
+            ),
+            CloudProvider.iCloud: Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('iCloud'),
+            ),
+          },
+          onValueChanged: (v) {
+            if (v != null) ref.read(cloudProviderProvider.notifier).set(v);
+          },
+        ),
       ),
     );
   }
