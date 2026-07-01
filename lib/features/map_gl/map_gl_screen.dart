@@ -888,16 +888,14 @@ class _BottomBar extends StatelessWidget {
             children: [
               _BarButton(
                 tooltip: 'Cerca un luogo',
-                icon: CupertinoIcons.search,
+                icon: Icons.search_rounded,
                 onPressed: onSearch,
               ),
               _BarButton(
                 tooltip:
                     tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
                 onPressed: onToggleHide,
-                icon: tracksHidden
-                    ? CupertinoIcons.eye_slash_fill
-                    : CupertinoIcons.eye_fill,
+                child: _TrailGlyph(crossed: tracksHidden),
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -943,21 +941,26 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
+/// Grigio antracite neutro per le icone della barra (iOS-like).
+const Color _kBarIcon = Color(0xFF3A3A3C);
+
 /// Icona tappabile della barra in vetro: press-dim iOS, niente ripple Material.
+/// Con [child] si passa un glifo custom al posto dell'icona.
 class _BarButton extends StatelessWidget {
   const _BarButton({
-    required this.icon,
+    this.icon,
+    this.child,
     required this.onPressed,
     this.tooltip,
-  });
+  }) : assert(icon != null || child != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? child;
   final VoidCallback onPressed;
   final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
     Widget button = CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: const ui.Size(46, 46),
@@ -965,7 +968,9 @@ class _BarButton extends StatelessWidget {
       child: SizedBox(
         width: 46,
         height: 46,
-        child: Icon(icon, size: 24, color: color),
+        child: Center(
+          child: child ?? Icon(icon, size: 24, color: _kBarIcon),
+        ),
       ),
     );
     if (tooltip != null) {
@@ -973,6 +978,57 @@ class _BarButton extends StatelessWidget {
     }
     return button;
   }
+}
+
+/// Glifo "sentiero": linea curva con pallini agli estremi (rappresenta un
+/// percorso). Con [crossed] = tracce nascoste, aggiunge una barra diagonale.
+class _TrailGlyph extends StatelessWidget {
+  const _TrailGlyph({this.crossed = false});
+
+  final bool crossed;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: const ui.Size(24, 24),
+        painter: _TrailPainter(crossed: crossed),
+      );
+}
+
+class _TrailPainter extends CustomPainter {
+  _TrailPainter({required this.crossed});
+
+  final bool crossed;
+
+  @override
+  void paint(Canvas canvas, ui.Size size) {
+    final w = size.width;
+    final h = size.height;
+    final stroke = Paint()
+      ..color = _kBarIcon
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    // Curva a S tra i due estremi (basso-sx → alto-dx).
+    final path = Path()
+      ..moveTo(w * 0.24, h * 0.76)
+      ..cubicTo(w * 0.58, h * 0.74, w * 0.30, h * 0.30, w * 0.76, h * 0.24);
+    canvas.drawPath(path, stroke);
+    final dot = Paint()
+      ..color = _kBarIcon
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(w * 0.24, h * 0.76), 2.7, dot);
+    canvas.drawCircle(Offset(w * 0.76, h * 0.24), 2.7, dot);
+    if (crossed) {
+      canvas.drawLine(
+        Offset(w * 0.16, h * 0.2),
+        Offset(w * 0.84, h * 0.8),
+        stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TrailPainter old) => old.crossed != crossed;
 }
 
 /// Controlli in alto a destra: bussola (solo se ruotata) · posizione · 2D/3D.

@@ -170,7 +170,7 @@ class _SelectedBody extends ConsumerWidget {
               onPressed: saving
                   ? null
                   : () => ref.read(tracksProvider.notifier).editSelected(),
-              icon: CupertinoIcons.pencil,
+              icon: Icons.edit_rounded,
             ),
           ],
         ),
