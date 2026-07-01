@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sentei'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -41,6 +41,17 @@ class AppDatabase extends _$AppDatabase {
           // esistenti, così vengono risolte in modo lazy alla selezione.
           if (from < 2) {
             await m.addColumn(trackRows, trackRows.trailsResolved);
+          }
+          // v3: sblocca le tracce marcate "risolte" ma senza segnavia. Con la
+          // vecchia logica un fallimento transitorio della ricerca (timeout/
+          // errore rete) veniva scambiato per "nessun segnavia" e la traccia
+          // restava senza numeri e senza retry. Ora la ricerca lancia su errore
+          // → azzeriamo il flag dove i segnavia sono vuoti, così vengono
+          // ri-cercati (una volta) alla prossima selezione.
+          if (from < 3) {
+            await customStatement(
+                "UPDATE track_rows SET trails_resolved = 0 "
+                "WHERE trail_refs = '[]' OR trail_refs IS NULL");
           }
         },
       );

@@ -45,18 +45,27 @@ class OverpassTrailService extends TrailService {
         'rel["route"="hiking"](around:$aroundMeters,$coords);'
         'out geom;';
 
-    final List<dynamic> elements;
+    // Fallimento (rete/timeout/HTTP non-200) → lancia [TrailLookupException];
+    // risposta valida senza relazioni → lista vuota (nessun segnavia qui).
+    final http.Response res;
     try {
-      final res = await _client
+      res = await _client
           .post(Uri.parse(endpoint),
               headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
               body: {'data': query})
           .timeout(timeout);
-      if (res.statusCode != 200) return const [];
+    } catch (e) {
+      throw TrailLookupException('overpass: $e');
+    }
+    if (res.statusCode != 200) {
+      throw TrailLookupException('overpass HTTP ${res.statusCode}');
+    }
+    final List<dynamic> elements;
+    try {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       elements = (data['elements'] as List?) ?? const [];
-    } catch (_) {
-      return const [];
+    } catch (e) {
+      throw TrailLookupException('overpass parse: $e');
     }
 
     // Bounding box del percorso (+ margine ~0.01°).

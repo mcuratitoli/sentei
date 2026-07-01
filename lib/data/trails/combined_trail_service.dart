@@ -24,8 +24,16 @@ class CombinedTrailService extends TrailService {
 
   @override
   Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
-    final primary = await _osm2cai.fetchRelations(path);
-    if (primary.isNotEmpty) return primary;
+    // Primario: se dà risultati li usa. Se **fallisce** (throw) o torna **vuoto**
+    // si ripiega su Overpass. L'eventuale fallimento del fallback viene
+    // **propagato** (throw): così chi risolve i segnavia distingue "cercato e
+    // non trovato" (vuoto genuino) da "ricerca fallita" (da ritentare).
+    try {
+      final primary = await _osm2cai.fetchRelations(path);
+      if (primary.isNotEmpty) return primary;
+    } on TrailLookupException {
+      // primario ko → tenta il fallback
+    }
     return _overpass.fetchRelations(path);
   }
 }

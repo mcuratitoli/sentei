@@ -2,6 +2,17 @@ import 'package:latlong2/latlong.dart';
 
 import '../../domain/models/elevation_profile.dart';
 
+/// Errore "duro" di una ricerca segnavia (rete/timeout/HTTP non-200): distingue
+/// un **fallimento** (da ritentare) da una risposta **valida ma vuota** (la zona
+/// non ha segnavia — da NON ritentare). Chi risolve i segnavia usa questa
+/// distinzione per decidere se marcare la traccia come "già cercata".
+class TrailLookupException implements Exception {
+  const TrailLookupException(this.message);
+  final String message;
+  @override
+  String toString() => 'TrailLookupException: $message';
+}
+
 /// Una relazione sentiero generica (numero `ref` + geometria), indipendente
 /// dalla fonte (Overpass OSM grezzo o catasto CAI/OSM2CAI). Le sottoclassi di
 /// [TrailService] la producono; la logica di matching è condivisa.

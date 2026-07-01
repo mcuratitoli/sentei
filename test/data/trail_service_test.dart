@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:sentei/data/trails/combined_trail_service.dart';
 import 'package:sentei/data/trails/osm2cai_trail_service.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
+import 'package:sentei/data/trails/trail_service.dart';
 
 // Due punti ~100 m a nord uno dell'altro (vicino a Punta Gnifetti).
 final _a = LatLng(45.9369, 7.8694);
@@ -88,9 +89,16 @@ void main() {
       expect(segs.map((s) => s.ref).toSet(), {'117'});
     });
 
-    test('lista vuota su errore HTTP', () async {
+    test('lancia TrailLookupException su errore HTTP (non "vuoto")', () async {
       final svc = Osm2CaiTrailService(
           client: MockClient((_) async => http.Response('boom', 500)));
+      expect(svc.trailSegmentsAlong([_a, _b]),
+          throwsA(isA<TrailLookupException>()));
+    });
+
+    test('lista vuota su risposta valida senza sentieri', () async {
+      final svc = Osm2CaiTrailService(
+          client: _fixed('{"type":"FeatureCollection","features":[]}'));
       expect(await svc.trailSegmentsAlong([_a, _b]), isEmpty);
     });
   });
@@ -114,6 +122,37 @@ void main() {
       final segs = await svc.trailSegmentsAlong([_a, _b]);
       expect(segs.map((s) => s.ref).toSet(), {'10'});
       expect(segs.first.caiScale, 'E');
+    });
+
+    test('ripiega su Overpass quando OSM2CAI fallisce (HTTP)', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(
+            client: MockClient((_) async => http.Response('boom', 500))),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+      );
+      final segs = await svc.trailSegmentsAlong([_a, _b]);
+      expect(segs.map((s) => s.ref).toSet(), {'10'});
+    });
+
+    test('propaga il fallimento quando anche il fallback fallisce', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(
+            client: MockClient((_) async => http.Response('boom', 500))),
+        overpass: OverpassTrailService(
+            client: MockClient((_) async => http.Response('boom', 500))),
+      );
+      expect(svc.trailSegmentsAlong([_a, _b]),
+          throwsA(isA<TrailLookupException>()));
+    });
+
+    test('vuoto genuino quando entrambi rispondono validi ma vuoti', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(
+            client: _fixed('{"type":"FeatureCollection","features":[]}')),
+        overpass:
+            OverpassTrailService(client: _fixed('{"elements":[]}')),
+      );
+      expect(await svc.trailSegmentsAlong([_a, _b]), isEmpty);
     });
   });
 }

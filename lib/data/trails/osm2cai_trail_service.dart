@@ -51,9 +51,12 @@ class Osm2CaiTrailService extends TrailService {
     minLon -= m;
     maxLon += m;
 
-    final List<dynamic> features;
+    // Distingue **fallimento** (rete/timeout/HTTP non-200 come il 500 "bbox
+    // troppo grande") — che lancia [TrailLookupException] — da una risposta
+    // valida **vuota** (nessun sentiero accatastato qui) che ritorna [].
+    final http.Response res;
     try {
-      final res = await _client
+      res = await _client
           .post(
             Uri.parse(endpoint),
             headers: const {'User-Agent': 'sentei/1.0 (app escursionismo Alpi)'},
@@ -66,11 +69,18 @@ class Osm2CaiTrailService extends TrailService {
             },
           )
           .timeout(timeout);
-      if (res.statusCode != 200) return const [];
+    } catch (e) {
+      throw TrailLookupException('osm2cai: $e');
+    }
+    if (res.statusCode != 200) {
+      throw TrailLookupException('osm2cai HTTP ${res.statusCode}');
+    }
+    final List<dynamic> features;
+    try {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       features = (data['features'] as List?) ?? const [];
-    } catch (_) {
-      return const [];
+    } catch (e) {
+      throw TrailLookupException('osm2cai parse: $e');
     }
 
     bool inBox(double lat, double lon) =>
