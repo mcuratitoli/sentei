@@ -304,7 +304,10 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 - **Card traccia** (`draw_route_controls.dart`): in **creazione** minimale (nome/colore/annulla-undo-Salva);
   al **Salva** resta aperta con spinner finché i dati non ci sono (`finishDrawing` seleziona la traccia); in
   **selezione** distanza/D+/D-/segnavia/difficoltà + profilo on-demand. **Backfill lazy** dei segnavia/difficoltà
-  alla selezione per le tracce vecchie (`DrawnTrack.trailsResolved`, colonna drift, `schemaVersion` 2).
+  alla selezione per le tracce vecchie (`DrawnTrack.trailsResolved`, colonna drift, `schemaVersion` 2). I servizi
+  segnavia **lanciano `TrailLookupException`** su errore (rete/timeout/non-200) e ritornano vuoto solo su risposta
+  valida: così `trailsResolved` distingue "cercato e non trovato" da "ricerca fallita" (retry). Migrazione
+  `schemaVersion` 3: sblocca le tracce risolte a vuoto dal vecchio comportamento.
 - **Persistenza locale** `drift`/SQLite (`data/storage/`), lista tracciati ordinabile/ricercabile, **export/import GPX** (`gpx`, `file_selector`, `share_plus`).
 - **UI:** palette blu (seed `#1565C0`), font **Lato**, **barra flottante in basso**, logo+splash (sorgenti in `branding/`).
 
