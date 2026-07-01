@@ -896,8 +896,8 @@ class _BottomBar extends StatelessWidget {
                     tracksHidden ? 'Mostra le tracce' : 'Nascondi le tracce',
                 onPressed: onToggleHide,
                 icon: tracksHidden
-                    ? CupertinoIcons.eye_slash
-                    : CupertinoIcons.eye,
+                    ? CupertinoIcons.eye_slash_fill
+                    : CupertinoIcons.eye_fill,
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
               Padding(
@@ -927,12 +927,12 @@ class _BottomBar extends StatelessWidget {
               ),
               _BarButton(
                 tooltip: 'Tracciati salvati',
-                icon: CupertinoIcons.square_list,
+                icon: CupertinoIcons.list_bullet,
                 onPressed: onTracks,
               ),
               _BarButton(
                 tooltip: 'Impostazioni',
-                icon: CupertinoIcons.gear,
+                icon: CupertinoIcons.gear_alt_fill,
                 onPressed: onSettings,
               ),
             ],
@@ -995,39 +995,54 @@ class _SideControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final rotated = bearing.abs() > 0.5;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Bussola sempre presente: l'ago segue l'orientamento (nord-su se non
-        // ruotata); tap → nord in alto.
-        _RoundMapButton(
-          tooltip: 'Nord in alto',
-          onPressed: onResetNorth,
-          child: Transform.rotate(
-            // L'ago punta sempre al nord reale: ruota in senso opposto.
-            angle: -bearing * math.pi / 180.0,
-            child: Icon(CupertinoIcons.location_north_fill,
-                size: 18, color: scheme.primary),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _RoundMapButton(
-          tooltip: 'La mia posizione',
-          onPressed: onLocate,
-          child: Icon(CupertinoIcons.location_fill,
-              size: 19, color: scheme.primary),
-        ),
-        const SizedBox(height: 9),
-        _RoundMapButton(
-          tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
-          onPressed: onToggle3D,
-          child: Text(
-            is3D ? '2D' : '3D',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: scheme.onSurface,
+        // Bussola: appare solo a mappa ruotata (come Apple Maps); ago a due
+        // tinte (rosso nord / grigio sud) per distinguerla dalla posizione.
+        if (rotated) ...[
+          GlassCircleButton(
+            size: 44,
+            tooltip: 'Nord in alto',
+            onPressed: onResetNorth,
+            child: Transform.rotate(
+              angle: -bearing * math.pi / 180.0,
+              child: const _CompassNeedle(),
             ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        // Posizione + 2D/3D raggruppati in un'unica pillola con separatore.
+        GlassSurface(
+          borderRadius: BorderRadius.circular(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PillButton(
+                tooltip: 'La mia posizione',
+                onPressed: onLocate,
+                child: Icon(CupertinoIcons.location_fill,
+                    size: 20, color: scheme.primary),
+              ),
+              Container(
+                height: 0.6,
+                width: 30,
+                color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
+              ),
+              _PillButton(
+                tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
+                onPressed: onToggle3D,
+                child: Text(
+                  is3D ? '2D' : '3D',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: scheme.onSurface.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -1035,10 +1050,9 @@ class _SideControls extends StatelessWidget {
   }
 }
 
-/// Bottone circolare flottante in **vetro** (~44px, stile Apple Maps), coerente
-/// con la barra in basso.
-class _RoundMapButton extends StatelessWidget {
-  const _RoundMapButton({
+/// Voce tappabile dentro una pillola in vetro (44×44, press-dim iOS).
+class _PillButton extends StatelessWidget {
+  const _PillButton({
     required this.child,
     required this.onPressed,
     this.tooltip,
@@ -1050,13 +1064,47 @@ class _RoundMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCircleButton(
-      size: 44,
-      tooltip: tooltip,
+    Widget button = CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const ui.Size(44, 44),
       onPressed: onPressed,
-      child: child,
+      child: SizedBox(width: 44, height: 44, child: Center(child: child)),
     );
+    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
+    return button;
   }
+}
+
+/// Ago di bussola a due tinte (rosso a nord, grigio a sud).
+class _CompassNeedle extends StatelessWidget {
+  const _CompassNeedle();
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const ui.Size(15, 18), painter: _NeedlePainter());
+}
+
+class _NeedlePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, ui.Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final north = Path()
+      ..moveTo(cx, 0)
+      ..lineTo(0, cy)
+      ..lineTo(size.width, cy)
+      ..close();
+    final south = Path()
+      ..moveTo(cx, size.height)
+      ..lineTo(0, cy)
+      ..lineTo(size.width, cy)
+      ..close();
+    canvas.drawPath(north, Paint()..color = const Color(0xFFE53935));
+    canvas.drawPath(south, Paint()..color = const Color(0xFF8E8E93));
+  }
+
+  @override
+  bool shouldRepaint(_NeedlePainter oldDelegate) => false;
 }
 
 /// Pannello di ricerca luoghi, ancorato **in basso** (sopra la menubar): la

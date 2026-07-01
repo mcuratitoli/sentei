@@ -1,3 +1,10 @@
+import 'package:flutter/cupertino.dart'
+    show
+        CupertinoActivityIndicator,
+        CupertinoButton,
+        CupertinoIcons,
+        CupertinoSwitch,
+        CupertinoTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +12,7 @@ import '../../core/util/format.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
+import '../../ui/glass.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'route_editor_provider.dart';
 
@@ -25,18 +33,19 @@ class DrawRouteControls extends ConsumerWidget {
     if (!showCard) return const SizedBox.shrink();
     final drawing = ref.watch(tracksProvider.select((s) => s.drawing));
 
-    return Card(
+    return Padding(
       // Vicino alla toolbar in basso (poco margine sotto).
-      margin: const EdgeInsets.fromLTRB(8, 8, 8, 2),
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.25),
-      surfaceTintColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(20)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-        child: drawing ? const _DrawingBody() : const _SelectedBody(),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+      child: GlassSurface(
+        // Card contenutistica: quasi opaca (leggibilità di testo/grafico) ma con
+        // il linguaggio "vetro" iOS (bordo chiaro, ombra morbida, angoli ampi).
+        opacity: 0.92,
+        blur: 30,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: drawing ? const _DrawingBody() : const _SelectedBody(),
+        ),
       ),
     );
   }
@@ -65,14 +74,14 @@ class _DrawingBody extends ConsumerWidget {
         // ghiacciai, creste senza tracce OSM dove lo snap devierebbe).
         Row(
           children: [
-            Icon(snap ? Icons.alt_route : Icons.timeline,
+            Icon(snap ? CupertinoIcons.arrow_turn_up_right : CupertinoIcons.minus,
                 size: 18, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
                   style: Theme.of(context).textTheme.bodyMedium),
             ),
-            Switch(
+            CupertinoSwitch(
               value: snap,
               onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
             ),
@@ -82,35 +91,32 @@ class _DrawingBody extends ConsumerWidget {
         Row(
           children: [
             if (pathLoading) ...[
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              const CupertinoActivityIndicator(radius: 8),
               const SizedBox(width: 8),
               Text('Calcolo percorso…',
                   style: Theme.of(context).textTheme.bodySmall),
             ],
             const Spacer(),
-            IconButton(
+            _CardIconButton(
               tooltip: 'Annulla e chiudi',
               onPressed: () => _confirmCancel(context, ref),
-              icon: const Icon(Icons.close),
+              icon: CupertinoIcons.xmark,
             ),
-            IconButton(
+            _CardIconButton(
               tooltip: 'Annulla ultimo punto',
               onPressed: (track?.waypoints.isEmpty ?? true)
                   ? null
                   : () => ref.read(tracksProvider.notifier).undo(),
-              icon: const Icon(Icons.undo),
+              icon: CupertinoIcons.arrow_uturn_left,
             ),
-            const SizedBox(width: 4),
-            FilledButton.icon(
+            const SizedBox(width: 8),
+            _PillAction(
+              label: 'Salva',
+              icon: CupertinoIcons.check_mark,
+              filled: true,
               onPressed: (!canSave || pathLoading)
                   ? null
                   : () => ref.read(tracksProvider.notifier).finishDrawing(),
-              icon: const Icon(Icons.check),
-              label: const Text('Salva'),
             ),
           ],
         ),
@@ -159,13 +165,12 @@ class _SelectedBody extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            IconButton(
+            _CardIconButton(
               tooltip: 'Modifica',
-              visualDensity: VisualDensity.compact,
               onPressed: saving
                   ? null
                   : () => ref.read(tracksProvider.notifier).editSelected(),
-              icon: const Icon(Icons.edit_outlined),
+              icon: CupertinoIcons.pencil,
             ),
           ],
         ),
@@ -173,14 +178,7 @@ class _SelectedBody extends ConsumerWidget {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 6),
             child: Row(children: [
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Color(0xFF1565C0),
-                ),
-              ),
+              CupertinoActivityIndicator(radius: 9),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -212,11 +210,7 @@ class _SelectedBody extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.only(top: 6),
               child: Row(children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                CupertinoActivityIndicator(radius: 7),
                 SizedBox(width: 8),
                 Text('Ricerca segnavia CAI…', style: TextStyle(fontSize: 12)),
               ]),
@@ -228,39 +222,31 @@ class _SelectedBody extends ConsumerWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            FilledButton.tonalIcon(
+            _PillAction(
+              label: 'Percorso',
+              icon: showingChart
+                  ? CupertinoIcons.chevron_up_chevron_down
+                  : CupertinoIcons.chart_bar_alt_fill,
               onPressed: (!hasMetrics || saving)
                   ? null
                   : () => ref.read(profileVisibleProvider.notifier).toggle(),
-              icon: Icon(showingChart ? Icons.unfold_less : Icons.terrain),
-              label: const Text('Percorso'),
             ),
-            const SizedBox(width: 4),
-            if (steepnessOn)
-              IconButton.filledTonal(
-                tooltip: 'Colori dislivelli',
-                onPressed: (!hasMetrics || saving)
-                    ? null
-                    : () =>
-                        ref.read(steepnessVisibleProvider.notifier).toggle(),
-                icon: const Icon(Icons.stairs),
-              )
-            else
-              IconButton(
-                tooltip: 'Colori dislivelli',
-                onPressed: (!hasMetrics || saving)
-                    ? null
-                    : () =>
-                        ref.read(steepnessVisibleProvider.notifier).toggle(),
-                icon: const Icon(Icons.stairs),
-              ),
+            const SizedBox(width: 6),
+            _CardIconButton(
+              tooltip: 'Colori dislivelli',
+              active: steepnessOn,
+              onPressed: (!hasMetrics || saving)
+                  ? null
+                  : () => ref.read(steepnessVisibleProvider.notifier).toggle(),
+              icon: CupertinoIcons.chart_bar_square,
+            ),
             const Spacer(),
-            IconButton(
+            _CardIconButton(
               tooltip: 'Salva offline',
               onPressed: saving || track == null
                   ? null
                   : () => downloadTrackOffline(context, ref, track),
-              icon: const Icon(Icons.download_for_offline_outlined),
+              icon: CupertinoIcons.cloud_download,
             ),
           ],
         ),
@@ -455,14 +441,20 @@ class _NameFieldState extends ConsumerState<_NameField> {
       if (next != _controller.text) _controller.text = next;
     });
 
-    return TextField(
+    final scheme = Theme.of(context).colorScheme;
+    return CupertinoTextField(
       controller: _controller,
       textInputAction: TextInputAction.done,
-      decoration: const InputDecoration(
-        isDense: true,
-        prefixIcon: Icon(Icons.edit_note),
-        hintText: 'Nome percorso',
-        border: OutlineInputBorder(),
+      placeholder: 'Nome percorso',
+      prefix: Padding(
+        padding: const EdgeInsets.only(left: 10),
+        child: Icon(CupertinoIcons.pencil,
+            size: 18, color: scheme.onSurface.withValues(alpha: 0.5)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+      decoration: BoxDecoration(
+        color: scheme.onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
       ),
       onChanged: (v) => ref.read(tracksProvider.notifier).setName(v),
     );
@@ -516,6 +508,95 @@ class _GainLoss extends StatelessWidget {
         const SizedBox(width: 3),
         Text(Format.meters(metrics.elevation.loss), style: style),
       ],
+    );
+  }
+}
+
+/// Bottone-icona compatto stile iOS per la card (press-dim, niente ripple).
+/// `active` = stato acceso (pastiglia tinta), `onPressed` null = disabilitato.
+class _CardIconButton extends StatelessWidget {
+  const _CardIconButton({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    final color = !enabled
+        ? scheme.onSurface.withValues(alpha: 0.28)
+        : active
+            ? scheme.primary
+            : scheme.onSurface.withValues(alpha: 0.75);
+    Widget button = CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(40, 40),
+      onPressed: onPressed,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: active
+            ? BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle)
+            : null,
+        child: Icon(icon, size: 22, color: color),
+      ),
+    );
+    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
+    return button;
+  }
+}
+
+/// Pillola d'azione stile iOS. `filled` = tinta primaria piena (azione
+/// primaria); altrimenti tinta leggera (azione secondaria).
+class _PillAction extends StatelessWidget {
+  const _PillAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    final bg = filled
+        ? scheme.primary.withValues(alpha: enabled ? 1 : 0.4)
+        : scheme.primary.withValues(alpha: enabled ? 0.14 : 0.06);
+    final fg = filled
+        ? const Color(0xFFFFFFFF)
+        : scheme.primary.withValues(alpha: enabled ? 1 : 0.4);
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      color: bg,
+      borderRadius: BorderRadius.circular(22),
+      minimumSize: const Size(0, 0),
+      onPressed: onPressed,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: fg, fontSize: 15, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }

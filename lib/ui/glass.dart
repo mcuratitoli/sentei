@@ -10,9 +10,11 @@ import 'package:flutter/material.dart';
 /// Nota: sopra una *platform view* nativa (mappa Mapbox) il blur potrebbe non
 /// applicarsi; il riempimento bianco translucido mantiene comunque un look pulito.
 
-/// Colore di riempimento base dei controlli in vetro (bianco quasi opaco).
-const double _kGlassOpacity = 0.82;
-const double _kGlassBlur = 18;
+/// Colore di riempimento base dei controlli in vetro. Più basso = più
+/// translucido (la mappa traspare); il blur aiuta dove il contenuto retrostante
+/// è Flutter (menu/liste), non sulla platform view Mapbox.
+const double _kGlassOpacity = 0.66;
+const double _kGlassBlur = 24;
 
 /// Superficie in vetro con [borderRadius] arbitrario. Il [child] va dentro il
 /// riempimento translucido; l'ombra è disegnata attorno (fuori dal clip).

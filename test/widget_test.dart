@@ -1,6 +1,5 @@
 // Smoke test: l'app si avvia e mostra la schermata mappa.
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
