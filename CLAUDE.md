@@ -286,7 +286,7 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 
 ---
 
-## 12. Stato di avanzamento (snapshot — giugno 2026)
+## 12. Stato di avanzamento (snapshot — luglio 2026)
 
 > Dettaglio e prossimi passi in `docs/ROADMAP.md` (vedi "🚀 Ripartenza rapida" in cima).
 
@@ -309,7 +309,10 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   valida: così `trailsResolved` distingue "cercato e non trovato" da "ricerca fallita" (retry). Migrazione
   `schemaVersion` 3: sblocca le tracce risolte a vuoto dal vecchio comportamento.
 - **Persistenza locale** `drift`/SQLite (`data/storage/`), lista tracciati ordinabile/ricercabile, **export/import GPX** (`gpx`, `file_selector`, `share_plus`).
-- **UI:** palette blu (seed `#1565C0`), font **Lato**, **barra flottante in basso**, logo+splash (sorgenti in `branding/`).
+- **Vista Mappa ⇄ Satellite**: tasto in barra alterna Outdoors ↔ `satellite-streets-v12` (re-setup terreno/sentieri/annotation a ogni cambio stile; terreno ri-applicato al primo idle).
+- **Info punto (esplorazione)**: toccando un punto senza tracce vicine → mini-card in vetro con **quota** (DEM Terrarium, anche offline), **coordinate** (copia al tap) e **località/provincia/nazione** (reverse geocoding Nominatim); marker pallino+anello antracite sul punto (`inspected_point_provider.dart`).
+- **Legenda difficoltà CAI** in Impostazioni (card overlay T/E/EE/EEA) + **tooltip** nel grafico; **versione app** in Impostazioni (`package_info_plus`, fonte `pubspec.yaml`).
+- **UI iOS-native** (revisione estetica lug 2026): primitivi in vetro smerigliato (`lib/ui/glass.dart`), controlli mappa raggruppati + bussola staccata, **barra flottante a 4 azioni** (ricerca · vista · **+** · lista tracce · impostazioni — il glifo "sentiero" è l'icona della lista), Impostazioni/Tracciati/Mappe offline in **Cupertino inset-grouped**, dialoghi `CupertinoAlertDialog`, **toast iOS** (`lib/ui/ios_toast.dart`) al posto delle SnackBar, **tipografia di sistema** (San Francisco su iOS; niente più `google_fonts`/Lato). Palette blu (seed `#1565C0`), logo+splash (sorgenti in `branding/`). ⚠️ Il toggle **nascondi tracce** è stato rimosso dalla barra (provider ancora nel codice).
 
 **Pacchetti chiave aggiunti rispetto a §3:** `flutter_map_dragmarker`, `image`, `http`, `geolocator`,
 `drift`+`drift_flutter`, `gpx`, `file_selector`, `share_plus`, `path_provider`, `google_fonts`,

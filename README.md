@@ -15,12 +15,14 @@ _Un'alternativa open e gratuita a GaiaGPS, pensata per il Nord Italia e le zone 
 
 ## ✨ Funzionalità
 
-- 🗺️ **Mappa topografica con terreno 3D** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** (dal catasto ufficiale **OSM2CAI/REI**, con fallback OpenStreetMap) lungo i tracciati.
-- ✏️ **Disegno tracciati con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza** e **dislivello** (D+/D-) e profilo altimetrico interattivo.
-- 💾 **Salvataggio locale** — libreria di tracciati ordinabile e ricercabile; nascondi/mostra le tracce sulla mappa.
+- 🗺️ **Mappa topografica con terreno 3D + vista satellite** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** (dal catasto ufficiale **OSM2CAI/REI**, con fallback OpenStreetMap) lungo i tracciati; passaggio Mappa ⇄ Satellite con un tocco.
+- ✏️ **Disegno tracciati con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza**, **dislivello** (D+/D-), profilo altimetrico interattivo e **grado di difficoltà CAI** (T/E/EE/EEA, con legenda in-app).
+- 📍 **Info punto** — tocca un punto qualsiasi della mappa per vederne **quota**, **coordinate** e **località/provincia/nazione**.
+- 💾 **Salvataggio locale** — libreria di tracciati ordinabile e ricercabile.
 - 📤 **Import/Export GPX** — compatibile con gli altri strumenti che già usi.
 - ☁️ **Sync su iCloud Drive e Google Drive** — i tuoi tracciati sul tuo cloud personale, con **sincronizzazione automatica** dopo salvataggi ed eliminazioni.
 - 📴 **Offline-first** — scarica aree (mappa + elevazione) e usa l'app dove il segnale non arriva.
+- 🍎 **Interfaccia iOS-native** — controlli in vetro smerigliato, liste e sheet Cupertino, tipografia di sistema.
 
 ## 📱 Piattaforme
 
