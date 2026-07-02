@@ -985,7 +985,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                       // mostro l'icona a strati (→ torna a Mappa).
                       layersIcon: _styleChoice == MapStyleChoice.outdoors
                           ? CupertinoIcons.globe
-                          : CupertinoIcons.square_stack_3d_up,
+                          : CupertinoIcons.map,
                       layersTooltip: _styleChoice == MapStyleChoice.outdoors
                           ? 'Vista satellite'
                           : 'Vista mappa',
