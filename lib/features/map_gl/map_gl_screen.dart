@@ -4,13 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart'
-    show
-        CupertinoActionSheet,
-        CupertinoActionSheetAction,
-        CupertinoActivityIndicator,
-        CupertinoButton,
-        CupertinoIcons,
-        showCupertinoModalPopup;
+    show CupertinoActivityIndicator, CupertinoButton, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,6 +68,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   CircleAnnotationManager? _savedEnds;
   CircleAnnotationManager? _waypointDots;
   CircleAnnotationManager? _cursorDot;
+  CircleAnnotationManager? _inspectedDot;
   PolylineAnnotationManager? _liveLine;
 
   /// id-cerchio→indice waypoint della traccia in modifica.
@@ -91,6 +86,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   // La parte "one-shot" del setup (centratura iniziale) va fatta solo alla
   // prima apertura, non a ogni cambio stile.
   bool _postSetupOnce = false;
+  // Dopo un cambio stile, ri-applica il terreno 3D al primo idle: subito dopo
+  // il load il mesh del DEM può non essere pronto e la prima inclinazione
+  // resterebbe "piatta".
+  bool _needTerrainReassert = false;
   // Orientamento corrente della camera (per la bussola custom e il toggle 2D/3D).
   double _bearing = 0;
   double _pitch = 0;
@@ -275,9 +274,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
     // Cursore profilo (sopra a tutto): punto evidenziato scorrendo il grafico.
     _cursorDot = await map.annotations.createCircleAnnotationManager();
+    // Marker del punto ispezionato in esplorazione (info point).
+    _inspectedDot = await map.annotations.createCircleAnnotationManager();
     _ready = true; // tutto creato: ora si può renderizzare
     await _renderAll();
     await _renderSteepness();
+    await _renderInspectedPoint();
     await _maybeFetchTrails();
     // Centratura iniziale (GPS) solo alla prima apertura, non a ogni cambio
     // stile: al re-setup dopo uno switch la camera va lasciata dov'è.
@@ -300,6 +302,24 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       circleRadius: 8,
       circleColor: 0xFFE53935,
       circleStrokeColor: 0xFFFFFFFF,
+      circleStrokeWidth: 3,
+    ));
+  }
+
+  /// Marker del punto ispezionato in esplorazione: pallino colorato circondato
+  /// da un anello antracite, in corrispondenza del punto toccato.
+  Future<void> _renderInspectedPoint() async {
+    final mgr = _inspectedDot;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    final ip = ref.read(inspectedPointProvider);
+    if (ip == null) return;
+    await mgr.create(CircleAnnotationOptions(
+      geometry: Point(
+          coordinates: Position(ip.point.longitude, ip.point.latitude)),
+      circleRadius: 6,
+      circleColor: 0xFF1565C0, // pallino tinta primaria
+      circleStrokeColor: 0xFF1C1C1E, // anello antracite
       circleStrokeWidth: 3,
     ));
   }
@@ -562,6 +582,24 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   // ---- Numeri sentiero CAI ------------------------------------------------
 
+  /// Al primo idle dopo un cambio stile ri-applica il terreno 3D (il mesh del
+  /// DEM può non essere pronto subito dopo il load → prima inclinazione piatta),
+  /// poi aggiorna sempre i numeri sentiero.
+  Future<void> _onMapIdle() async {
+    if (_needTerrainReassert) {
+      _needTerrainReassert = false;
+      try {
+        await _map?.style.setStyleTerrain(jsonEncode(<String, Object>{
+          'source': 'mapbox-dem',
+          'exaggeration': 1.5,
+        }));
+      } catch (_) {
+        // best-effort
+      }
+    }
+    await _maybeFetchTrails();
+  }
+
   Future<void> _maybeFetchTrails() async {
     final map = _map;
     if (map == null) return;
@@ -756,54 +794,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   void _openSearch() => setState(() => _searchOpen = true);
 
-  /// Bottone "livelli" nella barra: scelta della vista (mappa / satellite) via
-  /// action sheet iOS.
+  /// Bottone "vista" nella barra: solo due viste → tap = alterna direttamente
+  /// tra Mappa (Outdoors) e Satellite.
   void _onLayers() {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: const Text('Tipo di mappa'),
-        actions: [
-          _styleSheetAction(ctx, MapStyleChoice.outdoors, 'Mappa',
-              CupertinoIcons.map),
-          _styleSheetAction(ctx, MapStyleChoice.satellite, 'Satellite',
-              CupertinoIcons.globe),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Annulla'),
-        ),
-      ),
-    );
-  }
-
-  CupertinoActionSheetAction _styleSheetAction(
-    BuildContext ctx,
-    MapStyleChoice choice,
-    String label,
-    IconData icon,
-  ) {
-    final selected = _styleChoice == choice;
-    return CupertinoActionSheetAction(
-      onPressed: () {
-        Navigator.pop(ctx);
-        _setStyle(choice);
-      },
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400)),
-          if (selected) ...[
-            const SizedBox(width: 8),
-            const Icon(CupertinoIcons.check_mark, size: 18),
-          ],
-        ],
-      ),
-    );
+    _setStyle(_styleChoice == MapStyleChoice.outdoors
+        ? MapStyleChoice.satellite
+        : MapStyleChoice.outdoors);
   }
 
   /// Cambia la vista mappa: ricarica lo stile e ri-esegue il setup (terreno,
@@ -817,6 +813,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     };
     setState(() => _styleChoice = choice);
     _ready = false; // i manager verranno ricreati dopo il caricamento
+    _needTerrainReassert = true; // ri-applica il terreno al primo idle
     // onStyleLoaded → _runSetup ricrea terreno/hillshade/sentieri/annotation.
     await map.loadStyleURI(uri);
   }
@@ -906,6 +903,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     );
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
+    ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _scheduleFocusTrack(next.trackId);
@@ -921,7 +919,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             styleUri: _outdoorsStyleUri,
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
-            onMapIdleListener: (_) => _maybeFetchTrails(),
+            onMapIdleListener: (_) => _onMapIdle(),
             onCameraChangeListener: _onCameraChange,
           ),
           // Controlli in alto a destra: posizione e 2D/3D. La bussola nativa è
@@ -983,6 +981,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                     _BottomBar(
                       onSearch: _openSearch,
                       onLayers: _onLayers,
+                      // In Mappa mostro il mondo (→ satellite); in Satellite
+                      // mostro l'icona a strati (→ torna a Mappa).
+                      layersIcon: _styleChoice == MapStyleChoice.outdoors
+                          ? CupertinoIcons.globe
+                          : CupertinoIcons.square_stack_3d_up,
+                      layersTooltip: _styleChoice == MapStyleChoice.outdoors
+                          ? 'Vista satellite'
+                          : 'Vista mappa',
                       onNewTrack: () {
                         ref.read(inspectedPointProvider.notifier).clear();
                         ref.read(tracksProvider.notifier).startNewDrawing();
@@ -1006,6 +1012,8 @@ class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onSearch,
     required this.onLayers,
+    required this.layersIcon,
+    required this.layersTooltip,
     required this.onNewTrack,
     required this.onTracks,
     required this.onSettings,
@@ -1013,6 +1021,8 @@ class _BottomBar extends StatelessWidget {
 
   final VoidCallback onSearch;
   final VoidCallback onLayers;
+  final IconData layersIcon;
+  final String layersTooltip;
   final VoidCallback onNewTrack;
   final VoidCallback onTracks;
   final VoidCallback onSettings;
@@ -1034,10 +1044,10 @@ class _BottomBar extends StatelessWidget {
                 icon: Icons.search_rounded,
                 onPressed: onSearch,
               ),
-              // Livelli/vista (mappa / satellite): placeholder per ora.
+              // Vista mappa/satellite: l'icona cambia in base alla vista attiva.
               _BarButton(
-                tooltip: 'Tipo di mappa',
-                icon: CupertinoIcons.square_stack_3d_up,
+                tooltip: layersTooltip,
+                icon: layersIcon,
                 onPressed: onLayers,
               ),
               // Azione primaria "nuovo percorso": cerchio pieno tinta primaria.
