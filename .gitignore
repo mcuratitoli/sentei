@@ -50,3 +50,6 @@ app.*.map.json
 
 # Android Gradle build output
 android/build/
+
+# OAuth client secret JSON (mai committare — repo pubblico)
+configs/
