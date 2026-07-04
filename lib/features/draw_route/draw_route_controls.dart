@@ -229,8 +229,8 @@ class _SelectedBody extends ConsumerWidget {
             _PillAction(
               label: 'Percorso',
               icon: showingChart
-                  ? CupertinoIcons.chevron_up_chevron_down
-                  : CupertinoIcons.chart_bar_alt_fill,
+                  ? CupertinoIcons.chevron_up
+                  : CupertinoIcons.chevron_down,
               onPressed: (!hasMetrics || saving)
                   ? null
                   : () => ref.read(profileVisibleProvider.notifier).toggle(),
@@ -242,7 +242,7 @@ class _SelectedBody extends ConsumerWidget {
               onPressed: (!hasMetrics || saving)
                   ? null
                   : () => ref.read(steepnessVisibleProvider.notifier).toggle(),
-              icon: CupertinoIcons.chart_bar_square,
+              icon: CupertinoIcons.graph_square,
             ),
             const Spacer(),
             _CardIconButton(
