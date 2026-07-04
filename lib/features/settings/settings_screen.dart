@@ -171,14 +171,15 @@ class _CloudProviderSelector extends ConsumerWidget {
         width: double.infinity,
         child: CupertinoSlidingSegmentedControl<CloudProvider>(
           groupValue: selected,
+          // Ordine su iOS: iCloud (prima, a sinistra) · Google Drive (seconda).
           children: const {
-            CloudProvider.googleDrive: Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text('Google Drive'),
-            ),
             CloudProvider.iCloud: Padding(
               padding: EdgeInsets.symmetric(vertical: 6),
               child: Text('iCloud'),
+            ),
+            CloudProvider.googleDrive: Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('Google Drive'),
             ),
           },
           onValueChanged: (v) {

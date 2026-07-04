@@ -62,14 +62,51 @@ flutter run \
 
 Poi: **Impostazioni → Google Drive → Accedi** → consenti → **Sincronizza ora**.
 
-## 5. Android (più avanti)
+## 5. Android
 
-1. Altro **ID client OAuth** tipo **Android**.
-2. Package name `com.mattiacuratitoli.sentei` + **SHA-1** della chiave di firma
-   (debug: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`).
-3. Su Android `google_sign_in` trova il client dal certificato: di norma **non**
-   serve passare `GOOGLE_CLIENT_ID`. Se usi un *server client id*, passalo come
-   `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`.
+> **Prerequisito toolchain (questo Mac, lug 2026):** attualmente **JDK e Android SDK
+> non sono installati** (`flutter doctor` → "Unable to locate Android SDK", nessun
+> `java`). Per buildare l'APK e ricavare la SHA-1 va prima ripristinata la toolchain
+> Android — vedi **`docs/android-apk-setup.md`** (JDK 17 + Android SDK 36 + NDK).
+
+Con `google_sign_in` **v7**, su Android servono **due** cose lato Google Cloud
+(stesso progetto della credenziale iOS):
+
+### 5a. Client OAuth — Android
+1. **Credenziali → Crea credenziali → ID client OAuth → Android**.
+2. **Package name**: `com.mattiacuratitoli.sentei`.
+3. **SHA-1** della chiave di firma. Per l'**APK sideload** (debug-signed) è la debug key:
+   ```bash
+   # (dopo aver reinstallato JDK 17; il keystore lo crea il primo build Android)
+   keytool -list -v -keystore ~/.android/debug.keystore \
+     -alias androiddebugkey -storepass android -keypass android | grep SHA1
+   ```
+   Per una futura pubblicazione su **Play Store** aggiungere anche la SHA-1 della
+   **release/upload key**.
+
+### 5b. Client OAuth — Web (per il serverClientId)
+`google_sign_in` v7 su Android richiede un **ID client OAuth di tipo "Applicazione
+web"**: il suo client id va passato all'app come **`GOOGLE_SERVER_CLIENT_ID`** (serve
+per ottenere l'autorizzazione agli scope Drive). Se non esiste ancora:
+1. **Credenziali → Crea credenziali → ID client OAuth → Applicazione web** → crea.
+2. Copia il **Web client ID** (`XXXX.apps.googleusercontent.com`).
+
+### 5c. Build Android con le credenziali
+Su Android **non** serve `GOOGLE_CLIENT_ID` (il client Android è riconosciuto da
+package + SHA-1); serve invece il **server (web) client id**:
+```bash
+flutter build apk --release \
+  --dart-define=MAPBOX_TOKEN=pk... \
+  --dart-define=GOOGLE_SERVER_CLIENT_ID=XXXX.apps.googleusercontent.com
+# (per il run in debug: flutter run -d <android> con gli stessi --dart-define)
+```
+> Il codice è già pronto: `cloudServiceProvider` legge `GOOGLE_SERVER_CLIENT_ID`
+> e lo passa a `GoogleSignIn.instance.initialize(serverClientId: …)`. Su Android la
+> sezione Impostazioni mostra **solo Google Drive** (iCloud è nascosto).
+
+### 5d. Consenso OAuth
+Aggiungi il tuo account Google come **utente di test** (§2) anche per l'uso su Android
+(finché l'app resta in "Testing").
 
 ## Modello di sincronizzazione
 

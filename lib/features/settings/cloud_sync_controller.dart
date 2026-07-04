@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,18 +13,23 @@ import '../draw_route/route_editor_provider.dart';
 enum CloudProvider { googleDrive, iCloud }
 
 /// Provider cloud selezionato dall'utente, persistito in `shared_preferences`.
-/// Default: Google Drive (cross-platform e già testato). Su iOS l'utente può
-/// passare a iCloud dal selettore in Impostazioni.
+///
+/// - **iOS**: default **iCloud** (Apple-first; è la prima opzione del selettore);
+///   l'utente può passare a Google Drive e la scelta viene ripristinata.
+/// - **Android/altro**: iCloud non esiste → **sempre Google Drive**, nessun
+///   selettore, nessun ripristino.
 class CloudProviderController extends Notifier<CloudProvider> {
   static const _key = 'cloud_provider';
 
   @override
   CloudProvider build() {
+    if (!Platform.isIOS) return CloudProvider.googleDrive;
     _restore();
-    return CloudProvider.googleDrive;
+    return CloudProvider.iCloud;
   }
 
   Future<void> _restore() async {
+    if (!Platform.isIOS) return; // Android: solo Google Drive
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_key);
