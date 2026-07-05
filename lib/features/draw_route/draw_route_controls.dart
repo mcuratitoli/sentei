@@ -1,18 +1,16 @@
 import 'package:flutter/cupertino.dart'
     show
         CupertinoActivityIndicator,
-        CupertinoAlertDialog,
         CupertinoButton,
-        CupertinoDialogAction,
         CupertinoIcons,
         CupertinoSwitch,
-        CupertinoTextField,
-        showCupertinoDialog;
+        CupertinoTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
 import '../../domain/services/track_metrics.dart';
+import '../../ui/action_sheet.dart';
 import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../../ui/glass.dart';
@@ -303,28 +301,19 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     ref.read(tracksProvider.notifier).cancelEditing();
     return;
   }
-  final ok = await showCupertinoDialog<bool>(
+  await showSenteiActionSheet(
     context: context,
-    builder: (ctx) => CupertinoAlertDialog(
-      title: const Text('Annullare?'),
-      content:
-          const Text('Le modifiche non salvate al percorso andranno perse.'),
-      actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Continua a modificare'),
-        ),
-        CupertinoDialogAction(
-          isDestructiveAction: true,
-          onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('Annulla percorso'),
-        ),
-      ],
-    ),
+    title: 'Annullare?',
+    message: 'Le modifiche non salvate al percorso andranno perse.',
+    cancelLabel: 'Continua a modificare',
+    actions: [
+      SheetAction(
+        label: 'Annulla percorso',
+        isDestructive: true,
+        onPressed: () => ref.read(tracksProvider.notifier).cancelEditing(),
+      ),
+    ],
   );
-  if (ok == true) {
-    ref.read(tracksProvider.notifier).cancelEditing();
-  }
 }
 
 /// Numeri dei sentieri (ref CAI) attraversati + grado di difficoltà complessivo.

@@ -3,14 +3,11 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/cupertino.dart'
     show
-        CupertinoActionSheet,
-        CupertinoActionSheetAction,
         CupertinoColors,
         CupertinoIcons,
         CupertinoListSection,
         CupertinoListTile,
-        CupertinoSearchTextField,
-        showCupertinoModalPopup;
+        CupertinoSearchTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +17,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../ui/action_sheet.dart';
 import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -153,63 +151,40 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   }
 
   Future<void> _showSortSheet() async {
-    final picked = await showCupertinoModalPopup<_SortMode>(
+    await showSenteiActionSheet(
       context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: const Text('Ordina i tracciati'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx, _SortMode.date),
-            child: const Text('Per data (recenti prima)'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(ctx, _SortMode.alpha),
-            child: const Text('Alfabetico'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Annulla'),
+      title: 'Ordina i tracciati',
+      actions: [
+        SheetAction(
+          label: 'Per data (recenti prima)',
+          isDefault: _sort == _SortMode.date,
+          onPressed: () => setState(() => _sort = _SortMode.date),
         ),
-      ),
+        SheetAction(
+          label: 'Alfabetico',
+          isDefault: _sort == _SortMode.alpha,
+          onPressed: () => setState(() => _sort = _SortMode.alpha),
+        ),
+      ],
     );
-    if (picked != null) setState(() => _sort = picked);
   }
 
   Future<void> _showTrackActions(DrawnTrack t) async {
-    await showCupertinoModalPopup<void>(
+    await showSenteiActionSheet(
       context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: Text(t.name.isNotEmpty ? t.name : 'Senza nome'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _exportGpx(t);
-            },
-            child: const Text('Esporta GPX'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(ctx);
-              downloadTrackOffline(context, ref, t);
-            },
-            child: const Text('Salva offline'),
-          ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(tracksProvider.notifier).remove(t.id);
-            },
-            child: const Text('Elimina'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(ctx),
-          child: const Text('Annulla'),
+      title: t.name.isNotEmpty ? t.name : 'Senza nome',
+      actions: [
+        SheetAction(label: 'Esporta GPX', onPressed: () => _exportGpx(t)),
+        SheetAction(
+          label: 'Salva offline',
+          onPressed: () => downloadTrackOffline(context, ref, t),
         ),
-      ),
+        SheetAction(
+          label: 'Elimina',
+          isDestructive: true,
+          onPressed: () => ref.read(tracksProvider.notifier).remove(t.id),
+        ),
+      ],
     );
   }
 
