@@ -22,8 +22,7 @@ import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
-
-enum _SortMode { date, alpha }
+import 'tracks_sort_provider.dart';
 
 /// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
 const Color _kGroupedBg = Color(0xFFF2F2F7);
@@ -41,25 +40,32 @@ class TracksListScreen extends ConsumerStatefulWidget {
 }
 
 class _TracksListScreenState extends ConsumerState<TracksListScreen> {
-  _SortMode _sort = _SortMode.date;
   String _query = '';
+
+  static double _gain(DrawnTrack t) => t.metrics?.elevation.gain ?? 0;
+  static double _maxAlt(DrawnTrack t) => t.metrics?.profile.maxElevation ?? 0;
 
   @override
   Widget build(BuildContext context) {
     final all = ref.watch(tracksProvider).tracks;
+    final sort = ref.watch(tracksSortProvider);
 
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
         ? [...all]
         : all.where((t) => t.name.toLowerCase().contains(q)).toList();
     filtered.sort((a, b) {
-      switch (_sort) {
-        case _SortMode.alpha:
+      switch (sort) {
+        case TrackSortMode.alpha:
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        case _SortMode.date:
+        case TrackSortMode.date:
           final da = a.createdAt ?? DateTime(0);
           final db = b.createdAt ?? DateTime(0);
           return db.compareTo(da); // più recenti prima
+        case TrackSortMode.elevationGain:
+          return _gain(b).compareTo(_gain(a)); // D+ decrescente
+        case TrackSortMode.maxAltitude:
+          return _maxAlt(b).compareTo(_maxAlt(a)); // quota più alta decrescente
       }
     });
 
@@ -135,7 +141,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       subtitle: Text([
         Format.distance(distance),
         if (gain != null) 'D+ ${Format.meters(gain)}',
-        if (t.trailRefs.isNotEmpty) 'sent. ${t.trailRefs.join(", ")}',
+        if (t.trailRefs.isNotEmpty) t.trailRefs.join(", "),
       ].join(' · ')),
       trailing: Builder(
         builder: (btnCtx) => IconButton(
@@ -155,21 +161,35 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   }
 
   Future<void> _showSortSheet(BuildContext anchor) async {
+    final sort = ref.read(tracksSortProvider);
+    final notifier = ref.read(tracksSortProvider.notifier);
     await showIosMenu(
       context: context,
       anchorContext: anchor,
       items: [
         IosMenuItem(
-          label: 'Per data',
-          icon: CupertinoIcons.calendar,
-          selected: _sort == _SortMode.date,
-          onPressed: () => setState(() => _sort = _SortMode.date),
-        ),
-        IosMenuItem(
           label: 'Alfabetico',
           icon: CupertinoIcons.textformat_abc,
-          selected: _sort == _SortMode.alpha,
-          onPressed: () => setState(() => _sort = _SortMode.alpha),
+          selected: sort == TrackSortMode.alpha,
+          onPressed: () => notifier.set(TrackSortMode.alpha),
+        ),
+        IosMenuItem(
+          label: 'Per data',
+          icon: CupertinoIcons.calendar,
+          selected: sort == TrackSortMode.date,
+          onPressed: () => notifier.set(TrackSortMode.date),
+        ),
+        IosMenuItem(
+          label: 'Dislivello (D+)',
+          icon: CupertinoIcons.arrow_up,
+          selected: sort == TrackSortMode.elevationGain,
+          onPressed: () => notifier.set(TrackSortMode.elevationGain),
+        ),
+        IosMenuItem(
+          label: 'Quota più alta',
+          icon: CupertinoIcons.triangle,
+          selected: sort == TrackSortMode.maxAltitude,
+          onPressed: () => notifier.set(TrackSortMode.maxAltitude),
         ),
       ],
     );
