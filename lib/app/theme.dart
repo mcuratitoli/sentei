@@ -15,14 +15,4 @@ abstract final class AppTheme {
       colorScheme: ColorScheme.fromSeed(seedColor: _seed),
     );
   }
-
-  static ThemeData dark() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _seed,
-        brightness: Brightness.dark,
-      ),
-    );
-  }
 }
