@@ -17,7 +17,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
-import '../../ui/action_sheet.dart';
+import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -72,10 +72,12 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
         actions: [
-          IconButton(
-            tooltip: 'Ordina',
-            icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
-            onPressed: _showSortSheet,
+          Builder(
+            builder: (btnCtx) => IconButton(
+              tooltip: 'Ordina',
+              icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
+              onPressed: () => _showSortSheet(btnCtx),
+            ),
           ),
           IconButton(
             tooltip: 'Importa GPX',
@@ -135,11 +137,13 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         if (gain != null) 'D+ ${Format.meters(gain)}',
         if (t.trailRefs.isNotEmpty) 'sent. ${t.trailRefs.join(", ")}',
       ].join(' · ')),
-      trailing: IconButton(
-        visualDensity: VisualDensity.compact,
-        icon: const Icon(CupertinoIcons.ellipsis_circle,
-            color: CupertinoColors.systemGrey),
-        onPressed: () => _showTrackActions(t),
+      trailing: Builder(
+        builder: (btnCtx) => IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(CupertinoIcons.ellipsis_circle,
+              color: CupertinoColors.systemGrey),
+          onPressed: () => _showTrackActions(btnCtx, t),
+        ),
       ),
       onTap: () {
         ref.read(tracksProvider.notifier).select(t.id);
@@ -150,37 +154,45 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     );
   }
 
-  Future<void> _showSortSheet() async {
-    await showSenteiActionSheet(
+  Future<void> _showSortSheet(BuildContext anchor) async {
+    await showIosMenu(
       context: context,
-      title: 'Ordina i tracciati',
-      actions: [
-        SheetAction(
-          label: 'Per data (recenti prima)',
-          isDefault: _sort == _SortMode.date,
+      anchorContext: anchor,
+      items: [
+        IosMenuItem(
+          label: 'Per data',
+          icon: CupertinoIcons.calendar,
+          selected: _sort == _SortMode.date,
           onPressed: () => setState(() => _sort = _SortMode.date),
         ),
-        SheetAction(
+        IosMenuItem(
           label: 'Alfabetico',
-          isDefault: _sort == _SortMode.alpha,
+          icon: CupertinoIcons.textformat_abc,
+          selected: _sort == _SortMode.alpha,
           onPressed: () => setState(() => _sort = _SortMode.alpha),
         ),
       ],
     );
   }
 
-  Future<void> _showTrackActions(DrawnTrack t) async {
-    await showSenteiActionSheet(
+  Future<void> _showTrackActions(BuildContext anchor, DrawnTrack t) async {
+    await showIosMenu(
       context: context,
-      title: t.name.isNotEmpty ? t.name : 'Senza nome',
-      actions: [
-        SheetAction(label: 'Esporta GPX', onPressed: () => _exportGpx(t)),
-        SheetAction(
+      anchorContext: anchor,
+      items: [
+        IosMenuItem(
+          label: 'Esporta GPX',
+          icon: CupertinoIcons.square_arrow_up,
+          onPressed: () => _exportGpx(t),
+        ),
+        IosMenuItem(
           label: 'Salva offline',
+          icon: CupertinoIcons.cloud_download,
           onPressed: () => downloadTrackOffline(context, ref, t),
         ),
-        SheetAction(
+        IosMenuItem(
           label: 'Elimina',
+          icon: CupertinoIcons.delete,
           isDestructive: true,
           onPressed: () => ref.read(tracksProvider.notifier).remove(t.id),
         ),

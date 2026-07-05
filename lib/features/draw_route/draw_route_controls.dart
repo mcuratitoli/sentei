@@ -10,10 +10,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/util/format.dart';
 import '../../domain/services/track_metrics.dart';
-import '../../ui/action_sheet.dart';
 import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../../ui/glass.dart';
+import '../../ui/ios_menu.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'route_editor_provider.dart';
 
@@ -301,18 +301,13 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     ref.read(tracksProvider.notifier).cancelEditing();
     return;
   }
-  await showSenteiActionSheet(
+  await showIosConfirm(
     context: context,
     title: 'Annullare?',
     message: 'Le modifiche non salvate al percorso andranno perse.',
+    confirmLabel: 'Annulla percorso',
     cancelLabel: 'Continua a modificare',
-    actions: [
-      SheetAction(
-        label: 'Annulla percorso',
-        isDestructive: true,
-        onPressed: () => ref.read(tracksProvider.notifier).cancelEditing(),
-      ),
-    ],
+    onConfirm: () => ref.read(tracksProvider.notifier).cancelEditing(),
   );
 }
 
