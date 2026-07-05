@@ -194,9 +194,20 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
           label: 'Elimina',
           icon: CupertinoIcons.delete,
           isDestructive: true,
-          onPressed: () => ref.read(tracksProvider.notifier).remove(t.id),
+          onPressed: () => _confirmDeleteTrack(t),
         ),
       ],
+    );
+  }
+
+  void _confirmDeleteTrack(DrawnTrack t) {
+    final name = t.name.isNotEmpty ? t.name : 'Senza nome';
+    showIosConfirm(
+      context: context,
+      title: 'Eliminare la traccia?',
+      message: '«$name» verrà eliminata definitivamente.',
+      confirmLabel: 'Elimina',
+      onConfirm: () => ref.read(tracksProvider.notifier).remove(t.id),
     );
   }
 

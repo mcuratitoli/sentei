@@ -197,10 +197,19 @@ class _MenuCard extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: DecoratedBox(
             decoration: BoxDecoration(color: _kFill, borderRadius: radius),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
+            // Dentro showGeneralDialog non c'è un DefaultTextStyle "buono":
+            // senza questo il testo mostra la doppia sottolineatura di debug.
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                decoration: TextDecoration.none,
+                color: _kLabel,
+                fontSize: 17,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
             ),
           ),
         ),
@@ -285,7 +294,7 @@ class _ConfirmHeader extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: _kLabel,
               ),
             ),
