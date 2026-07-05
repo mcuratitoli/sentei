@@ -312,7 +312,8 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 - **Vista Mappa ⇄ Satellite**: tasto in barra alterna Outdoors ↔ `satellite-streets-v12` (re-setup terreno/sentieri/annotation a ogni cambio stile; terreno ri-applicato al primo idle).
 - **Info punto (esplorazione)**: toccando un punto senza tracce vicine → mini-card in vetro con **quota** (DEM Terrarium, anche offline), **coordinate** (copia al tap) e **località/provincia/nazione** (reverse geocoding Nominatim); marker pallino+anello antracite sul punto (`inspected_point_provider.dart`).
 - **Legenda difficoltà CAI** in Impostazioni (card overlay T/E/EE/EEA) + **tooltip** nel grafico; **versione app** in Impostazioni (`package_info_plus`, fonte `pubspec.yaml`).
-- **UI iOS-native** (revisione estetica lug 2026): primitivi in vetro smerigliato (`lib/ui/glass.dart`), controlli mappa raggruppati + bussola staccata, **barra flottante a 4 azioni** (ricerca · vista · **+** · lista tracce · impostazioni — il glifo "sentiero" è l'icona della lista), Impostazioni/Tracciati/Mappe offline in **Cupertino inset-grouped**, dialoghi `CupertinoAlertDialog`, **toast iOS** (`lib/ui/ios_toast.dart`) al posto delle SnackBar, **tipografia di sistema** (San Francisco su iOS; niente più `google_fonts`/Lato). Palette blu (seed `#1565C0`), logo+splash (sorgenti in `branding/`). ⚠️ Il toggle **nascondi tracce** è stato rimosso dalla barra (provider ancora nel codice).
+- **UI iOS-native** (revisione estetica lug 2026): primitivi in vetro smerigliato (`lib/ui/glass.dart`), controlli mappa raggruppati + bussola staccata, **barra flottante a 4 azioni** (ricerca · vista · **+** · lista tracce · impostazioni — il glifo "sentiero" è l'icona della lista), Impostazioni/Tracciati/Mappe offline in **Cupertino inset-grouped**, **toast iOS** (`lib/ui/ios_toast.dart`) al posto delle SnackBar, **tipografia di sistema** (San Francisco su iOS; niente più `google_fonts`/Lato). **Menu contestuali + conferme stile Apple Photos** (`lib/ui/ios_menu.dart`: `showIosMenu` ancorato al bottone, `showIosConfirm` centrata) — usati per Ordina/azioni-riga in Tracciati e per le conferme (annulla disegno, **elimina traccia con conferma**). Palette blu (seed `#1565C0`), logo+splash (sorgenti in `branding/`). **⚠️ App forzata in LIGHT MODE** (`themeMode.light` + override `platformBrightness` per i widget Cupertino, `lib/app/app.dart`): è disegnata solo per il tema chiaro (in Dark Mode i testi sparivano). Il toggle **nascondi tracce** è stato rimosso dalla barra (provider ancora nel codice).
+- **Ordinamento tracce persistito** (`tracks_sort_provider.dart`, `shared_preferences`, default **alfabetico**): Alfabetico · Per data · Dislivello (D+) · Quota più alta.
 
 **Pacchetti chiave aggiunti rispetto a §3:** `flutter_map_dragmarker`, `image`, `http`, `geolocator`,
 `drift`+`drift_flutter`, `gpx`, `file_selector`, `share_plus`, `path_provider`, `google_fonts`,
@@ -321,8 +322,7 @@ dev: `drift_dev`, `build_runner`, `flutter_launcher_icons`, `flutter_native_spla
 **Sync cloud (Google Drive) — FATTO, da testare col setup OAuth dell'utente:** interfaccia comune
 `CloudSyncService` + serializzazione condivisa `TrackCodec` + motore last-write-wins `computeSyncPlan`
 (testato) + backend `GoogleDriveSyncService` (`google_sign_in` v7 + `googleapis` Drive v3, scope `drive.file`,
-cartella "Sentèi", `<id>.json` + `<id>.gpx`). UI in Impostazioni. Credenziali via `--dart-define=GOOGLE_CLIENT_ID`.
-Setup: `docs/cloud-google-drive-setup.md`. **Snap-to-trail sempre attivo** (toggle "Segui sentieri" rimosso).
+cartella "Sentèi", `<id>.json` + `<id>.gpx`). UI in Impostazioni. **Provider per-piattaforma:** iOS = selettore iCloud (default) · Google Drive; **Android = solo Google Drive** (iCloud nascosto). Credenziali: iOS `--dart-define=GOOGLE_CLIENT_ID`, **Android `--dart-define=GOOGLE_SERVER_CLIENT_ID`** (client Web; l'Android client è agganciato da package+SHA-1). Setup: `docs/cloud-google-drive-setup.md` (§5 Android). I JSON dei client OAuth stanno in `configs/` (**gitignorato** — contengono secret). **Snap-to-trail sempre attivo** (toggle "Segui sentieri" rimosso).
 
 **Servizi/architettura principali:**
 `data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/` (numeri sentiero:
@@ -333,13 +333,13 @@ Setup: `docs/cloud-google-drive-setup.md`. **Snap-to-trail sempre attivo** (togg
 densificato con quota) · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`) ·
 `features/map_gl/map_gl_screen.dart` (UI mappa Mapbox GL + barra) · `features/settings/` (UI sync cloud).
 
-**Distribuzione (giu 2026):**
-- **iOS:** beta **live su TestFlight** (build `1.0.0+2`, tester esterni approvati). Privacy policy su GitHub Pages, repo pubblico. Guide: `docs/testflight-setup.md`, `docs/testflight-amici.md`.
-- **Android:** **APK sideload generato** (`app-release.apk`, debug-signed). Toolchain migrata a **Gradle 9.1 / AGP 9.0.1 / Kotlin 2.3.20 / Java 17** + `compileSdk=36` forzato sui moduli. Guida: `docs/android-apk-setup.md`.
+**Distribuzione (5 lug 2026) — beta `1.0.0+4` rilasciata ai tester:**
+- **iOS:** su **TestFlight**, gruppo interno "Amici". Upload via **Xcode Organizer** (la CLI `flutter build ipa` fallisce l'export se *Xcode → Settings → Accounts* è vuoto → "No Accounts"; per buildare da CLI aggiungere l'Apple ID lì). Cert **Apple Distribution** team `W8XCSNY6V3`. Privacy policy su GitHub Pages, repo pubblico. Guide: `docs/testflight-setup.md`, `docs/testflight-amici.md`.
+- **Android:** **APK** (`app-release.apk`, ~122 MB, debug-signed, **Drive-ready**) distribuito ai tester. Toolchain **JDK17 + Android SDK 36 + NDK 28.2 + CMake** (reinstallata 4 lug in `/opt/homebrew/share/android-commandlinetools`). Build: `flutter build apk --release --dart-define=MAPBOX_TOKEN=pk... --dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Guida: `docs/android-apk-setup.md`.
 
 **Da fare (priorità):**
-1. **Verifiche sul device fisico:** download mappe/elevazione offline in modalità aereo; ricerca luoghi e focus-traccia (UI nuove).
-2. **Drive su Android** (manca client OAuth + SHA-1) + APK `--split-per-abi` per file più leggeri.
-3. *Rimandati:* **bundling font** offline; **registrazione traccia live** (background, Fase 2).
+1. **Validazioni sui device (1.0.0+4):** **login Google Drive su Android**; dark mode risolto; nuovi menu/conferme; download mappe/elevazione offline in modalità aereo.
+2. APK `--split-per-abi` per file più leggeri (~40-50 MB).
+3. *Rimandati:* **aggiornamento Flutter** (dopo la beta); **bundling font** offline; **registrazione traccia live** (background, Fase 2).
 
 > **Nota IGN/multi-sorgente:** OBSOLETO dopo la migrazione a Mapbox GL (mappa = singolo stile Mapbox).
