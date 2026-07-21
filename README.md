@@ -16,7 +16,8 @@ _Un'alternativa open e gratuita a GaiaGPS, pensata per il Nord Italia e le zone 
 ## ✨ Funzionalità
 
 - 🗺️ **Mappa topografica con terreno 3D + vista satellite** — Mapbox Outdoors con hillshade/rilievo e numeri sentiero **CAI** (dal catasto ufficiale **OSM2CAI/REI**, con fallback OpenStreetMap) lungo i tracciati; passaggio Mappa ⇄ Satellite con un tocco.
-- ✏️ **Disegno tracciati con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza**, **dislivello** (D+/D-), profilo altimetrico interattivo e **grado di difficoltà CAI** (T/E/EE/EEA, con legenda in-app).
+- 📡 **GPS e ricerca** — posizione in tempo reale con bussola; **all'apertura la mappa si centra sulla tua posizione corrente**; ricerca di località e rifugi.
+- ✏️ **Disegno multi-traccia con snap-to-trail** — i punti vengono instradati sui sentieri reali (BRouter), con calcolo automatico di **distanza**, **dislivello** (D+/D-), profilo altimetrico interattivo e **grado di difficoltà CAI** (T/E/EE/EEA, con legenda in-app).
 - 📍 **Info punto** — tocca un punto qualsiasi della mappa per vederne **quota**, **coordinate** e **località/provincia/nazione**.
 - 💾 **Salvataggio locale** — libreria di tracciati ordinabile e ricercabile.
 - 📤 **Import/Export GPX** — compatibile con gli altri strumenti che già usi.

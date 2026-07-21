@@ -8,6 +8,40 @@
 
 ## 🚀 Ripartenza rapida (leggere per primo)
 
+### 🎯 TODO prioritizzati — quadro sintetico (agg. 22 lug 2026)
+
+**P1 — attivo:**
+- [ ] **Bottoni in alto a destra**: riordinarli dall'alto verso il basso → **bussola · 2D/3D · posizione corrente**.
+- [ ] **Info Mapbox ("i")**: spostarla più a **sinistra**, un po' più nascosta, non al centro/in mezzo.
+- [x] Login **Google Drive su Android** — testato e funzionante.
+- [x] **Apertura su posizione GPS corrente** — verificato sul simulatore (fix 21 lug).
+- [x] **Menu/conferme iOS** (Apple Photos) — testati.
+- [x] Gesto/toggle **2D↔3D** — ok.
+
+**P2 — nuove feature + aperti:**
+- [ ] **Editing punti intermedi** di una traccia (non solo estremi): selezione/drag/inserimento/eliminazione di qualsiasi waypoint, split segmento + ri-instradamento incrementale BRouter.
+- [ ] **Versione Web** (browser desktop): PoC necessario (`mapbox_maps_flutter` non gira su web → GL JS/MapLibre; `path_provider`/`drift` da adattare). Decidere MVP: sola-visualizzazione vs editing completo.
+- [ ] **Sync album fotografico**: foto lungo il percorso (match EXIF+timestamp) + marker in mappa/profilo.
+- [ ] **Riallineamento tracce importate** ai sentieri (snap dell'import GPX) → sblocca segnavia/difficoltà.
+- [ ] **Dark mode** (spostato da P1): obiettivo originale da richiarire — nessuna evidenza attuale del problema. Da riverificare cosa si voleva ottenere prima di intervenire.
+
+**P3 — build & toolchain:**
+- [ ] **APK `--split-per-abi`** → ~40-50 MB invece di 122 MB.
+- [ ] **Aggiornamento Flutter** (spostato da P4): `flutter upgrade` + `pub upgrade --major-versions`, sessione dedicata (rischio regressioni mapbox/drift/riverpod).
+
+**P4 — rimandati:**
+- [ ] **Bundling font** offline (ora runtime).
+- [ ] **Registrazione traccia live** (background location, Fase 2).
+
+**🔍 Feature mappa aperte (analisi pronta, TODO):** linee sentieri visibili sul layer (opzione A ~costo zero) · migrazione layer sentieri a OSM2CAI · separazione strade/sentieri su Mapbox.
+
+**📌 Validazione (TODO):** download **mappe+elevazione offline** in modalità aereo su device · smoothing dislivello su tracce reali · difficoltà CAI su tracce reali · smoke test OSM2CAI on-device.
+
+**⭐ Da valutare (può scalare le priorità se supera l'analisi):**
+- [~] **Pubblicazione su App Store + Play Store con sblocco tramite codice alfanumerico.** *Esito analisi: FATTIBILE, non contro le policy* (entrambi gli store consentono l'accesso dietro codice/redeem; obbligatorio fornire ai reviewer un codice valido nelle note di review — Apple guideline 2.1 App Completeness — e dichiarare l'accesso limitato in Play Console → "App access"). Vincoli: dietro il gate deve esserci funzionalità reale (no placeholder), il codice deve funzionare durante la review. *Alternative più semplici se il fine è "solo persone invitate":* TestFlight (fino a 10k tester) o Play closed/internal testing / listing "unlisted" — zero codice da scrivere. Decisione prodotto: pubblico+gate solo se serve davvero la presenza sugli store. Dettaglio in coda a questo documento.
+
+---
+
 **Dove siamo (5 lug 2026):** **beta 1.0.0+4 rilasciata ai tester** — iOS su TestFlight (gruppo interno "Amici") + APK Android (Drive-ready). Rispetto a giugno: revisione estetica **iOS-native** (vetro, Cupertino, tipografia di sistema, **forzato light mode**), **vista satellite**, **info punto** (quota/coordinate/luogo), **menu contestuale + conferme** stile Apple Photos, **conferma eliminazione** traccia, **ordinamento tracce persistito** (default alfabetico; +Dislivello/+Quota più alta), **legenda difficoltà CAI**, **Google Drive su Android** configurato (client OAuth Android+Web, SHA-1). Toolchain Android reinstallata (JDK17+SDK36+NDK). *Da validare sui device: Drive su Android, dark mode, nuovi menu.* Storico giugno ↓. Implementato:
 mappa multi-sorgente (OpenTopoMap/SwissTopo/IGN/OSM) + overlay sentieri; **GPS**; **disegno multi-traccia**
 con **snap-to-trail** (BRouter, catena profili `hiking-mountain → trekking`, routing per-segmento con retry);
@@ -264,3 +298,34 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 
 > Costruire **end-to-end la Fase 1** prima di ottimizzare. La logica geo (distanza, dislivello, GPX)
 > è il cuore dell'app: **separata dalla UI** e **coperta da test deterministici**.
+
+---
+
+## Analisi — Pubblicazione sugli store con sblocco tramite codice alfanumerico (22 lug 2026)
+
+**Domanda:** pubblicare Sentèi su App Store e Play Store ma rendere l'app utilizzabile solo dopo l'inserimento di un **codice alfanumerico**. È fattibile o va contro le policy?
+
+**Esito: FATTIBILE su entrambi gli store, non viola le policy.** L'accesso gated dietro codice/redeem è un pattern comune e ammesso (inviti, licenze, beta chiuse). Vincoli da rispettare:
+
+**Apple App Store**
+- **Guideline 2.1 (App Completeness):** il team di review deve poter usare l'app → **fornire un codice valido e funzionante nelle _App Review Notes_** (o un demo account). Senza, rejection perché non possono testare.
+- **Minimum functionality:** dietro il gate deve esserci **funzionalità reale**, non un placeholder. Una schermata-codice con nulla dietro (per il reviewer) = rejection.
+- Nessuna guideline vieta di limitare l'accesso con un codice.
+- Possibile domanda del reviewer: "perché sullo store pubblico e non su TestFlight, se è a inviti?" — non è un blocco, ma valutare l'alternativa (sotto).
+
+**Google Play**
+- Stessa logica: ammesso. Va **dichiarato in Play Console → "App access"** (campo dedicato per app con funzionalità ristretta) fornendo **codice/credenziali valide** per la review.
+- **Minimum functionality policy:** l'app deve funzionare e non risultare rotta/incompleta.
+
+**Trasversali**
+- Il codice deve essere **realmente funzionante durante la review**.
+- Non usare il gate per nascondere contenuti che violano le policy.
+- Impatto licenze mappe/non-commerciale: nessuno, finché l'app resta gratuita.
+
+**Implementazione (bozza):** schermata di sblocco + validazione codice. Due modelli: (a) **offline** — lista di codici hashati nell'app/config (sblocco senza rete, ma codici non revocabili se non con update); (b) **server** — validazione remota (revocabile, richiede connettività al primo sblocco). Persistere lo stato "sbloccato" in `shared_preferences`.
+
+**Alternative più semplici se il fine è "solo persone invitate" (zero codice da scrivere):**
+- **TestFlight** (iOS): fino a **10.000 tester esterni** via link pubblico o email.
+- **Play**: **closed/internal testing** o listing **"unlisted"**.
+
+**Raccomandazione:** l'obiettivo di "app usabile solo da chi ha il codice" è raggiungibile **senza pubblicazione pubblica** via TestFlight/closed-testing (già in uso per la beta). La strada "store pubblico + gate a codice" ha senso **solo se serve davvero la presenza/visibilità sugli store**. → **Passa l'analisi** e può entrare in backlog; la posizione in classifica dipende da questa scelta di prodotto (da confermare con l'utente).
