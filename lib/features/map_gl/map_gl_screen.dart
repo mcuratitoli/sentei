@@ -74,7 +74,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// id-cerchio→indice waypoint della traccia in modifica.
   final Map<String, int> _wpIndexById = <String, int>{};
 
-  bool _centeredOnSaved = false;
+  bool _initialCameraDone = false;
   bool _rendering = false;
   bool _renderAgain = false;
   bool _is3D = false;
@@ -285,7 +285,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // stile: al re-setup dopo uno switch la camera va lasciata dov'è.
     if (!_postSetupOnce) {
       _postSetupOnce = true;
-      if (!_centeredOnSaved) unawaited(_locateSilently());
+      // All'apertura si punta SEMPRE alla posizione GPS dell'utente; la traccia
+      // salvata resta solo come fallback se il GPS non è disponibile.
+      unawaited(_locateSilently());
     }
   }
 
@@ -406,8 +408,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       await _waypointDots!.deleteAll();
       _wpIndexById.clear();
 
-      _maybeCenter(state.tracks);
-
       for (final t in state.tracks) {
         final editing = t.id == state.editingId;
         final path = t.routedPath.length >= 2
@@ -497,11 +497,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     }
   }
 
-  void _maybeCenter(List<DrawnTrack> tracks) {
-    if (_centeredOnSaved) return;
+  /// Fallback di centratura quando il GPS non è disponibile all'apertura:
+  /// inquadra la prima traccia salvata (se presente), altrimenti resta sul
+  /// centro default. No-op se la camera iniziale è già stata posizionata.
+  void _fallbackCenterOnSavedTrack() {
+    if (_initialCameraDone) return;
+    final tracks = ref.read(tracksProvider).tracks;
     for (final t in tracks) {
       if (t.waypoints.isNotEmpty) {
-        _centeredOnSaved = true;
+        _initialCameraDone = true;
         _map?.flyTo(
           CameraOptions(
             center: Point(
@@ -684,14 +688,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   }
 
   /// Centra sulla posizione GPS silenziosamente (senza SnackBar su errore).
-  /// Usato all'apertura dell'app se non ci sono tracce salvate: se il GPS
-  /// non è disponibile o i permessi vengono rifiutati, resta sul centro default.
-  /// Il controllo `_centeredOnSaved` previene il conflitto con `_maybeCenter`.
+  /// Chiamato all'apertura dell'app: la mappa si posiziona SEMPRE sulla
+  /// posizione corrente dell'utente. Se il GPS non è disponibile o i permessi
+  /// vengono rifiutati, ripiega sulla prima traccia salvata (o sul centro
+  /// default). Il flag `_initialCameraDone` evita centrature concorrenti.
   Future<void> _locateSilently() async {
     try {
       final pos = await ref.read(userLocationProvider.notifier).locate();
-      if (!mounted || _centeredOnSaved) return;
-      _centeredOnSaved = true;
+      if (!mounted || _initialCameraDone) return;
+      _initialCameraDone = true;
       await _map?.flyTo(
         CameraOptions(
           center: Point(coordinates: Position(pos.longitude, pos.latitude)),
@@ -700,7 +705,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
         MapAnimationOptions(duration: 800),
       );
     } catch (_) {
-      // GPS non disponibile o permessi negati → rimane sul centro default.
+      // GPS non disponibile o permessi negati → fallback su traccia salvata.
+      _fallbackCenterOnSavedTrack();
     }
   }
 
