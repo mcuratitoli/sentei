@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../domain/models/elevation_profile.dart';
 import '../domain/services/steepness.dart';
 import 'cai_difficulty.dart';
+import 'tokens.dart';
 
 /// Grafico del profilo altimetrico: area riempita quota vs distanza, con
 /// scrubbing — trascinando il dito/cursore si evidenzia un punto e lo si
@@ -200,7 +201,7 @@ class _DifficultyTip extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 220),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xF01C1C1E),
+          color: AppColors.overlayDark,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
@@ -212,11 +213,7 @@ class _DifficultyTip extends StatelessWidget {
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            color: Color(0xFFFFFFFF),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppText.captionEmphasis.copyWith(color: const Color(0xFFFFFFFF)),
         ),
       ),
     );
@@ -371,8 +368,7 @@ class _ProfilePainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: AppText.chartLabel.copyWith(color: color),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

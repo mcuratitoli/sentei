@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 
+import 'tokens.dart';
+
 /// Menu contestuale / conferma in stile **iOS** (à la Apple Photos): un unico
 /// riquadro in vetro con righe *icona + testo* separate da divisori sottili, con
 /// l'azione distruttiva in rosso. Sostituisce action sheet / alert dialog.
@@ -11,9 +13,9 @@ const double _kConfirmMaxWidth = 270;
 const double _kRadius = 14;
 const Color _kFill = Color(0xF5FFFFFF); // chiaro, quasi opaco (app solo light)
 const Color _kSeparator = Color(0x243C3C43); // separatore iOS chiaro
-const Color _kLabel = Color(0xFF1C1C1E);
+const Color _kLabel = AppColors.label;
 const Color _kSecondary = Color(0x99000000);
-const Color _kDestructive = Color(0xFFFF3B30); // systemRed
+const Color _kDestructive = AppColors.destructive; // systemRed
 
 /// Una voce del menu.
 class IosMenuItem {
@@ -200,10 +202,9 @@ class _MenuCard extends StatelessWidget {
             // Dentro showGeneralDialog non c'è un DefaultTextStyle "buono":
             // senza questo il testo mostra la doppia sottolineatura di debug.
             child: DefaultTextStyle(
-              style: const TextStyle(
+              style: AppText.menuItem.copyWith(
                 decoration: TextDecoration.none,
                 color: _kLabel,
-                fontSize: 17,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -237,8 +238,7 @@ class _MenuRow extends StatelessWidget {
     final label = Text(
       item.label,
       textAlign: centered ? TextAlign.center : TextAlign.start,
-      style: TextStyle(
-        fontSize: 17,
+      style: AppText.menuItem.copyWith(
         color: color,
         fontWeight: (centered && item.isDestructive)
             ? FontWeight.w600
@@ -258,7 +258,7 @@ class _MenuRow extends StatelessWidget {
           Expanded(child: label),
           if (item.selected)
             const Icon(CupertinoIcons.check_mark,
-                size: 18, color: Color(0xFF1565C0)),
+                size: 18, color: AppColors.primary),
         ],
       );
     }
@@ -292,22 +292,14 @@ class _ConfirmHeader extends StatelessWidget {
             Text(
               title!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _kLabel,
-              ),
+              style: AppText.value.copyWith(color: _kLabel),
             ),
             const SizedBox(height: 5),
           ],
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.35,
-              color: _kSecondary,
-            ),
+            style: AppText.footnote.copyWith(height: 1.35, color: _kSecondary),
           ),
         ],
       ),

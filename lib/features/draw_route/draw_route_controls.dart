@@ -14,6 +14,7 @@ import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_menu.dart';
+import '../../ui/tokens.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'route_editor_provider.dart';
 
@@ -42,7 +43,7 @@ class DrawRouteControls extends ConsumerWidget {
         // il linguaggio "vetro" iOS (bordo chiaro, ombra morbida, angoli ampi).
         opacity: 0.92,
         blur: 30,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: AppRadii.rCard,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: drawing ? const _DrawingBody() : const _SelectedBody(),
@@ -172,7 +173,7 @@ class _SelectedBody extends ConsumerWidget {
               minimumSize: const Size(40, 40),
               onPressed: () => ref.read(tracksProvider.notifier).deselect(),
               child: const Icon(CupertinoIcons.clear_circled_solid,
-                  size: 24, color: Color(0xFFB0B0B5)),
+                  size: 24, color: AppColors.tertiaryIcon),
             ),
           ],
         ),
@@ -185,8 +186,7 @@ class _SelectedBody extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Calcolo percorso, dislivello e segnavia…',
-                  style:
-                      TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  style: AppText.caption,
                 ),
               ),
             ]),
@@ -214,7 +214,7 @@ class _SelectedBody extends ConsumerWidget {
               child: Row(children: [
                 CupertinoActivityIndicator(radius: 7),
                 SizedBox(width: 8),
-                Text('Ricerca segnavia CAI…', style: TextStyle(fontSize: 12)),
+                Text('Ricerca segnavia CAI…', style: AppText.captionSmall),
               ]),
             )
           else if ((track?.trailRefs.isNotEmpty ?? false) || difficulty != null)
@@ -332,7 +332,7 @@ class _TrailInfo extends StatelessWidget {
           for (final r in refs)
             Chip(
               label: Text(r),
-              labelStyle: const TextStyle(fontSize: 12),
+              labelStyle: AppText.captionSmall,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
@@ -359,15 +359,11 @@ class _DifficultyChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadii.rMd,
         ),
         child: Text(
           scale,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppText.badge.copyWith(color: Colors.white),
         ),
       ),
     );
@@ -450,7 +446,7 @@ class _NameFieldState extends ConsumerState<_NameField> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
       decoration: BoxDecoration(
         color: scheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadii.rMd,
       ),
       onChanged: (v) => ref.read(tracksProvider.notifier).setName(v),
     );
@@ -580,7 +576,7 @@ class _PillAction extends StatelessWidget {
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       color: bg,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: AppRadii.rPill,
       minimumSize: const Size(0, 0),
       onPressed: onPressed,
       child: Row(
@@ -588,9 +584,7 @@ class _PillAction extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: fg),
           const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  color: fg, fontSize: 15, fontWeight: FontWeight.w600)),
+          Text(label, style: AppText.pillLabel.copyWith(color: fg)),
         ],
       ),
     );

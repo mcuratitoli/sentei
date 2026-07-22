@@ -1220,9 +1220,7 @@ class _PointInfoCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text('Quota ',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600)),
+                        const Text('Quota ', style: AppText.value),
                         if (data.elevationLoading)
                           const CupertinoActivityIndicator(radius: 8)
                         else
@@ -1230,12 +1228,10 @@ class _PointInfoCard extends StatelessWidget {
                             data.elevation != null
                                 ? Format.meters(data.elevation!)
                                 : 'non disponibile',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            style: AppText.sectionValue.copyWith(
                               color: data.elevation != null
                                   ? scheme.primary
-                                  : const Color(0xFF8E8E93),
+                                  : AppColors.iconGrey,
                             ),
                           ),
                       ],
@@ -1243,14 +1239,14 @@ class _PointInfoCard extends StatelessWidget {
                     // Località, provincia, nazione (reverse geocoding).
                     if (data.placeLoading) ...[
                       const SizedBox(height: 4),
-                      const Row(
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CupertinoActivityIndicator(radius: 6),
-                          SizedBox(width: 6),
+                          const CupertinoActivityIndicator(radius: 6),
+                          const SizedBox(width: 6),
                           Text('Individuazione luogo…',
-                              style: TextStyle(
-                                  fontSize: 13, color: Color(0xFF9A9AA0))),
+                              style: AppText.footnote
+                                  .copyWith(color: AppColors.iconGreyLight)),
                         ],
                       ),
                     ] else if (hasPlace) ...[
@@ -1288,7 +1284,7 @@ class _PointInfoCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           const Icon(CupertinoIcons.doc_on_doc,
-                              size: 13, color: Color(0xFF9A9AA0)),
+                              size: 13, color: AppColors.iconGreyLight),
                         ],
                       ),
                     ),
@@ -1514,7 +1510,7 @@ class _NeedlePainter extends CustomPainter {
       ..lineTo(size.width, cy)
       ..close();
     canvas.drawPath(north, Paint()..color = const Color(0xFFE53935));
-    canvas.drawPath(south, Paint()..color = const Color(0xFF8E8E93));
+    canvas.drawPath(south, Paint()..color = AppColors.iconGrey);
   }
 
   @override

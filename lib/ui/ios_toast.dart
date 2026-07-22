@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import 'tokens.dart';
+
 /// Toast transitorio in stile iOS: una pillola scura arrotondata che scivola
 /// dal basso, resta qualche secondo e si dissolve. Sostituisce le `SnackBar`
 /// Material per un feedback più coerente con l'estetica Apple.
@@ -100,7 +102,7 @@ class _IosToastState extends State<_IosToast> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xF01C1C1E),
+                  color: AppColors.overlayDark,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: const [
                     BoxShadow(
@@ -113,11 +115,7 @@ class _IosToastState extends State<_IosToast> {
                 child: Text(
                   widget.message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: CupertinoColors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: AppText.toast.copyWith(color: CupertinoColors.white),
                 ),
               ),
             ),
