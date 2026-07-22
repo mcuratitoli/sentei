@@ -75,6 +75,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   /// id-cerchio→indice waypoint della traccia in modifica.
   final Map<String, int> _wpIndexById = <String, int>{};
 
+  /// Maniglie di **metà-segmento** (per inserire un waypoint intermedio): il drag
+  /// di una maniglia crea un punto e splitta il segmento. id-cerchio→indice del
+  /// segmento (tra waypoint i e i+1); l'inserimento va a `i+1`.
+  CircleAnnotationManager? _midpointHandles;
+  final Map<String, int> _midpointIndexById = <String, int>{};
+
   bool _initialCameraDone = false;
   // Splash "esteso": copre la mappa finché la camera iniziale non è posizionata
   // (GPS o fallback), così l'utente non vede il salto default→traccia→posizione.
@@ -292,6 +298,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     _savedEnds = await map.annotations.createCircleAnnotationManager();
     _liveLine = await map.annotations.createPolylineAnnotationManager();
+    // Maniglie di metà-segmento **sotto** i waypoint reali (z-order): così dove
+    // si sovrappongono ha priorità il pallino vero.
+    _midpointHandles = await map.annotations.createCircleAnnotationManager();
+    _midpointHandles!.dragEvents(onEnd: _onMidpointDragEnd);
     _waypointDots = await map.annotations.createCircleAnnotationManager();
     _waypointDots!.dragEvents(onEnd: _onWaypointDragEnd);
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
@@ -429,7 +439,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       await _savedEnds!.deleteAll();
       await _liveLine!.deleteAll();
       await _waypointDots!.deleteAll();
+      await _midpointHandles!.deleteAll();
       _wpIndexById.clear();
+      _midpointIndexById.clear();
 
       for (final t in state.tracks) {
         final editing = t.id == state.editingId;
@@ -461,6 +473,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
               lineBorderWidth: 1,
             ));
           }
+          await _drawMidpointHandles(t.waypoints);
           await _drawWaypoints(t.waypoints);
         }
       }
@@ -497,6 +510,38 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
         circleStrokeWidth: 2,
       ));
     }
+  }
+
+  /// Maniglie draggabili al centro di ogni segmento (tra waypoint consecutivi).
+  /// Trascinandone una si inserisce un waypoint lì → il segmento si splitta.
+  /// Aspetto secondario (pallino bianco con anello) per distinguerle dai punti.
+  Future<void> _drawMidpointHandles(List<ll.LatLng> wps) async {
+    if (wps.length < 2) return;
+    for (var i = 0; i < wps.length - 1; i++) {
+      final a = wps[i];
+      final b = wps[i + 1];
+      final mid = ll.LatLng(
+        (a.latitude + b.latitude) / 2,
+        (a.longitude + b.longitude) / 2,
+      );
+      final h = await _midpointHandles!.create(CircleAnnotationOptions(
+        geometry: Point(coordinates: Position(mid.longitude, mid.latitude)),
+        circleRadius: 9,
+        circleColor: 0xFFFFFFFF,
+        circleStrokeColor: 0xFF1565C0,
+        circleStrokeWidth: 2.5,
+        isDraggable: true,
+      ));
+      _midpointIndexById[h.id] = i; // segmento i → inserisci a i+1
+    }
+  }
+
+  void _onMidpointDragEnd(CircleAnnotation a) {
+    final seg = _midpointIndexById[a.id];
+    if (seg == null) return;
+    final pos = a.geometry.coordinates;
+    ref.read(tracksProvider.notifier).insertPoint(
+        seg + 1, ll.LatLng(pos.lat.toDouble(), pos.lng.toDouble()));
   }
 
   Future<void> _drawWaypoints(List<ll.LatLng> wps) async {

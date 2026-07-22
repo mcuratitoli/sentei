@@ -133,6 +133,23 @@ void main() {
     expect(state().editing!.waypoints, isEmpty);
   });
 
+  test('insertPoint inserisce un waypoint intermedio (split) + undo', () {
+    final n = notifier();
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7)) // [A]
+      ..addPoint(const LatLng(45.02, 7)); // [A, C]
+    n.insertPoint(1, const LatLng(45.01, 7.01)); // [A, B, C]
+    expect(state().editing!.waypoints.length, 3);
+    expect(state().editing!.waypoints[1], const LatLng(45.01, 7.01));
+    // Fuori range = no-op.
+    n.insertPoint(9, const LatLng(0, 0));
+    expect(state().editing!.waypoints.length, 3);
+    // Undo dell'inserimento.
+    n.undo();
+    expect(state().editing!.waypoints.length, 2);
+  });
+
   test('lo stack di undo si azzera a nuova sessione di editing', () {
     final n = notifier();
     n

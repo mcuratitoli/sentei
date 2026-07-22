@@ -565,6 +565,16 @@ class Tracks extends Notifier<TracksState> {
     _updateEditing((tt) =>
         tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..removeAt(index)));
   }
+
+  /// Inserisce un waypoint a [index] (split di un segmento con le maniglie di
+  /// metà-segmento). [index] in `[0, lunghezza]`.
+  void insertPoint(int index, LatLng p) {
+    final t = state.editing;
+    if (t == null || index < 0 || index > t.waypoints.length) return;
+    _pushUndo();
+    _updateEditing((tt) =>
+        tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..insert(index, p)));
+  }
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
