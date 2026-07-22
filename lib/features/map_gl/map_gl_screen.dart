@@ -152,7 +152,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     await map.compass.updateSettings(CompassSettings(enabled: false));
     // Logo Mapbox e attribuzione (icona "i") NON possono essere rimossi (lo
     // vietano i termini d'uso Mapbox), ma si possono **riposizionare**. Li
-    // mettiamo in alto a sinistra, appena sotto la scale bar (indicatore zoom).
+    // impiliamo in alto a sinistra, appena sotto la scale bar: il logo sopra e
+    // l'icona "i" **subito sotto, tutta a sinistra** — più defilata, non "in
+    // mezzo" com'era prima (marginLeft 118, verso il centro).
     await map.logo.updateSettings(LogoSettings(
       position: OrnamentPosition.TOP_LEFT,
       marginLeft: 10,
@@ -160,8 +162,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     await map.attribution.updateSettings(AttributionSettings(
       position: OrnamentPosition.TOP_LEFT,
-      marginLeft: 118,
-      marginTop: 34,
+      marginLeft: 10,
+      marginTop: 62,
       iconColor: 0xFF3A3A3C, // antracite, coerente con la barra
     ));
   }
@@ -1321,8 +1323,8 @@ class _TrailPainter extends CustomPainter {
   bool shouldRepaint(_TrailPainter old) => false;
 }
 
-/// Controlli in alto a destra: bussola (solo se ruotata) · posizione · 2D/3D.
-/// Stile e dimensione (~44px) coordinati con la barra in basso.
+/// Controlli in alto a destra, dall'alto verso il basso: bussola · 2D/3D ·
+/// posizione. Stile e dimensione (~44px) coordinati con la barra in basso.
 class _SideControls extends StatelessWidget {
   const _SideControls({
     required this.is3D,
@@ -1344,23 +1346,24 @@ class _SideControls extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Posizione + 2D/3D raggruppati in un'unica pillola con separatore.
+        // Bussola in cima: ago a due tinte (rosso nord / grigio sud);
+        // tap → nord in alto.
+        GlassCircleButton(
+          size: 44,
+          tooltip: 'Nord in alto',
+          onPressed: onResetNorth,
+          child: Transform.rotate(
+            angle: -bearing * math.pi / 180.0,
+            child: const _CompassNeedle(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // 2D/3D + posizione raggruppati in un'unica pillola con separatore.
         GlassSurface(
           borderRadius: BorderRadius.circular(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _PillButton(
-                tooltip: 'La mia posizione',
-                onPressed: onLocate,
-                child: Icon(CupertinoIcons.location_fill,
-                    size: 20, color: scheme.primary),
-              ),
-              Container(
-                height: 0.6,
-                width: 30,
-                color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
-              ),
               _PillButton(
                 tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
                 onPressed: onToggle3D,
@@ -1373,19 +1376,18 @@ class _SideControls extends StatelessWidget {
                   ),
                 ),
               ),
+              Container(
+                height: 0.6,
+                width: 30,
+                color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
+              ),
+              _PillButton(
+                tooltip: 'La mia posizione',
+                onPressed: onLocate,
+                child: Icon(CupertinoIcons.location_fill,
+                    size: 20, color: scheme.primary),
+              ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Bussola sempre visibile, staccata sotto: ago a due tinte (rosso nord /
-        // grigio sud); tap → nord in alto.
-        GlassCircleButton(
-          size: 44,
-          tooltip: 'Nord in alto',
-          onPressed: onResetNorth,
-          child: Transform.rotate(
-            angle: -bearing * math.pi / 180.0,
-            child: const _CompassNeedle(),
           ),
         ),
       ],
