@@ -99,8 +99,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    # Logo per lo splash esteso in-app (stesso sorgente del native splash).
-    - branding/splash.png
+    # Logo per lo splash esteso in-app. `splash_logo.png` = stesso logo del native
+    # splash ma a **fondo trasparente** (bordo bianco reso trasparente), così sta
+    # pulito sullo sfondo topografico animato. Generato da `branding/splash.png`.
+    - branding/splash_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

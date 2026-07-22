@@ -1129,9 +1129,14 @@ class _SplashOverlayState extends State<_SplashOverlay>
           ),
         ),
         Center(
+          // Larghezza allineata al **native splash**: `flutter_native_splash`
+          // disegna `LaunchImage` (imageset @1x=260) a `contentMode=center`, cioè
+          // a **260pt** naturali. Stessa misura qui → il logo non "salta" (non si
+          // rimpicciolisce) al passaggio nativo→Flutter. Asset a fondo trasparente
+          // così sta pulito sulle isoipse (niente riquadro bianco).
           child: Image.asset(
-            'branding/splash.png',
-            width: 180,
+            'branding/splash_logo.png',
+            width: 260,
             fit: BoxFit.contain,
           ),
         ),
@@ -1208,17 +1213,16 @@ class _TopoSplashPainter extends CustomPainter {
     }
     canvas.restore();
 
-    // Radura bianca centrale: tiene attorno al logo una zona **piena di bianco**
-    // (nasconde il fondo bianco quadrato dell'asset `splash.png`) e fa sfumare le
-    // isoipse verso il centro, incorniciando il logo.
+    // Alone bianco morbido dietro il logo: separa il logo dalle isoipse e ne
+    // alza la leggibilità, senza "radura" dura (il logo è a fondo trasparente).
     canvas.drawRect(
       rect,
       Paint()
         ..shader = RadialGradient(
           center: Alignment.center,
-          radius: 0.55,
-          colors: const [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
-          stops: const [0.0, 0.5, 1.0],
+          radius: 0.42,
+          colors: const [Color(0xE6FFFFFF), Color(0x00FFFFFF)],
+          stops: const [0.0, 1.0],
         ).createShader(rect),
     );
   }
