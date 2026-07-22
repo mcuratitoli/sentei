@@ -79,6 +79,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   // Splash "esteso": copre la mappa finché la camera iniziale non è posizionata
   // (GPS o fallback), così l'utente non vede il salto default→traccia→posizione.
   bool _splashVisible = true;
+  // Tiene lo splash nell'albero finché la dissolvenza non è completa: a fine
+  // fade viene rimosso (così l'AnimationController dello sfondo si smonta).
+  bool _splashMounted = true;
   bool _rendering = false;
   bool _renderAgain = false;
   bool _is3D = false;
@@ -1041,43 +1044,188 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
           ),
           // Splash esteso: copre la mappa finché la camera iniziale non è pronta
           // (GPS o fallback), poi dissolve. Elimina il salto default→posizione.
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_splashVisible,
-              child: AnimatedOpacity(
-                opacity: _splashVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 450),
-                curve: Curves.easeOut,
-                child: const _SplashOverlay(),
+          if (_splashMounted)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !_splashVisible,
+                child: AnimatedOpacity(
+                  opacity: _splashVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 450),
+                  curve: Curves.easeOut,
+                  onEnd: () {
+                    if (!_splashVisible && mounted) {
+                      setState(() => _splashMounted = false);
+                    }
+                  },
+                  child: const _SplashOverlay(),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-/// Overlay di avvio: sfondo bianco + logo centrato, in continuità con lo splash
-/// nativo (`flutter_native_splash`, `branding/splash.png` su fondo bianco).
-/// TODO(roadmap): sostituire lo sfondo bianco con una vista mappa animata
-/// (pan lento dall'alto) dietro il logo.
-class _SplashOverlay extends StatelessWidget {
+/// Overlay di avvio: **sfondo topografico animato** (curve di livello che si
+/// muovono lentamente, come una mappa dall'alto) + logo centrato, in continuità
+/// con lo splash nativo (`flutter_native_splash`, `branding/splash.png`).
+/// Procedurale (nessun asset extra, offline, tema blu): drift ellittico lento +
+/// leggero zoom "Ken Burns" del campo di isoipse.
+class _SplashOverlay extends StatefulWidget {
   const _SplashOverlay();
 
   @override
+  State<_SplashOverlay> createState() => _SplashOverlayState();
+}
+
+class _SplashOverlayState extends State<_SplashOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 24),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFFFFFFFF),
-      child: Center(
-        child: Image.asset(
-          'branding/splash.png',
-          width: 180,
-          fit: BoxFit.contain,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (_, __) => CustomPaint(
+              painter: _TopoSplashPainter(_c.value),
+              size: ui.Size.infinite,
+            ),
+          ),
         ),
-      ),
+        Center(
+          child: Image.asset(
+            'branding/splash.png',
+            width: 180,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ],
     );
   }
+}
+
+/// Disegna un campo di **isoipse** (curve di livello) attorno ad alcune "vette",
+/// con drift lento e un filo di zoom, su gradiente azzurrino→bianco. Un alone
+/// bianco al centro tiene il logo perfettamente leggibile.
+class _TopoSplashPainter extends CustomPainter {
+  _TopoSplashPainter(this.t);
+
+  /// Fase di animazione 0..1 (loop).
+  final double t;
+
+  // Vette in coordinate normalizzate (0..1); da qui nascono le isoipse.
+  static const List<Offset> _peaks = [
+    Offset(0.26, 0.28),
+    Offset(0.74, 0.40),
+    Offset(0.50, 0.70),
+    Offset(0.12, 0.60),
+    Offset(0.90, 0.76),
+    Offset(0.40, 0.14),
+  ];
+
+  @override
+  void paint(Canvas canvas, ui.Size size) {
+    final rect = Offset.zero & size;
+    final twoPi = 2 * math.pi;
+
+    // Sfondo: azzurrino chiarissimo in alto → bianco in basso (continuità col
+    // native splash bianco, ma con un accenno di cielo/quota).
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFE8F0FA), Color(0xFFFFFFFF)],
+        ).createShader(rect),
+    );
+
+    // Movimento: drift ellittico lento + leggero "respiro" di zoom (Ken Burns).
+    final dx = math.sin(t * twoPi) * size.width * 0.05;
+    final dy = math.cos(t * twoPi) * size.height * 0.035;
+    final scale = 1.0 + 0.04 * (1 - math.cos(t * twoPi)) / 2;
+
+    canvas.save();
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    canvas.translate(cx, cy);
+    canvas.scale(scale);
+    canvas.translate(-cx, -cy);
+    canvas.translate(dx, dy);
+
+    final unit = math.min(size.width, size.height);
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeJoin = StrokeJoin.round;
+
+    for (var p = 0; p < _peaks.length; p++) {
+      final base = Offset(_peaks[p].dx * size.width, _peaks[p].dy * size.height);
+      const rings = 7;
+      for (var r = 1; r <= rings; r++) {
+        final radius = unit * (0.045 * r) + (p.isEven ? unit * 0.015 : 0);
+        // Isoipse più interne un filo più marcate.
+        line.color = AppColors.primary
+            .withValues(alpha: 0.05 + 0.05 * (1 - r / rings));
+        canvas.drawPath(_blobPath(base, radius, p * 13 + r), line);
+      }
+    }
+    canvas.restore();
+
+    // Radura bianca centrale: tiene attorno al logo una zona **piena di bianco**
+    // (nasconde il fondo bianco quadrato dell'asset `splash.png`) e fa sfumare le
+    // isoipse verso il centro, incorniciando il logo.
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          center: Alignment.center,
+          radius: 0.55,
+          colors: const [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(rect),
+    );
+  }
+
+  /// Isoipsa organica: cerchio con raggio leggermente modulato (terreno), chiuso.
+  Path _blobPath(Offset c, double radius, int seed) {
+    final path = Path();
+    const n = 30;
+    final twoPi = 2 * math.pi;
+    for (var i = 0; i <= n; i++) {
+      final a = (i / n) * twoPi;
+      final wobble = 1 +
+          0.10 * math.sin(a * 3 + seed) +
+          0.06 * math.cos(a * 5 + seed * 0.7);
+      final rr = radius * wobble;
+      final p = c + Offset(math.cos(a) * rr, math.sin(a) * rr);
+      i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+    }
+    return path..close();
+  }
+
+  @override
+  bool shouldRepaint(_TopoSplashPainter old) => old.t != t;
 }
 
 /// Barra flottante in basso (dock): ricerca · + · tracce · impostazioni.
