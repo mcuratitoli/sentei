@@ -75,6 +75,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   final Map<String, int> _wpIndexById = <String, int>{};
 
   bool _initialCameraDone = false;
+  // Splash "esteso": copre la mappa finché la camera iniziale non è posizionata
+  // (GPS o fallback), così l'utente non vede il salto default→traccia→posizione.
+  bool _splashVisible = true;
   bool _rendering = false;
   bool _renderAgain = false;
   bool _is3D = false;
@@ -119,7 +122,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   static const String _steepSourceId = 'sentei-steepness';
   static const String _steepLayerId = 'sentei-steepness-line';
 
+  // Rete di sicurezza: se il setup o il GPS si incantano, lo splash non deve
+  // restare all'infinito → dopo questo timeout si chiude comunque.
+  Timer? _splashTimeout;
+
   // ---- Setup -------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    _splashTimeout = Timer(const Duration(seconds: 12), _hideSplash);
+  }
 
   Future<void> _onMapCreated(MapboxMap map) async {
     _map = map;
@@ -157,13 +170,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // mezzo" com'era prima (marginLeft 118, verso il centro).
     await map.logo.updateSettings(LogoSettings(
       position: OrnamentPosition.TOP_LEFT,
-      marginLeft: 10,
-      marginTop: 34,
+      marginLeft: 6,
+      marginTop: 30,
     ));
+    // NB: la **dimensione** dell'icona "i" è fissata dall'SDK nativo Mapbox
+    // (AttributionSettings non espone size) → non riducibile via API; qui la
+    // spostiamo solo un filo più in alto e a sinistra, mantenendo la spaziatura
+    // sotto il logo.
     await map.attribution.updateSettings(AttributionSettings(
       position: OrnamentPosition.TOP_LEFT,
-      marginLeft: 10,
-      marginTop: 62,
+      marginLeft: 6,
+      marginTop: 56,
       iconColor: 0xFF3A3A3C, // antracite, coerente con la barra
     ));
   }
@@ -508,7 +525,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     for (final t in tracks) {
       if (t.waypoints.isNotEmpty) {
         _initialCameraDone = true;
-        _map?.flyTo(
+        // Istantaneo: siamo ancora dietro lo splash (nessuna animazione visibile).
+        _map?.setCamera(
           CameraOptions(
             center: Point(
               coordinates: Position(
@@ -516,7 +534,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
             ),
             zoom: 14,
           ),
-          MapAnimationOptions(duration: 700),
         );
         return;
       }
@@ -697,19 +714,31 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   Future<void> _locateSilently() async {
     try {
       final pos = await ref.read(userLocationProvider.notifier).locate();
-      if (!mounted || _initialCameraDone) return;
-      _initialCameraDone = true;
-      await _map?.flyTo(
-        CameraOptions(
-          center: Point(coordinates: Position(pos.longitude, pos.latitude)),
-          zoom: 15,
-        ),
-        MapAnimationOptions(duration: 800),
-      );
+      if (mounted && !_initialCameraDone) {
+        _initialCameraDone = true;
+        // Camera piazzata **istantaneamente** (niente flyTo): il salto avviene
+        // dietro lo splash, così alla dissolvenza la mappa è già sulla posizione.
+        await _map?.setCamera(
+          CameraOptions(
+            center: Point(coordinates: Position(pos.longitude, pos.latitude)),
+            zoom: 15,
+          ),
+        );
+      }
     } catch (_) {
       // GPS non disponibile o permessi negati → fallback su traccia salvata.
       _fallbackCenterOnSavedTrack();
+    } finally {
+      // In ogni caso lo splash si chiude: camera pronta o fallback esaurito.
+      _hideSplash();
     }
+  }
+
+  /// Nasconde lo splash esteso (dissolvenza gestita dall'`AnimatedOpacity`).
+  void _hideSplash() {
+    _splashTimeout?.cancel();
+    if (!mounted || !_splashVisible) return;
+    setState(() => _splashVisible = false);
   }
 
   /// Alterna 2D (pitch 0) e 3D (pitch 65). L'etichetta del bottone mostra la
@@ -880,6 +909,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   @override
   void dispose() {
+    _splashTimeout?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
@@ -1008,7 +1038,42 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
               ),
             ),
           ),
+          // Splash esteso: copre la mappa finché la camera iniziale non è pronta
+          // (GPS o fallback), poi dissolve. Elimina il salto default→posizione.
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_splashVisible,
+              child: AnimatedOpacity(
+                opacity: _splashVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOut,
+                child: const _SplashOverlay(),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Overlay di avvio: sfondo bianco + logo centrato, in continuità con lo splash
+/// nativo (`flutter_native_splash`, `branding/splash.png` su fondo bianco).
+/// TODO(roadmap): sostituire lo sfondo bianco con una vista mappa animata
+/// (pan lento dall'alto) dietro il logo.
+class _SplashOverlay extends StatelessWidget {
+  const _SplashOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFFFFFFF),
+      child: Center(
+        child: Image.asset(
+          'branding/splash.png',
+          width: 180,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
@@ -1343,56 +1408,59 @@ class _SideControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Bussola in cima: ago a due tinte (rosso nord / grigio sud);
-        // tap → nord in alto.
-        GlassCircleButton(
-          size: 44,
-          tooltip: 'Nord in alto',
-          onPressed: onResetNorth,
-          child: Transform.rotate(
-            angle: -bearing * math.pi / 180.0,
-            child: const _CompassNeedle(),
+    // Un UNICO blocco in vetro (stile Apple Maps): bussola · 2D/3D · posizione,
+    // tre righe 44×44 separate da hairline. Accorpati per rafforzare il
+    // raggruppamento visivo (Gestalt) e ridurre il rumore (una sola superficie).
+    return GlassSurface(
+      borderRadius: BorderRadius.circular(22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bussola: ago a due tinte (rosso nord / grigio sud); tap → nord in alto.
+          _PillButton(
+            tooltip: 'Nord in alto',
+            onPressed: onResetNorth,
+            child: Transform.rotate(
+              angle: -bearing * math.pi / 180.0,
+              child: const _CompassNeedle(),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // 2D/3D + posizione raggruppati in un'unica pillola con separatore.
-        GlassSurface(
-          borderRadius: BorderRadius.circular(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PillButton(
-                tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
-                onPressed: onToggle3D,
-                child: Text(
-                  is3D ? '2D' : '3D',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: scheme.onSurface.withValues(alpha: 0.85),
-                  ),
-                ),
+          const _PillDivider(),
+          _PillButton(
+            tooltip: is3D ? 'Passa a 2D' : 'Passa a 3D',
+            onPressed: onToggle3D,
+            child: Text(
+              is3D ? '2D' : '3D',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: scheme.onSurface.withValues(alpha: 0.85),
               ),
-              Container(
-                height: 0.6,
-                width: 30,
-                color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
-              ),
-              _PillButton(
-                tooltip: 'La mia posizione',
-                onPressed: onLocate,
-                child: Icon(CupertinoIcons.location_fill,
-                    size: 20, color: scheme.primary),
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const _PillDivider(),
+          _PillButton(
+            tooltip: 'La mia posizione',
+            onPressed: onLocate,
+            child: Icon(CupertinoIcons.location_fill,
+                size: 20, color: scheme.primary),
+          ),
+        ],
+      ),
     );
   }
+}
+
+/// Separatore hairline tra le voci della pillola controlli (stile iOS).
+class _PillDivider extends StatelessWidget {
+  const _PillDivider();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 0.6,
+        width: 30,
+        color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
+      );
 }
 
 /// Voce tappabile dentro una pillola in vetro (44×44, press-dim iOS).

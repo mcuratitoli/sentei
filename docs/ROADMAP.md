@@ -11,8 +11,10 @@
 ### 🎯 TODO prioritizzati — quadro sintetico (agg. 22 lug 2026)
 
 **P1 — attivo:**
-- [ ] **Bottoni in alto a destra**: riordinarli dall'alto verso il basso → **bussola · 2D/3D · posizione corrente**.
-- [ ] **Info Mapbox ("i")**: spostarla più a **sinistra**, un po' più nascosta, non al centro/in mezzo.
+- [x] **Bottoni in alto a destra — accorpati in un unico blocco (analisi *mobile-app-design* + implementazione).** Prima erano due superfici: bussola (cerchio staccato) + pillola `2D/3D · posizione`. Ora **un'unica pillola in vetro** con tre righe 44×44 (bussola · 2D/3D · posizione) separate da hairline (stile Apple Maps): rafforza il raggruppamento (Gestalt), una sola `GlassSurface` = meno rumore; gerarchia colore mantenuta (posizione=accent blu, 2D/3D=neutro, bussola=info). Rif. `_SideControls`/`_PillDivider` in `lib/features/map_gl/map_gl_screen.dart`. *Da tap-testare su device.*
+- [ ] **Splash animato (step subito dopo i due sopra).** Lo splash esteso in-app (`_SplashOverlay`) oggi ha **sfondo bianco + logo centrato**. Obiettivo: **sfondo animato dietro al logo** — es. una **vista mappa dall'alto che si muove lentamente** (pan/zoom lento). Da valutare: video/lottie leggero vs. `MapWidget` non interattivo in pan automatico vs. immagine con parallax. Rif. `_SplashOverlay` in `map_gl_screen.dart` (TODO già annotato nel codice).
+- [x] **Info Mapbox ("i")** — spostata **più in alto e a sinistra** (logo `marginLeft 6/marginTop 30`, "i" `6/56`), coerente con la richiesta "meno al centro". ⚠️ **Dimensione non riducibile**: `AttributionSettings` dell'SDK Mapbox non espone `size` (solo posizione/margini/colore/clickable) → l'icona resta della grandezza nativa. Per rimpicciolirla servirebbe nasconderla e ridisegnare un "i" custom in Flutter che apra l'attribuzione (fattibile ma da valutare vs. i termini Mapbox).
+- [x] **Gap di avvio (traccia → posizione)** — eliminato con **splash esteso**: la mappa resta coperta dallo splash (bianco + logo, in continuità col native splash) finché la camera iniziale non è già sulla **posizione GPS** (o sul fallback traccia salvata), piazzata **istantaneamente** (`setCamera`, niente `flyTo`); poi lo splash **dissolve** (450ms). Timeout di sicurezza 12s. Rif. `_splashVisible`/`_locateSilently`/`_SplashOverlay`.
 - [x] Login **Google Drive su Android** — testato e funzionante.
 - [x] **Apertura su posizione GPS corrente** — verificato sul simulatore (fix 21 lug).
 - [x] **Menu/conferme iOS** (Apple Photos) — testati.
