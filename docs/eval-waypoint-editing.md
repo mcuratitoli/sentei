@@ -1,7 +1,18 @@
 # Editing dei punti intermedi della traccia — analisi e piano
 
 > Roadmap P2, primo item. Analisi 22 lug 2026, decisioni utente 23 lug 2026.
-> Stato: **in implementazione step-by-step**.
+> Stato: **implementato** (Step 1–5, 23 lug 2026) — da validare sul device.
+>
+> - **Step 1 ✅** grab facile (waypoint raggio 7→11).
+> - **Step 2 ✅** undo a stack (`undoDepth`/`canUndo`, snapshot per mutazione).
+> - **Step 3 ✅** tap = seleziona (evidenziato) + elimina con conferma dalla card
+>   (`selectedWaypointProvider`, barra `_SelectedWaypointBar`).
+> - **Step 4 ✅** maniglie di metà-segmento draggabili → `insertPoint` + split
+>   (`_midpointHandles`). *Limite noto:* handle al centro-chord → su segmenti
+>   curvi un filo staccato dalla linea (rifinibile).
+> - **Step 5 ✅** ri-instradamento incrementale via `segmentRouteProvider` (family
+>   con cache per-chiave) + `_concatSegments`; `finishDrawing` riusa la cache.
+>   Test: spostare un punto ricalcola solo i 2 segmenti adiacenti (+2, non +3).
 
 ## Stato attuale (prima di questa feature)
 

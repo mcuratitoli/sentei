@@ -18,6 +18,17 @@ class _FakeRouting implements RoutingService {
       RouteResult(geometry: waypoints);
 }
 
+/// Routing che **conta** le chiamate (per verificare il ricalcolo incrementale).
+class _CountingRouting implements RoutingService {
+  _CountingRouting(this.calls);
+  final List<List<LatLng>> calls;
+  @override
+  Future<RouteResult> route(List<LatLng> waypoints, {String? profile}) async {
+    calls.add(List.of(waypoints));
+    return RouteResult(geometry: waypoints);
+  }
+}
+
 /// Elevazione finta: quota assente.
 class _FakeElevation implements ElevationService {
   @override
@@ -231,6 +242,43 @@ void main() {
     expect(state().editing!.snapToTrail, isTrue);
     notifier().setSnap(false);
     expect(state().editing!.snapToTrail, isFalse);
+  });
+
+  test('ri-instradamento incrementale: sposta un punto → ricalcola solo i '
+      'segmenti adiacenti', () async {
+    final calls = <List<LatLng>>[];
+    final c = ProviderContainer(overrides: [
+      routingServiceProvider.overrideWithValue(_CountingRouting(calls)),
+      elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      trailServiceProvider.overrideWithValue(
+        OverpassTrailService(
+            client: MockClient((_) async => http.Response('{"elements":[]}', 200))),
+      ),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+      cloudServiceProvider.overrideWithValue(_FakeCloud()),
+    ]);
+    addTearDown(c.dispose);
+
+    final n = c.read(tracksProvider.notifier);
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.1, 7.0))
+      ..addPoint(const LatLng(45.2, 7.0))
+      ..addPoint(const LatLng(45.3, 7.0)); // 4 waypoint → 3 segmenti
+    final id = c.read(tracksProvider).editingId!;
+
+    // Tiene vivo il provider e forza il calcolo dell'anteprima.
+    final sub = c.listen(livePathProvider(id), (_, __) {});
+    addTearDown(sub.close);
+    await c.read(livePathProvider(id).future);
+    expect(calls.length, 3); // un instradamento per segmento
+
+    // Sposta il punto centrale (indice 1): cambiano solo i segmenti 0-1 e 1-2;
+    // il segmento 2-3 resta cache-hit.
+    n.movePoint(1, const LatLng(45.15, 7.05));
+    await c.read(livePathProvider(id).future);
+    expect(calls.length, 5); // +2 (non +3): incrementale
   });
 
   test('remove elimina la traccia attiva', () async {

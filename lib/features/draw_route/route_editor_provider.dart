@@ -165,25 +165,59 @@ class TracksState {
   DrawnTrack? get active => byId(activeId);
 }
 
-/// Instrada [wp] **segmento per segmento** (un tratto non instradabile degrada
-/// solo quel segmento a linea retta). Snap disattivo → spezzata tra i waypoint.
-Future<List<LatLng>> routeAlong(
-    RoutingService service, List<LatLng> wp, bool snap) async {
-  if (wp.length < 2 || !snap) return wp;
+/// Chiave di un segmento (coppia di waypoint + snap) per la cache di routing.
+class _SegKey {
+  const _SegKey(this.a, this.b, this.snap);
+  final LatLng a;
+  final LatLng b;
+  final bool snap;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _SegKey &&
+      other.snap == snap &&
+      other.a.latitude == a.latitude &&
+      other.a.longitude == a.longitude &&
+      other.b.latitude == b.latitude &&
+      other.b.longitude == b.longitude;
+
+  @override
+  int get hashCode =>
+      Object.hash(a.latitude, a.longitude, b.latitude, b.longitude, snap);
+}
+
+/// Instrada un **singolo segmento** (un tratto non instradabile degrada solo
+/// quel segmento a linea retta; snap OFF → retta diretta). La cache per-chiave
+/// di Riverpod fa sì che, a una modifica, si ricalcolino **solo** i segmenti la
+/// cui coppia di estremi è cambiata (ri-instradamento incrementale); gli altri
+/// restano cache-hit.
+final segmentRouteProvider =
+    FutureProvider.family<List<LatLng>, _SegKey>((ref, key) async {
+  if (!key.snap) return [key.a, key.b];
+  try {
+    final seg = await ref.read(routingServiceProvider).route([key.a, key.b]);
+    return seg.geometry.length >= 2 ? seg.geometry : [key.a, key.b];
+  } on RoutingException catch (e) {
+    debugPrint('[routing] segmento → retta: ${e.message}');
+    return [key.a, key.b];
+  }
+});
+
+/// Concatena i segmenti instradati in un percorso unico. [get] sceglie la
+/// modalità: `ref.watch(...future)` (anteprima reattiva) o `ref.read(...future)`
+/// (uso una-tantum al salvataggio, che riusa la cache dell'anteprima).
+Future<List<LatLng>> _concatSegments(
+  List<LatLng> wp,
+  bool snap,
+  Future<List<LatLng>> Function(_SegKey) get,
+) async {
+  if (wp.length < 2) return wp;
+  final segs = await Future.wait([
+    for (var i = 0; i < wp.length - 1; i++) get(_SegKey(wp[i], wp[i + 1], snap)),
+  ]);
   final path = <LatLng>[wp.first];
-  for (var i = 0; i < wp.length - 1; i++) {
-    final to = wp[i + 1];
-    try {
-      final seg = await service.route([wp[i], to]);
-      if (seg.geometry.length >= 2) {
-        path.addAll(seg.geometry.skip(1));
-      } else {
-        path.add(to);
-      }
-    } on RoutingException catch (e) {
-      debugPrint('[routing] seg $i → retta: ${e.message}');
-      path.add(to);
-    }
+  for (final s in segs) {
+    path.addAll(s.skip(1));
   }
   return path;
 }
@@ -327,9 +361,9 @@ class Tracks extends Notifier<TracksState> {
       geometryNonce: state.geometryNonce,
     );
 
-    final path =
-        await routeAlong(ref.read(routingServiceProvider), track.waypoints,
-            track.snapToTrail);
+    // Riusa la cache dei segmenti già instradati dall'anteprima (read → hit).
+    final path = await _concatSegments(track.waypoints, track.snapToTrail,
+        (k) => ref.read(segmentRouteProvider(k).future));
 
     TrackMetrics? metrics;
     try {
@@ -640,7 +674,10 @@ final livePathProvider = FutureProvider.family<List<LatLng>, String>((ref, id) a
   if (waypoints == null) return const [];
   final snap =
       ref.watch(tracksProvider.select((s) => s.byId(id)?.snapToTrail ?? true));
-  return routeAlong(ref.read(routingServiceProvider), waypoints, snap);
+  // Percorso = concatenazione dei segmenti (cache per-segmento → incrementale:
+  // spostando/inserendo un punto si ricalcolano solo i 1-2 segmenti toccati).
+  return _concatSegments(
+      waypoints, snap, (k) => ref.watch(segmentRouteProvider(k).future));
 });
 
 /// Distanza (m) della traccia attiva: usa i dati memorizzati se presenti,
