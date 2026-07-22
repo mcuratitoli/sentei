@@ -1080,21 +1080,30 @@ class _SplashOverlay extends StatefulWidget {
 }
 
 class _SplashOverlayState extends State<_SplashOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
+    with TickerProviderStateMixin {
+  late final AnimationController _drift;
+  late final AnimationController _intro;
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
+    _drift = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 24),
     )..repeat();
+    // Intro: le isoipse **entrano in dissolvenza dal bianco** (come il native
+    // splash) invece di comparire "di botto" → l'handoff nativo→Flutter è
+    // impercettibile e lo splash sembra partire subito.
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
   }
 
   @override
   void dispose() {
-    _c.dispose();
+    _drift.dispose();
+    _intro.dispose();
     super.dispose();
   }
 
@@ -1103,12 +1112,19 @@ class _SplashOverlayState extends State<_SplashOverlay>
     return Stack(
       fit: StackFit.expand,
       children: [
-        RepaintBoundary(
-          child: AnimatedBuilder(
-            animation: _c,
-            builder: (_, __) => CustomPaint(
-              painter: _TopoSplashPainter(_c.value),
-              size: ui.Size.infinite,
+        // Base bianca: identica al native splash → il primo frame Flutter non
+        // "salta" (niente pop di colore all'avvio).
+        const ColoredBox(color: Color(0xFFFFFFFF)),
+        // Sfondo topografico (gradiente + isoipse) che sfuma **dentro**.
+        FadeTransition(
+          opacity: CurvedAnimation(parent: _intro, curve: Curves.easeOut),
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _drift,
+              builder: (_, __) => CustomPaint(
+                painter: _TopoSplashPainter(_drift.value),
+                size: ui.Size.infinite,
+              ),
             ),
           ),
         ),
