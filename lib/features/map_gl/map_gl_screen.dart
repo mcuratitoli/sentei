@@ -500,9 +500,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   }
 
   Future<void> _drawWaypoints(List<ll.LatLng> wps) async {
+    final selected = ref.read(selectedWaypointProvider);
     for (var i = 0; i < wps.length; i++) {
       final isStart = i == 0;
       final isEnd = i == wps.length - 1 && wps.length > 1;
+      final isSelected = i == selected;
       final color = isStart
           ? 0xFF2E7D32
           : isEnd
@@ -511,12 +513,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       // Pallino ampio: il target di drag di Mapbox coincide col cerchio
       // renderizzato, quindi un raggio piccolo (7) rendeva difficilissimo
       // afferrare il punto (si spostava la mappa). ~11 = handle ben afferrabile.
+      // Il punto **selezionato** è più grande, con anello antracite.
       final a = await _waypointDots!.create(CircleAnnotationOptions(
         geometry: Point(coordinates: Position(wps[i].longitude, wps[i].latitude)),
-        circleRadius: 11,
+        circleRadius: isSelected ? 13 : 11,
         circleColor: color,
-        circleStrokeColor: 0xFFFFFFFF,
-        circleStrokeWidth: 3,
+        circleStrokeColor: isSelected ? 0xFF1C1C1E : 0xFFFFFFFF,
+        circleStrokeWidth: isSelected ? 4 : 3,
         isDraggable: true,
       ));
       _wpIndexById[a.id] = i;
@@ -607,7 +610,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   void _onWaypointTap(CircleAnnotation a) {
     final i = _wpIndexById[a.id];
     if (i == null) return;
-    ref.read(tracksProvider.notifier).removePoint(i);
+    // Tap = **seleziona** (evidenzia) invece di eliminare subito: l'eliminazione
+    // avviene con conferma dalla card (niente più cancellazioni accidentali).
+    ref.read(selectedWaypointProvider.notifier).toggle(i);
   }
 
   // ---- Numeri sentiero CAI ------------------------------------------------
@@ -942,10 +947,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ref.listen(
       tracksProvider.select((s) => (s.geometryNonce, s.editingId, s.selectedId)),
       (_, __) {
+        // Un cambio di geometria fa slittare gli indici → azzera la selezione
+        // del waypoint (evita azioni su un indice ormai stale).
+        ref.read(selectedWaypointProvider.notifier).clear();
         _renderAll();
         _renderSteepness();
       },
     );
+    // La sola selezione (senza cambio geometria) ridisegna i pallini per
+    // evidenziare quello scelto.
+    ref.listen(selectedWaypointProvider, (_, __) => _renderAll());
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());

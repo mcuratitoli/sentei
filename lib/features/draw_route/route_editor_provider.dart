@@ -569,6 +569,25 @@ class Tracks extends Notifier<TracksState> {
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
 
+/// Indice del **waypoint selezionato** durante l'editing (per evidenziarlo in
+/// mappa ed eliminarlo con conferma). `null` = nessuna selezione. Si azzera al
+/// cambio di traccia/sessione; la mappa lo azzera anche a ogni cambio di
+/// geometria (aggiungi/sposta/rimuovi/inserisci → gli indici cambiano).
+class SelectedWaypoint extends Notifier<int?> {
+  @override
+  int? build() {
+    ref.watch(activeTrackIdProvider);
+    return null;
+  }
+
+  /// Tap sullo stesso punto = deseleziona; su un altro = seleziona.
+  void toggle(int i) => state = state == i ? null : i;
+  void clear() => state = null;
+}
+
+final selectedWaypointProvider =
+    NotifierProvider<SelectedWaypoint, int?>(SelectedWaypoint.new);
+
 /// Database locale (drift) e repository delle tracce (persistenza su disco).
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();

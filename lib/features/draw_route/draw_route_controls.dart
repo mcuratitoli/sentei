@@ -66,6 +66,8 @@ class _DrawingBody extends ConsumerWidget {
     final canSave = (track?.waypoints.length ?? 0) >= 2;
     final canUndo = ref.watch(tracksProvider.select((s) => s.canUndo));
     final snap = track?.snapToTrail ?? true;
+    final selectedWp = ref.watch(selectedWaypointProvider);
+    final wpCount = track?.waypoints.length ?? 0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -90,6 +92,17 @@ class _DrawingBody extends ConsumerWidget {
             ),
           ],
         ),
+        // Barra contestuale del punto selezionato: elimina con conferma
+        // (niente più tap-per-eliminare accidentale sulla mappa).
+        if (selectedWp != null && selectedWp < wpCount) ...[
+          const SizedBox(height: 8),
+          _SelectedWaypointBar(
+            index: selectedWp,
+            total: wpCount,
+            onDelete: () => _confirmDeleteWaypoint(context, ref, selectedWp),
+            onClose: () => ref.read(selectedWaypointProvider.notifier).clear(),
+          ),
+        ],
         const SizedBox(height: 6),
         Row(
           children: [
@@ -310,6 +323,70 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     cancelLabel: 'Continua a modificare',
     onConfirm: () => ref.read(tracksProvider.notifier).cancelEditing(),
   );
+}
+
+/// Conferma l'eliminazione del waypoint [index] (stile Apple: azione rossa).
+Future<void> _confirmDeleteWaypoint(
+    BuildContext context, WidgetRef ref, int index) async {
+  await showIosConfirm(
+    context: context,
+    title: 'Eliminare il punto?',
+    message: 'Il punto ${index + 1} verrà rimosso dal percorso.',
+    confirmLabel: 'Elimina',
+    onConfirm: () => ref.read(tracksProvider.notifier).removePoint(index),
+  );
+}
+
+/// Barra contestuale mostrata quando un waypoint è selezionato in editing:
+/// indica quale punto è selezionato e offre **Elimina** (con conferma) e chiudi.
+class _SelectedWaypointBar extends StatelessWidget {
+  const _SelectedWaypointBar({
+    required this.index,
+    required this.total,
+    required this.onDelete,
+    required this.onClose,
+  });
+
+  final int index;
+  final int total;
+  final VoidCallback onDelete;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: AppRadii.rMd,
+      ),
+      child: Row(
+        children: [
+          const Icon(CupertinoIcons.smallcircle_fill_circle,
+              size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Punto ${index + 1} di $total',
+                style: AppText.caption.copyWith(color: AppColors.bodyText)),
+          ),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            minimumSize: const Size(0, 36),
+            onPressed: onDelete,
+            child: Text('Elimina',
+                style: AppText.pillLabel.copyWith(color: AppColors.destructive)),
+          ),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(36, 36),
+            onPressed: onClose,
+            child: const Icon(CupertinoIcons.xmark,
+                size: 16, color: AppColors.secondaryLabel),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Numeri dei sentieri (ref CAI) attraversati + grado di difficoltà complessivo.
