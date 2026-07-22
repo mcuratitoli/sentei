@@ -10,12 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/offline/terrarium_tile_cache.dart';
 import '../../ui/ios_toast.dart';
+import '../../ui/tokens.dart';
 import '../draw_route/route_editor_provider.dart';
 import 'offline_maps_providers.dart';
-
-/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
-const Color _kGroupedBg = Color(0xFFF2F2F7);
-const Color _kTint = Color(0xFF1565C0);
 
 /// Gestione **mappe offline**: scarica l'area visualizzata (mappa Mapbox) e
 /// gestisce le aree già scaricate (lista, dimensione, elimina).
@@ -105,11 +102,11 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
     final regions = ref.watch(downloadedRegionsProvider);
 
     return Scaffold(
-      backgroundColor: _kGroupedBg,
+      backgroundColor: AppColors.groupedBg,
       appBar: AppBar(
         title: const Text('Mappe offline'),
         centerTitle: true,
-        backgroundColor: _kGroupedBg,
+        backgroundColor: AppColors.groupedBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
       ),
@@ -139,7 +136,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                           value: _progress == 0 ? null : _progress,
                           minHeight: 5,
                           backgroundColor: const Color(0xFFE3E3EA),
-                          color: _kTint,
+                          color: AppColors.primary,
                         ),
                       ),
                     ] else
@@ -163,7 +160,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                       'Scarica mappa + elevazione dell\'area inquadrata, per '
                       'usarla senza connessione (mappa fino allo zoom 15; '
                       'D+/profilo offline).',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF6E6E73)),
+                      style: TextStyle(fontSize: 12.5, color: AppColors.secondaryLabel),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -185,7 +182,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                     padding: EdgeInsets.only(top: 40),
                     child: Center(
                       child: Text('Nessuna area scaricata',
-                          style: TextStyle(color: Color(0xFF6E6E73))),
+                          style: TextStyle(color: AppColors.secondaryLabel)),
                     ),
                   )
                 : CupertinoListSection.insetGrouped(
@@ -193,7 +190,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                     children: [
                       for (final r in list)
                         CupertinoListTile(
-                          leading: const Icon(CupertinoIcons.map, color: _kTint),
+                          leading: const Icon(CupertinoIcons.map, color: AppColors.primary),
                           title: Text(r.name),
                           subtitle: Text(_fmtSize(r.sizeBytes)),
                           trailing: CupertinoButton(
@@ -201,7 +198,7 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                             minimumSize: const Size(36, 36),
                             onPressed: () => _delete(r.id),
                             child: const Icon(CupertinoIcons.delete,
-                                size: 22, color: Color(0xFFC62828)),
+                                size: 22, color: AppColors.destructive),
                           ),
                         ),
                     ],

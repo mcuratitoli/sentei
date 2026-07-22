@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'tokens.dart';
+
 /// Estetica "vetro smerigliato" stile iOS (Apple Maps): superfici translucide con
 /// blur del contenuto retrostante, bordo sottile chiaro e ombra morbida. Da usare
 /// per i controlli flottanti al posto delle Card/Material con elevazione.
@@ -51,10 +53,10 @@ class GlassSurface extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFFFF).withValues(alpha: opacity),
+              color: AppColors.glassFill.withValues(alpha: opacity),
               borderRadius: borderRadius,
               border: Border.all(
-                color: const Color(0xFFFFFFFF).withValues(alpha: 0.6),
+                color: AppColors.glassFill.withValues(alpha: 0.6),
                 width: 0.6,
               ),
             ),

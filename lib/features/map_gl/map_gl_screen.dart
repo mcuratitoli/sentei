@@ -20,6 +20,7 @@ import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
+import '../../ui/tokens.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -1196,7 +1197,7 @@ class _PointInfoCard extends StatelessWidget {
       ),
       child: GlassSurface(
         // Stessa trasparenza della ricerca/menubar (default).
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: AppRadii.rPill,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
           child: Row(
@@ -1261,7 +1262,7 @@ class _PointInfoCard extends StatelessWidget {
                         style: const TextStyle(
                             fontSize: 13.5,
                             height: 1.25,
-                            color: Color(0xFF3A3A3C)),
+                            color: AppColors.bodyText),
                       ),
                     ],
                     const SizedBox(height: 3),
@@ -1282,7 +1283,7 @@ class _PointInfoCard extends StatelessWidget {
                             child: Text(
                               _fmtCoords(data.point),
                               style: const TextStyle(
-                                  fontSize: 12.5, color: Color(0xFF6E6E73)),
+                                  fontSize: 12.5, color: AppColors.secondaryLabel),
                             ),
                           ),
                           const SizedBox(width: 5),
@@ -1299,7 +1300,7 @@ class _PointInfoCard extends StatelessWidget {
                 minimumSize: const ui.Size(40, 40),
                 onPressed: onClose,
                 child: const Icon(CupertinoIcons.clear_circled_solid,
-                    size: 24, color: Color(0xFFB0B0B5)),
+                    size: 24, color: AppColors.tertiaryIcon),
               ),
             ],
           ),
@@ -1310,7 +1311,7 @@ class _PointInfoCard extends StatelessWidget {
 }
 
 /// Grigio antracite neutro per le icone della barra (iOS-like).
-const Color _kBarIcon = Color(0xFF3A3A3C);
+const Color _kBarIcon = AppColors.bodyText;
 
 /// Icona tappabile della barra in vetro: press-dim iOS, niente ripple Material.
 /// Con [child] si passa un glifo custom al posto dell'icona.
@@ -1412,7 +1413,7 @@ class _SideControls extends StatelessWidget {
     // tre righe 44×44 separate da hairline. Accorpati per rafforzare il
     // raggruppamento visivo (Gestalt) e ridurre il rumore (una sola superficie).
     return GlassSurface(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: AppRadii.rPill,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1459,7 +1460,7 @@ class _PillDivider extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 0.6,
         width: 30,
-        color: const Color(0xFF3C3C43).withValues(alpha: 0.2),
+        color: AppColors.hairline.withValues(alpha: 0.2),
       );
 }
 
@@ -1556,7 +1557,7 @@ class _SearchPanel extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               child: GlassSurface(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: AppRadii.rCard,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 260),
                   child: ListView.separated(
@@ -1621,7 +1622,7 @@ class _SearchPanel extends StatelessWidget {
                     IconButton(
                       tooltip: 'Cancella',
                       icon: const Icon(CupertinoIcons.clear_circled_solid,
-                          size: 20, color: Color(0xFFB0B0B5)),
+                          size: 20, color: AppColors.tertiaryIcon),
                       onPressed: () {
                         controller.clear();
                         onChanged('');

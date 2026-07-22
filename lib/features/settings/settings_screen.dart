@@ -15,11 +15,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../ui/cai_difficulty.dart';
 import '../../ui/ios_toast.dart';
+import '../../ui/tokens.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
-
-/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
-const Color _kGroupedBg = Color(0xFFF2F2F7);
 
 /// Versione app (unica per Android e iOS, da `pubspec.yaml`): "1.0.0 (2)".
 final appVersionProvider = FutureProvider<String>((ref) async {
@@ -38,11 +36,11 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: _kGroupedBg,
+      backgroundColor: AppColors.groupedBg,
       appBar: AppBar(
         title: const Text('Impostazioni'),
         centerTitle: true,
-        backgroundColor: _kGroupedBg,
+        backgroundColor: AppColors.groupedBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
       ),
@@ -52,14 +50,14 @@ class SettingsScreen extends ConsumerWidget {
             header: const Text('Mappa'),
             children: [
               const CupertinoListTile(
-                leading: Icon(CupertinoIcons.map, color: Color(0xFF1565C0)),
+                leading: Icon(CupertinoIcons.map, color: AppColors.primary),
                 title: Text('Mappa'),
                 subtitle:
                     Text('Mapbox Outdoors · Sentiero CAI'),
               ),
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.cloud_download,
-                    color: Color(0xFF1565C0)),
+                    color: AppColors.primary),
                 title: const Text('Mappe offline'),
                 subtitle:
                     const Text('Scarica aree per l\'uso senza connessione'),
@@ -74,7 +72,7 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               CupertinoListTile(
                 leading: const Icon(CupertinoIcons.book,
-                    color: Color(0xFF1565C0)),
+                    color: AppColors.primary),
                 title: const Text('Legenda difficoltà'),
                 subtitle: const Text('Cosa significano T, E, EE, EEA'),
                 trailing: const CupertinoListTileChevron(),
@@ -82,7 +80,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               CupertinoListTile(
                 leading:
-                    const Icon(CupertinoIcons.info, color: Color(0xFF1565C0)),
+                    const Icon(CupertinoIcons.info, color: AppColors.primary),
                 title: const Text('Sentèi'),
                 subtitle: const Text('App per l\'escursionismo'),
                 additionalInfo:
@@ -97,7 +95,7 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 /// Sezione di sincronizzazione cloud: scelta del provider (su iOS), accesso,
-/// sincronizza, disconnetti. Gli esiti compaiono come SnackBar.
+/// sincronizza, disconnetti. Gli esiti compaiono come toast iOS.
 class _CloudSection extends ConsumerWidget {
   const _CloudSection();
 
@@ -114,7 +112,7 @@ class _CloudSection extends ConsumerWidget {
     });
 
     const spinner = CupertinoActivityIndicator(radius: 11);
-    const tint = Color(0xFF1565C0);
+    const tint = AppColors.primary;
 
     return CupertinoListSection.insetGrouped(
       header: const Text('Sincronizzazione cloud'),
@@ -148,7 +146,7 @@ class _CloudSection extends ConsumerWidget {
           ),
           CupertinoListTile(
             leading: const Icon(CupertinoIcons.square_arrow_right,
-                color: Color(0xFFC62828)),
+                color: AppColors.destructive),
             title: const Text('Disconnetti'),
             onTap: cloud.busy ? null : notifier.signOut,
           ),
@@ -199,7 +197,7 @@ Future<void> showDifficultyLegend(BuildContext context) {
     isScrollControlled: true,
     showDragHandle: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),
     builder: (_) => const _DifficultyLegendSheet(),
   );
@@ -224,12 +222,12 @@ class _DifficultyLegendSheet extends StatelessWidget {
               padding: EdgeInsets.only(bottom: 6),
               child: Text(
                 'Difficoltà dei sentieri',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style: AppText.sheetTitle,
               ),
             ),
             const Text(
               'Scala CAI (Club Alpino Italiano), in ordine crescente di impegno.',
-              style: TextStyle(fontSize: 14, color: Color(0xFF6E6E73)),
+              style: TextStyle(fontSize: 14, color: AppColors.secondaryLabel),
             ),
             const SizedBox(height: 16),
             for (final scale in caiScalesInOrder) ...[
@@ -262,7 +260,7 @@ class _LegendRow extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadii.rSm,
           ),
           child: Text(
             scale,
@@ -280,20 +278,12 @@ class _LegendRow extends StatelessWidget {
             children: [
               Text(
                 caiScaleLabel(scale),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
+                style: AppText.sectionValue.copyWith(color: color),
               ),
               const SizedBox(height: 3),
               Text(
                 caiScaleDescription(scale),
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  height: 1.35,
-                  color: Color(0xFF3A3A3C),
-                ),
+                style: AppText.bodyDetail.copyWith(color: AppColors.bodyText),
               ),
             ],
           ),

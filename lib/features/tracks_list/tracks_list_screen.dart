@@ -19,13 +19,11 @@ import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
+import '../../ui/tokens.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'tracks_sort_provider.dart';
-
-/// Sfondo raggruppato stile iOS (systemGroupedBackground chiaro).
-const Color _kGroupedBg = Color(0xFFF2F2F7);
 
 /// Libreria dei tracciati salvati (1.D) + export/import GPX (§6.4), con
 /// ordinamento (data/alfabetico) e ricerca sul titolo.
@@ -70,11 +68,11 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     });
 
     return Scaffold(
-      backgroundColor: _kGroupedBg,
+      backgroundColor: AppColors.groupedBg,
       appBar: AppBar(
         title: const Text('Tracciati'),
         centerTitle: true,
-        backgroundColor: _kGroupedBg,
+        backgroundColor: AppColors.groupedBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
         actions: [
