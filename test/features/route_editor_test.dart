@@ -100,6 +100,49 @@ void main() {
     expect(state().editing!.waypoints.length, 1);
   });
 
+  test('undo a stack: annulla add/move/remove in ordine inverso', () {
+    final n = notifier();
+    n.startNewDrawing();
+    expect(state().canUndo, isFalse); // niente da annullare
+    n
+      ..addPoint(const LatLng(45, 7)) // wp: [A]
+      ..addPoint(const LatLng(45.01, 7)) // wp: [A,B]
+      ..addPoint(const LatLng(45.02, 7)); // wp: [A,B,C]
+    expect(state().editing!.waypoints.length, 3);
+    expect(state().canUndo, isTrue);
+
+    n.movePoint(0, const LatLng(45.5, 7.5)); // sposta A
+    expect(state().editing!.waypoints.first, const LatLng(45.5, 7.5));
+    n.removePoint(1); // rimuove B → wp: [A', C]
+    expect(state().editing!.waypoints.length, 2);
+
+    // Undo remove → riappare B (3 punti)
+    n.undo();
+    expect(state().editing!.waypoints.length, 3);
+    // Undo move → A torna all'originale
+    n.undo();
+    expect(state().editing!.waypoints.first, const LatLng(45, 7));
+    // Undo dei 3 add → si svuota
+    n
+      ..undo()
+      ..undo()
+      ..undo();
+    expect(state().editing!.waypoints, isEmpty);
+    expect(state().canUndo, isFalse);
+    n.undo(); // no-op oltre il fondo
+    expect(state().editing!.waypoints, isEmpty);
+  });
+
+  test('lo stack di undo si azzera a nuova sessione di editing', () {
+    final n = notifier();
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7));
+    expect(state().canUndo, isTrue);
+    n.startNewDrawing(); // scarta l'incompleta + nuova sessione
+    expect(state().canUndo, isFalse);
+  });
+
   test('finishDrawing scarta tracce con meno di 2 punti', () async {
     notifier()
       ..startNewDrawing()

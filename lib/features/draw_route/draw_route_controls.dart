@@ -64,6 +64,7 @@ class _DrawingBody extends ConsumerWidget {
     final pathLoading =
         track != null && ref.watch(livePathProvider(track.id)).isLoading;
     final canSave = (track?.waypoints.length ?? 0) >= 2;
+    final canUndo = ref.watch(tracksProvider.select((s) => s.canUndo));
     final snap = track?.snapToTrail ?? true;
 
     return Column(
@@ -105,10 +106,10 @@ class _DrawingBody extends ConsumerWidget {
               icon: CupertinoIcons.xmark,
             ),
             _CardIconButton(
-              tooltip: 'Annulla ultimo punto',
-              onPressed: (track?.waypoints.isEmpty ?? true)
-                  ? null
-                  : () => ref.read(tracksProvider.notifier).undo(),
+              tooltip: 'Annulla',
+              onPressed: canUndo
+                  ? () => ref.read(tracksProvider.notifier).undo()
+                  : null,
               icon: CupertinoIcons.arrow_uturn_left,
             ),
             const SizedBox(width: 8),

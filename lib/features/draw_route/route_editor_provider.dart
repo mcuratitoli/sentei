@@ -119,11 +119,19 @@ class TracksState {
     this.savingId,
     this.resolvingTrailsId,
     this.geometryNonce = 0,
+    this.undoDepth = 0,
   });
 
   final List<DrawnTrack> tracks;
   final String? editingId;
   final String? selectedId;
+
+  /// Profondità dello stack di undo della sessione di editing corrente (0 fuori
+  /// editing). Serve alla UI per abilitare il tasto "Annulla".
+  final int undoDepth;
+
+  /// Se c'è almeno un'operazione annullabile.
+  bool get canUndo => undoDepth > 0;
 
   /// Id della traccia per cui è in corso calcolo+salvataggio dopo il "Fine".
   final String? savingId;
@@ -190,6 +198,18 @@ class Tracks extends Notifier<TracksState> {
   /// nuova: in quel caso l'annullamento la scarta del tutto.
   DrawnTrack? _editSnapshot;
 
+  /// Stack di undo della sessione di editing: ogni voce è uno snapshot dei
+  /// waypoint **prima** di una mutazione (add/move/remove/insert). `undo()` fa
+  /// pop. Si azzera all'inizio/fine di ogni sessione di editing.
+  final List<List<LatLng>> _undoStack = [];
+
+  /// Registra lo stato dei waypoint prima di una mutazione (per l'undo).
+  void _pushUndo() {
+    final t = state.editing;
+    if (t == null) return;
+    _undoStack.add(List<LatLng>.of(t.waypoints));
+  }
+
   @override
   TracksState build() {
     _load();
@@ -242,12 +262,14 @@ class Tracks extends Notifier<TracksState> {
     final track =
         DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
     _editSnapshot = null; // traccia nuova
+    _undoStack.clear();
     state = TracksState(tracks: [...tracks, track], editingId: track.id, geometryNonce: state.geometryNonce + 1);
   }
 
   void editSelected() {
     if (state.selectedId == null) return;
     _editSnapshot = state.byId(state.selectedId); // per ripristino su Annulla
+    _undoStack.clear();
     state = TracksState(tracks: state.tracks, editingId: state.selectedId, geometryNonce: state.geometryNonce);
   }
 
@@ -261,6 +283,7 @@ class Tracks extends Notifier<TracksState> {
     if (id == null) return;
     final snapshot = _editSnapshot;
     _editSnapshot = null;
+    _undoStack.clear();
     if (snapshot == null) {
       state = TracksState(
         tracks: state.tracks.where((t) => t.id != id).toList(),
@@ -283,6 +306,7 @@ class Tracks extends Notifier<TracksState> {
     final track = state.byId(id);
     if (track == null) return;
     _editSnapshot = null;
+    _undoStack.clear();
 
     if (track.waypoints.length < 2) {
       state = TracksState(
@@ -498,6 +522,7 @@ class Tracks extends Notifier<TracksState> {
       editingId: id,
       selectedId: state.selectedId,
       geometryNonce: affectsGeometry ? state.geometryNonce + 1 : state.geometryNonce,
+      undoDepth: _undoStack.length,
     );
   }
 
@@ -511,28 +536,35 @@ class Tracks extends Notifier<TracksState> {
   void setSnap(bool snap) =>
       _updateEditing((t) => t.clearedComputed().copyWith(snapToTrail: snap));
 
-  void addPoint(LatLng p) => _updateEditing(
-      (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
+  void addPoint(LatLng p) {
+    if (state.editing == null) return;
+    _pushUndo();
+    _updateEditing(
+        (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
+  }
 
-  void undo() => _updateEditing((t) => t.waypoints.isEmpty
-      ? t
-      : t
-          .clearedComputed()
-          .copyWith(waypoints: t.waypoints.sublist(0, t.waypoints.length - 1)));
+  /// Annulla l'ultima operazione sui waypoint (stack di undo della sessione).
+  void undo() {
+    if (_undoStack.isEmpty) return;
+    final prev = _undoStack.removeLast();
+    _updateEditing((t) => t.clearedComputed().copyWith(waypoints: prev));
+  }
 
-  void movePoint(int index, LatLng p) => _updateEditing((t) {
-        if (index < 0 || index >= t.waypoints.length) return t;
-        return t
-            .clearedComputed()
-            .copyWith(waypoints: [...t.waypoints]..[index] = p);
-      });
+  void movePoint(int index, LatLng p) {
+    final t = state.editing;
+    if (t == null || index < 0 || index >= t.waypoints.length) return;
+    _pushUndo();
+    _updateEditing((tt) =>
+        tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..[index] = p));
+  }
 
-  void removePoint(int index) => _updateEditing((t) {
-        if (index < 0 || index >= t.waypoints.length) return t;
-        return t
-            .clearedComputed()
-            .copyWith(waypoints: [...t.waypoints]..removeAt(index));
-      });
+  void removePoint(int index) {
+    final t = state.editing;
+    if (t == null || index < 0 || index >= t.waypoints.length) return;
+    _pushUndo();
+    _updateEditing((tt) =>
+        tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..removeAt(index)));
+  }
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
