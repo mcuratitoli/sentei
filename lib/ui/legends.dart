@@ -75,6 +75,14 @@ Future<void> _showSheet(BuildContext context, Widget child) {
     backgroundColor: Colors.white,
     isScrollControlled: true,
     showDragHandle: true,
+    // Cap dell'altezza (~88%): con contenuti lunghi il foglio arrivava a **tutta
+    // altezza**, senza più la fascia in alto da toccare per chiudere e col drag
+    // handle non afferrabile → restava "incastrato". Lasciando uno scrim sopra,
+    // il tap-fuori e il drag-to-dismiss tornano a funzionare (il contenuto
+    // scorre dentro il foglio).
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.88,
+    ),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
     ),

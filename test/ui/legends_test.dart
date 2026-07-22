@@ -39,6 +39,20 @@ void main() {
     expect(find.textContaining('condizioni ottimali'), findsOneWidget);
   });
 
+  testWidgets('legenda difficoltà: chiudibile col tap sullo scrim (non full-height)',
+      (tester) async {
+    await tester.pumpWidget(host(showDifficultyLegend));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Difficoltà dei percorsi'), findsOneWidget);
+
+    // Con l'altezza cappata resta uno scrim in alto: un tap lì deve chiudere.
+    // (Senza il cap il foglio era a tutta altezza e restava "incastrato".)
+    await tester.tapAt(const Offset(400, 8));
+    await tester.pumpAndSettle();
+    expect(find.text('Difficoltà dei percorsi'), findsNothing);
+  });
+
   testWidgets('legenda abbreviazioni: sigle e significati dal libro',
       (tester) async {
     await tester.pumpWidget(host(showAbbreviationsLegend));
