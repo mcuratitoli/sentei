@@ -62,6 +62,8 @@ CAI** (Overpass) sia come chip sia come **banda sotto il grafico**; **persistenz
 lista tracciati ordinabile/ricercabile; **export/import GPX**; UI con palette blu, font **Lato**, **barra
 flottante in basso** (bussola-nord / mia posizione / **+** / lista / impostazioni), logo+splash.
 
+> 🆕 **Legende ampliate (22 lug 2026):** la **Legenda difficoltà** (Impostazioni → Informazioni) ora copre — oltre alle escursionistiche **T/E/EE/EEA** — anche le **alpinistiche F/PD** e la **scala Welzenbach I/II/III** (con nota −/+ e nota "condizioni ottimali"), testo allineato alla «Guida dei Monti d'Italia» (CAI). Aggiunta la legenda **Abbreviazioni** (ANA, ASF, CAF, CAI, GTA, IGM, IGN, UGET). Contenuti in `lib/ui/legends.dart`; descrizioni CAI in `lib/ui/cai_difficulty.dart`. Test widget `test/ui/legends_test.dart`. Fonte: guida cartacea del Monviso.
+
 > ⏳ **DA TESTARE SUL TELEFONO FISICO (promemoria):** download **mappe offline** (area + per-traccia) con uso in **modalità aereo** (mappa **e** D+/profilo); resa della **card** di dettaglio traccia (in fondo, nasconde la toolbar); gesto **2D↔3D** a due dita. Tutto verificato su simulatore/analyze/test ma non ancora sul device.
 
 > 🆕 **Fix 21 lug 2026:** **all'apertura la mappa si posiziona sempre sulla posizione GPS corrente** dell'utente. Prima centrava sulla prima traccia salvata (`_maybeCenter`) e il GPS partiva solo in assenza di tracce → chi aveva tracce salvate non veniva mai portato sulla propria posizione. Ora `_locateSilently` è chiamato sempre al primo setup; la traccia salvata resta solo **fallback** se il GPS manca/permessi negati (`_fallbackCenterOnSavedTrack`). Flag `_centeredOnSaved`→`_initialCameraDone`. analyze pulito, 68 test verdi. *Da tap-testare su device.*

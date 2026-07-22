@@ -66,19 +66,20 @@ String caiScaleLabel(String scale) {
 }
 
 /// Spiegazione dettagliata del grado CAI (per la legenda in Impostazioni).
+/// Testo allineato alla «Guida dei Monti d'Italia» (CAI).
 String caiScaleDescription(String scale) {
   switch (normalizeCaiScale(scale)) {
     case 'T':
-      return 'Percorsi su stradine, mulattiere o comodi sentieri ben segnalati. '
-          'Non richiedono allenamento specifico oltre alla camminata.';
+      return 'I percorsi più facili: stradine o sentieri ben tracciati, '
+          'agevoli e con dislivelli piuttosto modesti.';
     case 'E':
-      return 'Sentieri o tracce su terreno vario (pascoli, detriti, pietraie). '
-          'Possono avere brevi tratti ripidi o esposti con protezioni. '
-          'Richiedono allenamento e calzature adeguate.';
+      return 'Itinerari su sentiero o con percorso abbastanza evidente, che '
+          'richiedono già un po\' di esperienza e allenamento alla fatica. '
+          'A volte brevi tratti esposti o elementari passaggi su roccia.';
     case 'EE':
-      return 'Percorsi impegnativi su terreno insidioso: tracce infide, pendii '
-          'ripidi, tratti esposti, roccette o brevi passaggi con neve. '
-          'Richiedono esperienza, passo sicuro e assenza di vertigini.';
+      return 'Percorsi con tratti aerei ed esposti, passaggi su roccia o '
+          'problemi di orientamento. Richiedono esperienza, passo sicuro e '
+          'assenza di vertigini.';
     case 'EEA':
       return 'Itinerari attrezzati o vie ferrate che richiedono l\'uso di '
           'dispositivi di autoassicurazione (imbrago, kit da ferrata, casco) '
