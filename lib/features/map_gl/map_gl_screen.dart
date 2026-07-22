@@ -508,12 +508,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
           : isEnd
               ? 0xFFC62828
               : 0xFF1565C0;
+      // Pallino ampio: il target di drag di Mapbox coincide col cerchio
+      // renderizzato, quindi un raggio piccolo (7) rendeva difficilissimo
+      // afferrare il punto (si spostava la mappa). ~11 = handle ben afferrabile.
       final a = await _waypointDots!.create(CircleAnnotationOptions(
         geometry: Point(coordinates: Position(wps[i].longitude, wps[i].latitude)),
-        circleRadius: 7,
+        circleRadius: 11,
         circleColor: color,
         circleStrokeColor: 0xFFFFFFFF,
-        circleStrokeWidth: 2,
+        circleStrokeWidth: 3,
         isDraggable: true,
       ));
       _wpIndexById[a.id] = i;
