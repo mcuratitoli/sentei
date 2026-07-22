@@ -37,8 +37,10 @@
 
 **📌 Validazione (TODO):** download **mappe+elevazione offline** in modalità aereo su device · smoothing dislivello su tracce reali · difficoltà CAI su tracce reali · smoke test OSM2CAI on-device.
 
-**⭐ Da valutare (può scalare le priorità se supera l'analisi):**
-- [~] **Pubblicazione su App Store + Play Store con sblocco tramite codice alfanumerico.** *Esito analisi: FATTIBILE, non contro le policy* (entrambi gli store consentono l'accesso dietro codice/redeem; obbligatorio fornire ai reviewer un codice valido nelle note di review — Apple guideline 2.1 App Completeness — e dichiarare l'accesso limitato in Play Console → "App access"). Vincoli: dietro il gate deve esserci funzionalità reale (no placeholder), il codice deve funzionare durante la review. *Alternative più semplici se il fine è "solo persone invitate":* TestFlight (fino a 10k tester) o Play closed/internal testing / listing "unlisted" — zero codice da scrivere. Decisione prodotto: pubblico+gate solo se serve davvero la presenza sugli store. Dettaglio in coda a questo documento.
+**⭐ Distribuzione agli amici — DECISO (22 lug 2026): iOS Unlisted + Play closed testing.**
+- Obiettivo utente: uso privato/gratuito tra amici, senza vetrina pubblica e senza gestione costi. Scartata l'idea "store pubblici + codice alfanumerico" (esposizione massima + il codice lato client **non** protegge il token Mapbox → controllo costi debole). Alla scala "amici" si resta comunque nel **free tier Mapbox**.
+- **iOS → Unlisted App Distribution:** app approvata in review ma **non ricercabile** (solo via link diretto), install permanente. Vicino allo stato attuale (già su App Store Connect, team `W8XCSNY6V3`). Passi: submit review + richiesta distribuzione unlisted.
+- **Android → Play closed testing:** track chiuso con lista tester (email/Google Group), permanente. **Setup nuovo:** account Play Console (25$ una tantum), **upload keystore** di release (oggi l'APK è debug-signed), build **AAB** (non APK). Vedi analisi in coda.
 
 ---
 
@@ -328,4 +330,27 @@ Ordine consigliato (ogni feature: modello → repository → servizio → UI, co
 - **TestFlight** (iOS): fino a **10.000 tester esterni** via link pubblico o email.
 - **Play**: **closed/internal testing** o listing **"unlisted"**.
 
-**Raccomandazione:** l'obiettivo di "app usabile solo da chi ha il codice" è raggiungibile **senza pubblicazione pubblica** via TestFlight/closed-testing (già in uso per la beta). La strada "store pubblico + gate a codice" ha senso **solo se serve davvero la presenza/visibilità sugli store**. → **Passa l'analisi** e può entrare in backlog; la posizione in classifica dipende da questa scelta di prodotto (da confermare con l'utente).
+**Raccomandazione:** l'obiettivo di "app usabile solo da chi ha il codice" è raggiungibile **senza pubblicazione pubblica** via TestFlight/closed-testing (già in uso per la beta). La strada "store pubblico + gate a codice" ha senso **solo se serve davvero la presenza/visibilità sugli store**.
+
+### ✅ Decisione (22 lug 2026): **iOS Unlisted + Play closed testing** — niente codice, niente vetrina pubblica
+
+Motivazione: il codice alfanumerico è lato client → **non protegge il token Mapbox** (estraibile dal binario) né il vero controllo costi; e la pubblicazione pubblica massimizza proprio l'esposizione che l'utente vuole evitare. Alla scala "amici" i costi Mapbox restano nel free tier a prescindere dal gate.
+
+**iOS — Unlisted App Distribution**
+- App sottoposta a review normale, poi **resa "unlisted"**: non compare in ricerca/classifiche, accessibile **solo tramite link diretto** App Store. Install permanente (no scadenza 90 gg come TestFlight).
+- Richiesta via l'apposito form Apple ("Request Unlisted App Distribution") — prima o dopo l'approvazione.
+- Vicino allo stato attuale: già su App Store Connect (team `W8XCSNY6V3`, upload via Organizer). Il reviewer deve poter usare l'app (funziona già senza gate → nessuna nota speciale).
+
+**Android — Play closed testing**
+- Track **closed testing** con lista tester (indirizzi email o Google Group); i tester accettano l'invito via link. Permanente.
+- **Setup nuovo (non ancora fatto):**
+  1. **Play Console** — account sviluppatore (**25$ una tantum**); oggi l'app è distribuita come **APK sideload debug-signed**, mai passata da Play.
+  2. **Firma di release** — generare un **upload keystore** (`keytool`) e configurare `android/app/build.gradle` + `key.properties` (fuori dal repo). Play Signing gestisce poi la chiave di distribuzione.
+  3. **Formato** — Play richiede **Android App Bundle (`.aab`)**, non APK: `flutter build appbundle --release --dart-define=...`.
+  4. Caricare l'AAB sul track closed, aggiungere i tester, inviare per review del track.
+- *Nota Play:* il requisito "20 tester per 14 giorni" riguarda l'accesso alla **produzione** per i nuovi account personali; restando in **closed testing** non si applica.
+
+**Prossimi passi operativi (quando si affronta la distribuzione):**
+- [ ] iOS: submit review della build corrente + richiesta Unlisted.
+- [ ] Android: creare Play Console, upload keystore, build `.aab`, track closed + tester.
+- [ ] Documentare in `docs/` (es. `docs/distribuzione-unlisted.md`) i due flussi.
