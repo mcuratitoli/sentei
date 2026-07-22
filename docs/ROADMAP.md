@@ -37,10 +37,15 @@
 
 **📌 Validazione (TODO):** download **mappe+elevazione offline** in modalità aereo su device · smoothing dislivello su tracce reali · difficoltà CAI su tracce reali · smoke test OSM2CAI on-device.
 
-**⭐ Distribuzione agli amici — DECISO (22 lug 2026): iOS Unlisted + Play closed testing.**
+**⭐ Distribuzione agli amici — DECISO (22 lug 2026): iOS Unlisted + Android Play closed testing (Google Group).**
 - Obiettivo utente: uso privato/gratuito tra amici, senza vetrina pubblica e senza gestione costi. Scartata l'idea "store pubblici + codice alfanumerico" (esposizione massima + il codice lato client **non** protegge il token Mapbox → controllo costi debole). Alla scala "amici" si resta comunque nel **free tier Mapbox**.
-- **iOS → Unlisted App Distribution:** app approvata in review ma **non ricercabile** (solo via link diretto), install permanente. Vicino allo stato attuale (già su App Store Connect, team `W8XCSNY6V3`). Passi: submit review + richiesta distribuzione unlisted.
-- **Android → Play closed testing:** track chiuso con lista tester (email/Google Group), permanente. **Setup nuovo:** account Play Console (25$ una tantum), **upload keystore** di release (oggi l'APK è debug-signed), build **AAB** (non APK). Vedi analisi in coda.
+- **iOS → Unlisted App Distribution:** app in review normale ma **non ricercabile** (solo via **link diretto**, `apps.apple.com/...` **stabile e permanente**). Aggiornamenti = flusso App Store normale (**stesso link**, auto-update). **Revocabile**: "Remove from Sale" spegne i nuovi download (reversibile; chi l'ha già non la perde). Modello **link-gated, non per-utente**: chiunque abbia il link installa → non diffonderlo troppo. Vicino allo stato attuale (già su App Store Connect, team `W8XCSNY6V3`).
+- **Android → Play closed testing con Google Group:** modello **speculare a iOS** → **identity-gated**, solo **account Google dichiarati** installano. Si usa un **Google Group**: aggiungi/togli amici come membri del gruppo, senza toccare la Play Console. **Setup nuovo:** account Play Console (25$ una tantum), **upload keystore** di release (oggi l'APK è debug-signed), build **AAB** (non APK). Vedi analisi in coda.
+- *Asimmetria da ricordare:* iOS = chiunque col link (revochi spegnendo il link); Android = solo email nel gruppo (controllo per-utente più forte, ma serve la lista).
+
+**🔐 Accesso & analitiche (nuovo, 22 lug 2026) — roadmap:**
+- [ ] **Login autenticato (Google e/o Apple)** per **identificare gli utenti** che usano l'app. Delegato agli identity provider (Google Sign-In — già presente per Drive; **Sign in with Apple** — obbligatorio su iOS se si offre login social, guideline Apple 4.8). Da progettare: gate all'avvio (schermata login prima della mappa), persistenza sessione, dove tenere l'identità (solo locale? backend leggero?). Nota: introduce **identità server-side** che oggi l'app non ha (privacy-first, zero backend) → decisione architetturale da discutere.
+- [ ] **Analitiche d'uso** (step successivo al login): tempi di utilizzo, **richieste di accesso alle mappe** (map loads Mapbox), n° tracce salvate, feature usate, ecc. Serve per capire l'uso reale e **tenere d'occhio i costi mappe**. Da scegliere: strumento (Firebase Analytics? soluzione self-hosted/privacy-friendly?) e cosa raccogliere nel rispetto della privacy (l'app oggi non raccoglie dati su server propri — vedi README "Natura del progetto", da rivedere).
 
 ---
 
@@ -339,10 +344,15 @@ Motivazione: il codice alfanumerico è lato client → **non protegge il token M
 **iOS — Unlisted App Distribution**
 - App sottoposta a review normale, poi **resa "unlisted"**: non compare in ricerca/classifiche, accessibile **solo tramite link diretto** App Store. Install permanente (no scadenza 90 gg come TestFlight).
 - Richiesta via l'apposito form Apple ("Request Unlisted App Distribution") — prima o dopo l'approvazione.
+- **Link stabile e permanente** (`apps.apple.com/...`): non cambia mai, nemmeno tra versioni.
+- **Aggiornamenti** = flusso App Store normale: nuova build → review → gli utenti aggiornano (auto-update o manuale), **stesso link, nessun nuovo link**.
+- **Revocabile:** "Remove from Sale" in App Store Connect blocca i nuovi download (reversibile). Chi l'ha già installata la tiene (nessuna disinstallazione da remoto, vale per ogni store).
+- **Modello link-gated, non per-utente:** chiunque abbia il link può scaricarla, senza controllo sull'identità → non diffondere troppo il link; in caso lo si "spegne".
 - Vicino allo stato attuale: già su App Store Connect (team `W8XCSNY6V3`, upload via Organizer). Il reviewer deve poter usare l'app (funziona già senza gate → nessuna nota speciale).
 
-**Android — Play closed testing**
-- Track **closed testing** con lista tester (indirizzi email o Google Group); i tester accettano l'invito via link. Permanente.
+**Android — Play closed testing con Google Group** *(modello speculare a iOS: identity-gated)*
+- Track **closed testing** con **Google Group** come lista tester: solo gli **account Google membri del gruppo** possono installare/usare l'app. Gestisci gli amici aggiungendoli/rimuovendoli **nel gruppo**, senza ricaricare la Play Console. I tester accettano l'invito via link (ma devono essere nel gruppo). Permanente.
+- **Differenza da iOS:** qui serve **dichiarare gli account** (via il gruppo) → controllo per-utente più forte, ma devi raccogliere le email Google degli amici. L'equivalente Android di "chiunque col link" sarebbe l'**open testing**, ma è più pubblico (compare come beta, iscrizione aperta) → scartato per "solo amici".
 - **Setup nuovo (non ancora fatto):**
   1. **Play Console** — account sviluppatore (**25$ una tantum**); oggi l'app è distribuita come **APK sideload debug-signed**, mai passata da Play.
   2. **Firma di release** — generare un **upload keystore** (`keytool`) e configurare `android/app/build.gradle` + `key.properties` (fuori dal repo). Play Signing gestisce poi la chiave di distribuzione.
@@ -352,5 +362,21 @@ Motivazione: il codice alfanumerico è lato client → **non protegge il token M
 
 **Prossimi passi operativi (quando si affronta la distribuzione):**
 - [ ] iOS: submit review della build corrente + richiesta Unlisted.
-- [ ] Android: creare Play Console, upload keystore, build `.aab`, track closed + tester.
+- [ ] Android: creare Play Console, upload keystore, build `.aab`, track closed + **Google Group** tester.
 - [ ] Documentare in `docs/` (es. `docs/distribuzione-unlisted.md`) i due flussi.
+
+### Login autenticato (Google/Apple) — nuovo step (22 lug 2026)
+
+**Obiettivo:** richiedere l'**accesso autenticato tramite login** (delegato a **Google** e/o **Apple**) per **identificare gli utenti** che usano l'app. Complementare alla distribuzione: la distribuzione limita *chi installa*, il login identifica *chi usa* (e abilita le analitiche per-utente).
+
+- **Provider:** Google Sign-In è **già integrato** (per Google Drive, `google_sign_in` v7) → riusabile per l'auth. **Sign in with Apple** va aggiunto su iOS: se si offre un login social di terzi, la **App Review Guideline 4.8** ne rende l'offerta **obbligatoria** come opzione equivalente.
+- **UX:** gate all'avvio (schermata di login prima della mappa) + persistenza sessione (token/stato in `shared_preferences` o secure storage); logout in Impostazioni.
+- **Decisione architetturale aperta:** oggi Sentèi è **privacy-first, zero backend** (README §"Natura del progetto"). Identificare gli utenti implica: (a) solo verifica locale dell'identità (login ma nessun dato server) — semplice, ma poca utilità; oppure (b) un **backend leggero** che registra gli utenti (necessario se si vuole davvero "sapere chi usa" + analitiche server-side). **Da discutere prima di implementare** (impatta anche §"Natura del progetto" e privacy policy).
+
+### Analitiche d'uso — step successivo al login (22 lug 2026)
+
+**Obiettivo:** raccogliere metriche sull'uso reale: **tempi di utilizzo/sessioni**, **richieste di accesso alle mappe** (map loads Mapbox → correlate ai costi), **n° tracce salvate**, feature più usate, ecc. Utile per capire l'uso e **monitorare i costi mappe**.
+
+- **Strumento da scegliere:** Firebase Analytics (integrazione rapida, gratis, ma è Google/telemetria) vs soluzione **self-hosted/privacy-friendly** (coerente con l'anima privacy-first, più lavoro).
+- **Cosa raccogliere:** definire eventi minimi e non invasivi; **rivedere `docs/privacy-policy.html`** e la sezione "Natura del progetto" del README (oggi dichiarano *nessuna raccolta dati su server propri* → andrà aggiornato).
+- **Dipendenza:** ha più senso **dopo** il login (metriche associabili all'utente) e/o dopo la decisione backend sì/no.
