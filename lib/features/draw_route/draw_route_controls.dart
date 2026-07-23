@@ -369,13 +369,13 @@ class _SelectedWaypointBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 12, right: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: context.palette.accent.withValues(alpha: 0.08),
         borderRadius: AppRadii.rMd,
       ),
       child: Row(
         children: [
-          const Icon(CupertinoIcons.smallcircle_fill_circle,
-              size: 16, color: AppColors.primary),
+          Icon(CupertinoIcons.smallcircle_fill_circle,
+              size: 16, color: context.palette.accent),
           const SizedBox(width: 8),
           Expanded(
             child: Text('Punto ${index + 1} di $total',

@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/cupertino.dart'
     show
-        CupertinoColors,
         CupertinoIcons,
-        CupertinoListSection,
         CupertinoListTile,
         CupertinoSearchTextField;
 import 'package:flutter/material.dart';
@@ -17,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../ui/app_list_section.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
@@ -109,13 +108,13 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
                       ? 'Nessun tracciato salvato.\nDisegnane uno dalla mappa o importa un GPX.'
                       : 'Nessun risultato per "$_query".',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: CupertinoColors.systemGrey),
+                  style: TextStyle(color: context.palette.secondaryLabel),
                 ),
               ),
             )
           : ListView(
               children: [
-                CupertinoListSection.insetGrouped(
+                AppListSection(
                   children: [
                     for (final t in filtered) _trackTile(t),
                   ],
@@ -144,8 +143,8 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       trailing: Builder(
         builder: (btnCtx) => IconButton(
           visualDensity: VisualDensity.compact,
-          icon: const Icon(CupertinoIcons.ellipsis_circle,
-              color: CupertinoColors.systemGrey),
+          icon: Icon(CupertinoIcons.ellipsis_circle,
+              color: context.palette.iconGrey),
           onPressed: () => _showTrackActions(btnCtx, t),
         ),
       ),

@@ -3,12 +3,12 @@ import 'package:flutter/cupertino.dart'
         CupertinoActivityIndicator,
         CupertinoButton,
         CupertinoIcons,
-        CupertinoListSection,
         CupertinoListTile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/offline/terrarium_tile_cache.dart';
+import '../../ui/app_list_section.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
 import '../draw_route/route_editor_provider.dart';
@@ -112,8 +112,8 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
       ),
       body: ListView(
         children: [
-          CupertinoListSection.insetGrouped(
-            header: const Text('Scarica'),
+          AppListSection(
+            header: 'Scarica',
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
@@ -135,8 +135,8 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                         child: LinearProgressIndicator(
                           value: _progress == 0 ? null : _progress,
                           minHeight: 5,
-                          backgroundColor: const Color(0xFFE3E3EA),
-                          color: AppColors.primary,
+                          backgroundColor: context.palette.hairline.withValues(alpha: 0.24),
+                          color: context.palette.accent,
                         ),
                       ),
                     ] else
@@ -151,7 +151,8 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                             bounds == null
                                 ? 'Apri prima la mappa sull\'area'
                                 : 'Scarica l\'area visualizzata',
-                            style: const TextStyle(fontSize: 16),
+                            style: const TextStyle(
+                                fontSize: 16, color: Color(0xFFFFFFFF)),
                           ),
                         ),
                       ),
@@ -187,12 +188,12 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                               color: context.palette.secondaryLabel)),
                     ),
                   )
-                : CupertinoListSection.insetGrouped(
-                    header: const Text('Aree scaricate'),
+                : AppListSection(
+                    header: 'Aree scaricate',
                     children: [
                       for (final r in list)
                         CupertinoListTile(
-                          leading: const Icon(CupertinoIcons.map, color: AppColors.primary),
+                          leading: Icon(CupertinoIcons.map, color: context.palette.accent),
                           title: Text(r.name),
                           subtitle: Text(_fmtSize(r.sizeBytes)),
                           trailing: CupertinoButton(
