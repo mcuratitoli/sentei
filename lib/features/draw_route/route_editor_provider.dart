@@ -16,6 +16,7 @@ import '../../data/storage/tracks_repository.dart';
 import '../../data/trails/combined_trail_service.dart';
 import '../../data/trails/trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
+import '../../domain/models/track_photo.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/polyline_simplify.dart';
@@ -47,6 +48,7 @@ class DrawnTrack {
     this.trailRefs = const [],
     this.trailsResolved = false,
     this.createdAt,
+    this.photos = const [],
   });
 
   final String id;
@@ -74,6 +76,10 @@ class DrawnTrack {
   /// modo lazy alla selezione. Si azzera quando la geometria cambia.
   final bool trailsResolved;
 
+  /// Foto collegate alla traccia (§"Sync album fotografico"). Indipendenti
+  /// dalla geometria calcolata: **non** azzerate da [clearedComputed].
+  final List<TrackPhoto> photos;
+
   bool get canCompute => waypoints.length >= 2;
 
   DrawnTrack copyWith({
@@ -86,6 +92,7 @@ class DrawnTrack {
     List<String>? trailRefs,
     bool? trailsResolved,
     DateTime? createdAt,
+    List<TrackPhoto>? photos,
   }) =>
       DrawnTrack(
         id: id,
@@ -98,9 +105,13 @@ class DrawnTrack {
         trailRefs: trailRefs ?? this.trailRefs,
         trailsResolved: trailsResolved ?? this.trailsResolved,
         createdAt: createdAt ?? this.createdAt,
+        photos: photos ?? this.photos,
       );
 
-  /// Azzera i dati calcolati (quando i waypoint cambiano in modifica).
+  /// Azzera i dati calcolati (quando i waypoint cambiano in modifica). Le
+  /// [photos] **sopravvivono**: modificare il tracciato non deve scollegare
+  /// le foto già associate (la loro `distanceMeters` potrà risultare un po'
+  /// stale finché non si ricalcola, non è un dato critico).
   DrawnTrack clearedComputed() => DrawnTrack(
         id: id,
         waypoints: waypoints,
@@ -108,6 +119,7 @@ class DrawnTrack {
         color: color,
         snapToTrail: snapToTrail,
         createdAt: createdAt,
+        photos: photos,
       );
 }
 

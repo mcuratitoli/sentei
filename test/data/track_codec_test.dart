@@ -1,9 +1,11 @@
+import 'dart:typed_data' show Uint8List;
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sentei/data/storage/track_codec.dart';
 import 'package:sentei/domain/models/elevation_profile.dart';
+import 'package:sentei/domain/models/track_photo.dart';
 import 'package:sentei/domain/services/elevation_calculator.dart';
 import 'package:sentei/domain/services/track_metrics.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
@@ -26,6 +28,21 @@ void main() {
     ],
   );
 
+  final photos = [
+    TrackPhoto(
+      id: 'p1',
+      position: const LatLng(45.15, 7.95),
+      distanceMeters: 500,
+      takenAt: DateTime.utc(2026, 6, 1, 11, 0),
+      thumbnail: Uint8List.fromList([1, 2, 3, 4, 5]),
+    ),
+    const TrackPhoto(
+      id: 'p2',
+      position: LatLng(45.16, 7.96),
+      distanceMeters: 700,
+    ), // senza takenAt/thumbnail (opzionali)
+  ];
+
   final track = DrawnTrack(
     id: 't7',
     name: 'Colle del Nivolet',
@@ -36,6 +53,7 @@ void main() {
     trailRefs: const ['203', 'GTA'],
     metrics: metrics,
     createdAt: DateTime.utc(2026, 6, 1, 10, 30),
+    photos: photos,
   );
 
   test('round-trip completo di DrawnTrack via TrackCodec', () {
@@ -61,6 +79,17 @@ void main() {
     expect(m.profile.samples.last.elevation, 1050);
     expect(m.trailSegments.single.ref, '203');
     expect(m.trailSegments.single.caiScale, 'EE');
+
+    expect(back.photos.length, 2);
+    final p1 = back.photos.first;
+    expect(p1.id, 'p1');
+    expect(p1.position, const LatLng(45.15, 7.95));
+    expect(p1.distanceMeters, 500);
+    expect(p1.takenAt, DateTime.utc(2026, 6, 1, 11, 0));
+    expect(p1.thumbnail, [1, 2, 3, 4, 5]);
+    final p2 = back.photos.last;
+    expect(p2.takenAt, isNull);
+    expect(p2.thumbnail, isNull);
   });
 
   test('fromJson tollera campi assenti (valori di default)', () {
@@ -73,5 +102,6 @@ void main() {
     expect(back.trailRefs, isEmpty);
     expect(back.metrics, isNull);
     expect(back.createdAt, isNull);
+    expect(back.photos, isEmpty);
   });
 }

@@ -47,6 +47,45 @@ void main() {
     });
   });
 
+  group('nearestOnPath', () {
+    // Percorso rettilineo lungo la longitudine (verso est), ~3 segmenti uguali.
+    final path = [
+      const LatLng(45.0, 7.00),
+      const LatLng(45.0, 7.01),
+      const LatLng(45.0, 7.02),
+      const LatLng(45.0, 7.03),
+    ];
+    final segLen = distance(path[0], path[1]);
+
+    test('punto vicino al 2° vertice => distanceAlongPath ≈ 2 segmenti', () {
+      final r = calc.nearestOnPath(const LatLng(45.0001, 7.02), path);
+      expect(r.distanceToPath, lessThan(50));
+      expect(r.distanceAlongPath, closeTo(2 * segLen, segLen * 0.05));
+    });
+
+    test('punto a metà del primo segmento => distanceAlongPath ≈ metà', () {
+      final r = calc.nearestOnPath(const LatLng(45.0, 7.005), path);
+      expect(r.distanceAlongPath, closeTo(segLen / 2, segLen * 0.05));
+    });
+
+    test('inizio del percorso => distanceAlongPath ≈ 0', () {
+      final r = calc.nearestOnPath(const LatLng(45.0, 7.00), path);
+      expect(r.distanceAlongPath, closeTo(0, 1));
+    });
+
+    test('un solo punto nel percorso => distanceAlongPath 0', () {
+      final r = calc.nearestOnPath(const LatLng(45, 7), [path.first]);
+      expect(r.distanceAlongPath, 0);
+      expect(r.distanceToPath, 0);
+    });
+
+    test('percorso vuoto => infinito, distanceAlongPath 0', () {
+      final r = calc.nearestOnPath(const LatLng(45, 7), const []);
+      expect(r.distanceToPath, double.infinity);
+      expect(r.distanceAlongPath, 0);
+    });
+  });
+
   group('densify', () {
     test('preserva i vertici originali e infittisce', () {
       final pts = [const LatLng(45.0, 7.0), const LatLng(45.01, 7.0)];
