@@ -131,7 +131,9 @@ class _AppearanceSection extends ConsumerWidget {
             leading: const Icon(CupertinoIcons.moon_fill,
                 color: AppColors.primary),
             title: const Text('Tema'),
-            additionalInfo: Text(mode.label),
+            // subtitle (non additionalInfo): "Risparmio energetico" è troppo
+            // lungo per stare a destra senza troncare il titolo della riga.
+            subtitle: Text(mode.label),
             trailing: const CupertinoListTileChevron(),
             onTap: () => _showThemeMenu(tileCtx, ref, mode),
           ),
@@ -142,7 +144,7 @@ class _AppearanceSection extends ConsumerWidget {
               leading: const Icon(CupertinoIcons.sparkles,
                   color: AppColors.primary),
               title: const Text('Variante scura'),
-              additionalInfo: Text(variant.label),
+              subtitle: Text(variant.label),
               trailing: const CupertinoListTileChevron(),
               onTap: () => _showVariantMenu(tileCtx, ref, variant),
             ),
