@@ -9,6 +9,8 @@ import '../../data/photos/photo_library_service.dart';
 import '../../data/photos/photo_manager_library_service.dart';
 import '../../domain/models/track_photo.dart';
 import '../../ui/glass.dart';
+import '../../ui/ios_menu.dart';
+import '../../ui/ios_progress.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
 import 'route_editor_provider.dart';
@@ -37,23 +39,8 @@ Future<void> findNearbyPhotos(
     return;
   }
 
-  showCupertinoDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const CupertinoAlertDialog(
-      content: Padding(
-        padding: EdgeInsets.only(top: 10, bottom: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CupertinoActivityIndicator(radius: 9),
-            SizedBox(width: 14),
-            Flexible(child: Text('Ricerca foto vicine al percorso…')),
-          ],
-        ),
-      ),
-    ),
-  );
+  final phase = ValueNotifier<String>('Ricerca foto vicine al percorso…');
+  final closeProgress = showIosProgress(context, message: phase);
 
   NearbyPhotosResult result;
   try {
@@ -61,12 +48,14 @@ Future<void> findNearbyPhotos(
         .read(nearbyPhotosFinderProvider)
         .findNearby(routedPath: track.routedPath);
   } catch (_) {
-    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    closeProgress();
+    phase.dispose();
     if (context.mounted) showIosToast(context, 'Ricerca foto non riuscita');
     return;
   }
+  closeProgress();
+  phase.dispose();
   if (!context.mounted) return;
-  Navigator.of(context, rootNavigator: true).pop();
 
   if (result.permission == PhotoLibraryPermission.denied) {
     await _showPermissionDenied(context);
@@ -105,32 +94,15 @@ Future<void> findNearbyPhotos(
 }
 
 Future<void> _showPermissionDenied(BuildContext context) {
-  return showCupertinoDialog<void>(
+  return showIosConfirm(
     context: context,
-    builder: (dialogContext) => CupertinoAlertDialog(
-      title: const Text('Accesso alla libreria foto negato'),
-      content: const Padding(
-        padding: EdgeInsets.only(top: 8),
-        child: Text(
-          'Per cercare le foto vicine al percorso, Sentèi ha bisogno del '
-          'permesso di leggere la tua libreria foto. Puoi concederlo dalle '
-          'Impostazioni.',
-        ),
-      ),
-      actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Annulla'),
-        ),
-        CupertinoDialogAction(
-          onPressed: () {
-            Navigator.of(dialogContext).pop();
-            PhotoManager.openSetting();
-          },
-          child: const Text('Apri Impostazioni'),
-        ),
-      ],
-    ),
+    title: 'Accesso alla libreria foto negato',
+    message: 'Per cercare le foto vicine al percorso, Sentèi ha bisogno del '
+        'permesso di leggere la tua libreria foto. Puoi concederlo dalle '
+        'Impostazioni.',
+    confirmLabel: 'Apri Impostazioni',
+    destructive: false,
+    onConfirm: PhotoManager.openSetting,
   );
 }
 
