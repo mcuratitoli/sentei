@@ -804,7 +804,8 @@ class Tracks extends Notifier<TracksState> {
       editingId: state.editingId,
       selectedId: state.selectedId,
       savingId: state.savingId,
-      geometryNonce: state.geometryNonce,
+      // Bump: la mappa ridisegna i pin foto sullo stesso segnale della geometria.
+      geometryNonce: state.geometryNonce + 1,
     );
     await _persistPhotos(id);
   }
@@ -822,7 +823,7 @@ class Tracks extends Notifier<TracksState> {
       editingId: state.editingId,
       selectedId: state.selectedId,
       savingId: state.savingId,
-      geometryNonce: state.geometryNonce,
+      geometryNonce: state.geometryNonce + 1,
     );
     await _persistPhotos(id);
   }
@@ -986,6 +987,22 @@ class ProfileCursor extends Notifier<ProfileSample?> {
 
 final profileCursorProvider =
     NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);
+
+/// Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico"),
+/// da mostrare in anteprima. Si azzera al cambio di traccia attiva.
+class SelectedPhoto extends Notifier<TrackPhoto?> {
+  @override
+  TrackPhoto? build() {
+    ref.watch(activeTrackIdProvider);
+    return null;
+  }
+
+  void set(TrackPhoto? photo) => state = photo;
+  void clear() => state = null;
+}
+
+final selectedPhotoProvider =
+    NotifierProvider<SelectedPhoto, TrackPhoto?>(SelectedPhoto.new);
 
 /// Nasconde dalla mappa le tracce **salvate** (la traccia in modifica resta
 /// sempre visibile). Stato in-memory: alla riapertura le tracce tornano visibili.

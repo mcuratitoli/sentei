@@ -308,6 +308,8 @@ class _SelectedBody extends ConsumerWidget {
             steepness: steepnessOn,
             height: 120,
             onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
+            photos: track?.photos ?? const [],
+            onPhotoTap: (p) => ref.read(selectedPhotoProvider.notifier).set(p),
           ),
         ],
       ],
