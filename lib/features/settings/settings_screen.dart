@@ -18,6 +18,7 @@ import '../../ui/app_list_section.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/legends.dart';
+import '../../ui/release_notes.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
@@ -92,9 +93,11 @@ class SettingsScreen extends ConsumerWidget {
               CupertinoListTile(
                 leading: Icon(CupertinoIcons.info, color: accent),
                 title: const Text('Sentèi'),
-                subtitle: const Text('App per l\'escursionismo'),
+                subtitle: const Text('App per l\'escursionismo · novità'),
                 additionalInfo:
                     Text(ref.watch(appVersionProvider).value ?? '…'),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () => showReleaseNotes(context),
               ),
             ],
           ),
