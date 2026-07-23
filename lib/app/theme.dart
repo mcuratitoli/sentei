@@ -41,31 +41,32 @@ extension AppDarkVariantX on AppDarkVariant {
 /// **Design token:** i colori strutturali (sfondi/testo/grigi/vetro) vivono in
 /// `AppPalette` (`lib/ui/tokens.dart`) e sono theme-aware via `context.palette`;
 /// i colori **brand/semantici** (`AppColors.primary`/`destructive`) restano
-/// costanti in ogni variante — `colorScheme.primary` è **forzato** al blu esatto
-/// (`ColorScheme.fromSeed` altrimenti lo rimappa sulla palette tonale M3).
+/// costanti in ogni variante (salvo `accent`, che nella variante Notturno
+/// diventa ambra caldo — vedi [AppPalette.accent]) — `colorScheme.primary` è
+/// **forzato** all'accento esatto (`ColorScheme.fromSeed` altrimenti lo
+/// rimappa sulla palette tonale M3).
 abstract final class AppTheme {
-  static const Color _seed = AppColors.primary; // blu/azzurro (palette app)
-
   static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(seedColor: _seed).copyWith(
-      primary: AppColors.primary,
+    const palette = AppPalette.light;
+    final scheme = ColorScheme.fromSeed(seedColor: palette.accent).copyWith(
+      primary: palette.accent,
       error: AppColors.destructive,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      textTheme: _textTheme(AppPalette.light),
-      extensions: const [AppPalette.light],
+      textTheme: _textTheme(palette),
+      extensions: const [palette],
     );
   }
 
   static ThemeData dark(AppDarkVariant variant) {
     final palette = variant.palette;
     final scheme = ColorScheme.fromSeed(
-      seedColor: _seed,
+      seedColor: palette.accent,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: AppColors.primary,
+      primary: palette.accent,
       error: AppColors.destructive,
       surface: palette.scaffoldBg,
     );

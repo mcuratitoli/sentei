@@ -259,8 +259,8 @@ class _MenuRow extends StatelessWidget {
           ],
           Expanded(child: label),
           if (item.selected)
-            const Icon(CupertinoIcons.check_mark,
-                size: 18, color: AppColors.primary),
+            Icon(CupertinoIcons.check_mark,
+                size: 18, color: context.palette.accent),
         ],
       );
     }

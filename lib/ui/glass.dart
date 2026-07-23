@@ -12,31 +12,42 @@ import 'tokens.dart';
 /// Nota: sopra una *platform view* nativa (mappa Mapbox) il blur potrebbe non
 /// applicarsi; il riempimento bianco translucido mantiene comunque un look pulito.
 
-/// Colore di riempimento base dei controlli in vetro. Più basso = più
-/// translucido (la mappa traspare); il blur aiuta dove il contenuto retrostante
-/// è Flutter (menu/liste), non sulla platform view Mapbox.
-const double _kGlassOpacity = 0.66;
-const double _kGlassBlur = 24;
-
 /// Superficie in vetro con [borderRadius] arbitrario. Il [child] va dentro il
 /// riempimento translucido; l'ombra è disegnata attorno (fuori dal clip).
+///
+/// Opacità e blur di default vengono dalla palette del tema corrente
+/// ([AppPalette.glassOpacity]/[AppPalette.glassBlur]) — passare [opacity]/[blur]
+/// esplicitamente solo per scostarsi dal default della variante (vedi
+/// l'uso in `map_gl_screen.dart` per la card informazioni punto).
 class GlassSurface extends StatelessWidget {
   const GlassSurface({
     super.key,
     required this.child,
     this.borderRadius = const BorderRadius.all(Radius.circular(22)),
-    this.opacity = _kGlassOpacity,
-    this.blur = _kGlassBlur,
+    this.opacity,
+    this.blur,
   });
 
   final Widget child;
   final BorderRadius borderRadius;
-  final double opacity;
-  final double blur;
+  final double? opacity;
+  final double? blur;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final effectiveBlur = blur ?? palette.glassBlur;
+    final fill = DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.glassFill.withValues(alpha: opacity ?? palette.glassOpacity),
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: palette.glassBorder,
+          width: 0.6,
+        ),
+      ),
+      child: child,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
@@ -50,20 +61,14 @@ class GlassSurface extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: palette.glassFill.withValues(alpha: opacity),
-              borderRadius: borderRadius,
-              border: Border.all(
-                color: palette.glassBorder,
-                width: 0.6,
+        // Blur 0 (variante OLED): niente BackdropFilter — pannello flat e
+        // senza il costo GPU della cattura/sfocatura dello sfondo.
+        child: effectiveBlur <= 0
+            ? fill
+            : BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
+                child: fill,
               ),
-            ),
-            child: child,
-          ),
-        ),
       ),
     );
   }

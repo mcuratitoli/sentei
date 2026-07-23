@@ -174,7 +174,7 @@ class _AbbreviationsSheet extends StatelessWidget {
                       width: 64,
                       child: Text(
                         sigla,
-                        style: AppText.value.copyWith(color: AppColors.primary),
+                        style: AppText.value.copyWith(color: palette.accent),
                       ),
                     ),
                     const SizedBox(width: 12),

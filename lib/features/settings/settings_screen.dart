@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart'
     show
         CupertinoActivityIndicator,
         CupertinoIcons,
-        CupertinoListSection,
         CupertinoListTile,
         CupertinoListTileChevron,
         CupertinoSlidingSegmentedControl;
@@ -15,6 +14,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/theme.dart';
 import '../../app/theme_provider.dart';
+import '../../ui/app_list_section.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/legends.dart';
@@ -38,6 +38,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final accent = context.palette.accent;
     return Scaffold(
       backgroundColor: context.palette.scaffoldBg,
       appBar: AppBar(
@@ -49,18 +50,17 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
-          CupertinoListSection.insetGrouped(
-            header: const Text('Mappa'),
+          AppListSection(
+            header: 'Mappa',
             children: [
-              const CupertinoListTile(
-                leading: Icon(CupertinoIcons.map, color: AppColors.primary),
-                title: Text('Mappa'),
+              CupertinoListTile(
+                leading: Icon(CupertinoIcons.map, color: accent),
+                title: const Text('Mappa'),
                 subtitle:
-                    Text('Mapbox Outdoors · Sentiero CAI'),
+                    const Text('Mapbox Outdoors · Sentiero CAI'),
               ),
               CupertinoListTile(
-                leading: const Icon(CupertinoIcons.cloud_download,
-                    color: AppColors.primary),
+                leading: Icon(CupertinoIcons.cloud_download, color: accent),
                 title: const Text('Mappe offline'),
                 subtitle:
                     const Text('Scarica aree per l\'uso senza connessione'),
@@ -71,12 +71,11 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const _AppearanceSection(),
           const _CloudSection(),
-          CupertinoListSection.insetGrouped(
-            header: const Text('Informazioni'),
+          AppListSection(
+            header: 'Informazioni',
             children: [
               CupertinoListTile(
-                leading: const Icon(CupertinoIcons.book,
-                    color: AppColors.primary),
+                leading: Icon(CupertinoIcons.book, color: accent),
                 title: const Text('Legenda difficoltà'),
                 subtitle:
                     const Text('T · E · EE · EEA, alpinistiche e scala Welzenbach'),
@@ -84,16 +83,14 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showDifficultyLegend(context),
               ),
               CupertinoListTile(
-                leading: const Icon(CupertinoIcons.textformat_abc,
-                    color: AppColors.primary),
+                leading: Icon(CupertinoIcons.textformat_abc, color: accent),
                 title: const Text('Abbreviazioni'),
                 subtitle: const Text('ANA, ASF, CAF, CAI, GTA, IGM, IGN, UGET'),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => showAbbreviationsLegend(context),
               ),
               CupertinoListTile(
-                leading:
-                    const Icon(CupertinoIcons.info, color: AppColors.primary),
+                leading: Icon(CupertinoIcons.info, color: accent),
                 title: const Text('Sentèi'),
                 subtitle: const Text('App per l\'escursionismo'),
                 additionalInfo:
@@ -122,14 +119,14 @@ class _AppearanceSection extends ConsumerWidget {
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final isEffectivelyDark =
         mode == AppThemeMode.dark || (mode == AppThemeMode.auto && systemIsDark);
+    final accent = context.palette.accent;
 
-    return CupertinoListSection.insetGrouped(
-      header: const Text('Aspetto'),
+    return AppListSection(
+      header: 'Aspetto',
       children: [
         Builder(
           builder: (tileCtx) => CupertinoListTile(
-            leading: const Icon(CupertinoIcons.moon_fill,
-                color: AppColors.primary),
+            leading: Icon(CupertinoIcons.moon_fill, color: accent),
             title: const Text('Tema'),
             // subtitle (non additionalInfo): "Risparmio energetico" è troppo
             // lungo per stare a destra senza troncare il titolo della riga.
@@ -141,8 +138,7 @@ class _AppearanceSection extends ConsumerWidget {
         if (isEffectivelyDark)
           Builder(
             builder: (tileCtx) => CupertinoListTile(
-              leading: const Icon(CupertinoIcons.sparkles,
-                  color: AppColors.primary),
+              leading: Icon(CupertinoIcons.sparkles, color: accent),
               title: const Text('Variante scura'),
               subtitle: Text(variant.label),
               trailing: const CupertinoListTileChevron(),
@@ -206,16 +202,16 @@ class _CloudSection extends ConsumerWidget {
     });
 
     const spinner = CupertinoActivityIndicator(radius: 11);
-    const tint = AppColors.primary;
+    final tint = context.palette.accent;
 
-    return CupertinoListSection.insetGrouped(
-      header: const Text('Sincronizzazione cloud'),
+    return AppListSection(
+      header: 'Sincronizzazione cloud',
       children: [
         // iCloud è iOS-only: il selettore ha senso solo lì.
         if (Platform.isIOS) const _CloudProviderSelector(),
         if (!cloud.signedIn)
           CupertinoListTile(
-            leading: const Icon(CupertinoIcons.cloud, color: tint),
+            leading: Icon(CupertinoIcons.cloud, color: tint),
             title: Text(providerName),
             subtitle: const Text('Accedi per sincronizzare le tracce'),
             trailing: cloud.busy
@@ -225,12 +221,12 @@ class _CloudSection extends ConsumerWidget {
           )
         else ...[
           CupertinoListTile(
-            leading: const Icon(CupertinoIcons.cloud_fill, color: tint),
+            leading: Icon(CupertinoIcons.cloud_fill, color: tint),
             title: Text(providerName),
             subtitle: Text(cloud.account ?? 'Connesso'),
           ),
           CupertinoListTile(
-            leading: const Icon(CupertinoIcons.arrow_2_circlepath, color: tint),
+            leading: Icon(CupertinoIcons.arrow_2_circlepath, color: tint),
             title: const Text('Sincronizza ora'),
             subtitle:
                 const Text('Carica e scarica le tracce (last-write-wins)'),

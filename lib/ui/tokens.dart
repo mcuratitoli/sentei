@@ -1,6 +1,8 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 
-// **Design token** dell'app (tema unico *chiaro*). Centralizzano i valori che
+// **Design token** dell'app (chiaro + 3 varianti scure). Centralizzano i valori che
 // prima erano hardcoded e duplicati nelle schermate → una sola fonte di verità
 // per colore, spaziatura, raggi e testo. Vedi l'audit in `docs/ROADMAP.md` (P1).
 //
@@ -51,6 +53,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.iconGreyLight,
     required this.tertiaryIcon,
     required this.hairline,
+    required this.accent,
+    this.glassOpacity = 0.66,
+    this.glassBlur = 24,
   });
 
   final Color scaffoldBg; // sfondo grouped delle schermate
@@ -64,6 +69,19 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color tertiaryIcon; // placeholder/chiudi
   final Color hairline; // separatori (usare con alpha)
 
+  /// Colore di accento interattivo (bottoni, selezioni, link). **Blu di brand**
+  /// in tutte le varianti tranne [AppDarkVariant.night], dove diventa un ambra
+  /// caldo: il senso della variante notturna è **azzerare la luce blu**, quindi
+  /// anche l'accento (non solo testo/sfondi) deve restare sui toni caldi.
+  final Color accent;
+
+  /// Opacità/blur del riempimento "vetro" (`GlassSurface`). Diversi solo per
+  /// [AppDarkVariant.oled]: pannelli quasi opachi e **senza blur** — oltre a
+  /// leggersi come "flat/minimal", evita il lavoro GPU del `BackdropFilter`
+  /// (coerente col nome "risparmio energetico").
+  final double glassOpacity;
+  final double glassBlur;
+
   /// Palette **chiara** (= valori storici in [AppColors]).
   static const light = AppPalette(
     scaffoldBg: AppColors.groupedBg,
@@ -76,6 +94,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     iconGreyLight: AppColors.iconGreyLight,
     tertiaryIcon: AppColors.tertiaryIcon,
     hairline: AppColors.hairline,
+    accent: AppColors.primary,
   );
 
   /// **Standard** — dark elegante in stile iOS (superfici elevate #1C1C1E su
@@ -91,6 +110,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     iconGreyLight: Color(0xFF98989D),
     tertiaryIcon: Color(0xFF636366),
     hairline: Color(0xFF545458),
+    accent: AppColors.primary,
   );
 
   /// **Notturno** — uso in montagna: toni caldi/smorzati (niente bianco puro né
@@ -106,21 +126,31 @@ class AppPalette extends ThemeExtension<AppPalette> {
     iconGreyLight: Color(0xFF9C8670),
     tertiaryIcon: Color(0xFF6B5A48),
     hairline: Color(0xFF4A3B2E),
+    // Ambra bruciato, non blu: lo scopo della variante è azzerare la luce blu,
+    // quindi anche l'accento interattivo (bottoni, selezioni) deve restare
+    // caldo — contrasto col bianco verificato (~5.6:1, alla pari del blu).
+    accent: Color(0xFF9C551A),
   );
 
   /// **Risparmio energetico** — nero puro (OLED) ovunque possibile, per
   /// minimizzare i pixel accesi; grigi ridotti all'essenziale per la leggibilità.
+  /// Rispetto a [darkStandard]: vetro **quasi opaco e senza blur** (niente
+  /// `BackdropFilter` = meno lavoro GPU) invece che semitrasparente, bordi/hairline
+  /// quasi invisibili — deve leggersi "flat" a colpo d'occhio, non solo nei valori hex.
   static const darkOled = AppPalette(
     scaffoldBg: Color(0xFF000000),
     glassFill: Color(0xFF000000),
-    glassBorder: Color(0x14FFFFFF),
+    glassBorder: Color(0x0DFFFFFF),
     label: Color(0xFFFFFFFF),
     secondaryLabel: Color(0xFF8E8E93),
     bodyText: Color(0xFFD0D0D0),
     iconGrey: Color(0xFF7A7A7D),
     iconGreyLight: Color(0xFF86868A),
     tertiaryIcon: Color(0xFF59595C),
-    hairline: Color(0xFF262626),
+    hairline: Color(0xFF1A1A1A),
+    accent: AppColors.primary,
+    glassOpacity: 0.98,
+    glassBlur: 0,
   );
 
   @override
@@ -135,6 +165,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? iconGreyLight,
     Color? tertiaryIcon,
     Color? hairline,
+    Color? accent,
+    double? glassOpacity,
+    double? glassBlur,
   }) =>
       AppPalette(
         scaffoldBg: scaffoldBg ?? this.scaffoldBg,
@@ -147,6 +180,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
         iconGreyLight: iconGreyLight ?? this.iconGreyLight,
         tertiaryIcon: tertiaryIcon ?? this.tertiaryIcon,
         hairline: hairline ?? this.hairline,
+        accent: accent ?? this.accent,
+        glassOpacity: glassOpacity ?? this.glassOpacity,
+        glassBlur: glassBlur ?? this.glassBlur,
       );
 
   @override
@@ -163,6 +199,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
       iconGreyLight: Color.lerp(iconGreyLight, other.iconGreyLight, t)!,
       tertiaryIcon: Color.lerp(tertiaryIcon, other.tertiaryIcon, t)!,
       hairline: Color.lerp(hairline, other.hairline, t)!,
+      accent: Color.lerp(accent, other.accent, t)!,
+      glassOpacity: lerpDouble(glassOpacity, other.glassOpacity, t)!,
+      glassBlur: lerpDouble(glassBlur, other.glassBlur, t)!,
     );
   }
 }
