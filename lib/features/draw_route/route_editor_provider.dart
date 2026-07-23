@@ -785,6 +785,57 @@ class Tracks extends Notifier<TracksState> {
     _updateEditing((tt) =>
         tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..insert(index, p)));
   }
+
+  /// Collega [photos] alla traccia [id] (§"Sync album fotografico"), evitando
+  /// duplicati per id già collegati. Persiste e propaga al cloud (best-effort).
+  Future<void> addPhotos(String id, List<TrackPhoto> photos) async {
+    final track = state.byId(id);
+    if (track == null || photos.isEmpty) return;
+    final existingIds = track.photos.map((p) => p.id).toSet();
+    final merged = [
+      ...track.photos,
+      ...photos.where((p) => !existingIds.contains(p.id)),
+    ];
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id) t.copyWith(photos: merged) else t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      geometryNonce: state.geometryNonce,
+    );
+    await _persistPhotos(id);
+  }
+
+  /// Scollega la foto [photoId] dalla traccia [id]. Persiste e propaga al cloud.
+  Future<void> removePhoto(String id, String photoId) async {
+    final track = state.byId(id);
+    if (track == null) return;
+    final updated = track.photos.where((p) => p.id != photoId).toList();
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id) t.copyWith(photos: updated) else t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      geometryNonce: state.geometryNonce,
+    );
+    await _persistPhotos(id);
+  }
+
+  Future<void> _persistPhotos(String id) async {
+    final saved = state.byId(id);
+    if (saved == null) return;
+    final now = DateTime.now();
+    try {
+      await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
+    } catch (_) {/* best-effort */}
+    unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+  }
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);

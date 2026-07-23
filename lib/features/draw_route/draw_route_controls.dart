@@ -16,6 +16,7 @@ import '../../ui/glass.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/track_offline_download.dart';
+import 'nearby_photos_action.dart';
 import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
@@ -258,6 +259,13 @@ class _SelectedBody extends ConsumerWidget {
             ),
             const Spacer(),
             _CardIconButton(
+              tooltip: 'Trova foto vicine',
+              onPressed: (!hasMetrics || saving || track == null)
+                  ? null
+                  : () => findNearbyPhotos(context, ref, track),
+              icon: CupertinoIcons.photo,
+            ),
+            _CardIconButton(
               tooltip: 'Modifica',
               onPressed: saving
                   ? null
@@ -273,6 +281,8 @@ class _SelectedBody extends ConsumerWidget {
             ),
           ],
         ),
+        if (!saving && track != null && track.photos.isNotEmpty)
+          _PhotoStrip(track: track),
         if (showingChart) ...[
           const SizedBox(height: 4),
           // Slot fisso per la quota al cursore (spazio riservato sempre, così la
@@ -420,6 +430,62 @@ class _TrailInfo extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Striscia orizzontale delle foto collegate alla traccia (§"Sync album
+/// fotografico"): miniatura + rimozione con conferma. Sola lettura/gestione
+/// dei collegamenti — l'apertura dell'originale (re-match locale) è un passo
+/// successivo, non ancora implementato.
+class _PhotoStrip extends ConsumerWidget {
+  const _PhotoStrip({required this.track});
+
+  final DrawnTrack track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        height: 56,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: track.photos.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) {
+            final photo = track.photos[i];
+            return GestureDetector(
+              onTap: () => _confirmRemovePhoto(context, ref, track.id, photo.id),
+              child: ClipRRect(
+                borderRadius: AppRadii.rMd,
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: photo.thumbnail != null
+                      ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: context.palette.hairline.withValues(alpha: 0.08),
+                          child: Icon(CupertinoIcons.photo,
+                              color: context.palette.tertiaryIcon),
+                        ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _confirmRemovePhoto(
+    BuildContext context, WidgetRef ref, String trackId, String photoId) async {
+  await showIosConfirm(
+    context: context,
+    title: 'Scollegare la foto?',
+    message: 'La foto resta nella tua libreria: viene solo scollegata dalla traccia.',
+    confirmLabel: 'Scollega',
+    onConfirm: () => ref.read(tracksProvider.notifier).removePhoto(trackId, photoId),
+  );
 }
 
 /// Chip colorato col grado di difficoltà CAI complessivo del percorso.
