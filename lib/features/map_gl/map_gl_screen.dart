@@ -71,6 +71,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   CircleAnnotationManager? _cursorDot;
   CircleAnnotationManager? _inspectedDot;
   PolylineAnnotationManager? _liveLine;
+  // Traccia grezza importata, mostrata **tratteggiata** durante l'import.
+  PolylineAnnotationManager? _importRawLine;
 
   /// id-cerchio→indice waypoint della traccia in modifica.
   final Map<String, int> _wpIndexById = <String, int>{};
@@ -281,6 +283,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ));
     // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
     _savedLines = await map.annotations.createPolylineAnnotationManager();
+    // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
+    _importRawLine = await map.annotations.createPolylineAnnotationManager();
+    await _importRawLine!.setLineDasharray([2, 2]);
     // Colorazione ripidezza: una sola polilinea con gradiente continuo
     // (`line-gradient` su `line-progress`) → niente gradini di colore. Richiede
     // `lineMetrics: true` sul source. Il gradiente è impostato in _renderSteepness.
@@ -438,10 +443,21 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       await _savedLines!.deleteAll();
       await _savedEnds!.deleteAll();
       await _liveLine!.deleteAll();
+      await _importRawLine!.deleteAll();
       await _waypointDots!.deleteAll();
       await _midpointHandles!.deleteAll();
       _wpIndexById.clear();
       _midpointIndexById.clear();
+
+      // Traccia grezza importata (riferimento tratteggiato) durante l'import.
+      final preview = ref.read(importPreviewProvider);
+      if (preview != null && preview.$2.length >= 2) {
+        await _importRawLine!.create(PolylineAnnotationOptions(
+          geometry: _lineOf(preview.$2),
+          lineColor: 0xFF6E6E73,
+          lineWidth: 3,
+        ));
+      }
 
       for (final t in state.tracks) {
         final editing = t.id == state.editingId;
@@ -1005,6 +1021,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // La sola selezione (senza cambio geometria) ridisegna i pallini per
     // evidenziare quello scelto.
     ref.listen(selectedWaypointProvider, (_, __) => _renderAll());
+    // Comparsa/sparizione della traccia grezza importata (tratteggiata).
+    ref.listen(importPreviewProvider, (_, __) => _renderAll());
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());

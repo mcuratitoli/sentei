@@ -36,10 +36,11 @@ class GpxService {
   /// Importa la prima traccia (o rotta) da un GPX. Lancia [FormatException] se
   /// non contiene una traccia valida.
   ///
-  /// La geometria importata diventa il `routedPath` (snap disattivato: è già una
-  /// traccia reale); i waypoint sono un sottocampione per consentire la modifica
-  /// senza migliaia di marker.
-  DrawnTrack importFromGpx(String xml, {required String id}) {
+  /// Parsa un GPX in **nome + polilinea grezza** (tutti i trackpoint; in
+  /// mancanza di `<trk>`, i routepoint `<rte>`). La trasformazione in traccia
+  /// Sentèi (semplificazione + instradamento ibrido) avviene poi nell'import
+  /// (`Tracks.importGpx`). Lancia [FormatException] se non c'è una traccia valida.
+  ({String name, List<LatLng> path}) parseTrack(String xml) {
     final gpx = GpxReader().fromString(xml);
 
     var name = '';
@@ -63,25 +64,6 @@ class GpxService {
     if (pts.length < 2) {
       throw const FormatException('GPX senza una traccia valida');
     }
-
-    return DrawnTrack(
-      id: id,
-      name: name.isNotEmpty ? name : 'Importato',
-      snapToTrail: false,
-      waypoints: _downsample(pts, 60),
-      routedPath: pts,
-    );
-  }
-
-  /// Sottocampiona [pts] ad al massimo [max] punti, estremi inclusi.
-  static List<LatLng> _downsample(List<LatLng> pts, int max) {
-    if (pts.length <= max) return pts;
-    final step = (pts.length / max).ceil();
-    final out = <LatLng>[];
-    for (var i = 0; i < pts.length; i += step) {
-      out.add(pts[i]);
-    }
-    if (out.last != pts.last) out.add(pts.last);
-    return out;
+    return (name: name, path: pts);
   }
 }

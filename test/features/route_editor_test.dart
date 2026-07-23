@@ -281,6 +281,40 @@ void main() {
     expect(calls.length, 5); // +2 (non +3): incrementale
   });
 
+  test('importGpx: semplifica, instrada (ibrido) e finalizza con dati', () async {
+    const xml = '<?xml version="1.0"?><gpx><trk><name>Import</name><trkseg>'
+        '<trkpt lat="45.000" lon="7.000"></trkpt>'
+        '<trkpt lat="45.001" lon="7.000"></trkpt>'
+        '<trkpt lat="45.002" lon="7.001"></trkpt>'
+        '<trkpt lat="45.003" lon="7.002"></trkpt>'
+        '</trkseg></trk></gpx>';
+    final err = await notifier().importGpx(xml);
+    expect(err, isNull);
+    final id = state().selectedId!;
+    // Durante l'import: spinner (savingId) + riferimento grezzo attivo.
+    expect(state().saving, isTrue);
+    expect(container.read(importPreviewProvider), isNotNull);
+
+    // Attende la finalizzazione async (routing/metriche/segnavia finti).
+    for (var i = 0; i < 100 && state().saving; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(state().saving, isFalse);
+    expect(container.read(importPreviewProvider), isNull);
+    final t = state().byId(id)!;
+    expect(t.name, 'Import');
+    expect(t.snapToTrail, isTrue);
+    expect(t.routedPath.length, greaterThanOrEqualTo(2));
+    expect(t.metrics, isNotNull);
+  });
+
+  test('importGpx: GPX non valido → messaggio d\'errore, nessuna traccia',
+      () async {
+    final err = await notifier().importGpx('<gpx></gpx>');
+    expect(err, isNotNull);
+    expect(state().tracks, isEmpty);
+  });
+
   test('remove elimina la traccia attiva', () async {
     notifier()
       ..startNewDrawing()

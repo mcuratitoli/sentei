@@ -18,6 +18,7 @@ import '../../data/trails/trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../domain/services/polyline_simplify.dart';
 import '../../domain/services/routing_service.dart';
 import '../../domain/services/track_metrics.dart';
 
@@ -521,29 +522,147 @@ class Tracks extends Notifier<TracksState> {
     unawaited(ref.read(cloudSyncProvider.notifier).autoDelete(target));
   }
 
-  /// Importa una traccia da GPX. Ritorna `null` se ok, o un messaggio d'errore.
+  /// Importa una traccia da GPX con **riallineamento ibrido**: la traccia grezza
+  /// è semplificata in waypoint (Douglas-Peucker), poi ogni segmento è instradato
+  /// lungo i sentieri (snap) *se* lo snap coincide con la grezza; altrimenti si
+  /// tiene il tratto grezzo (fuori sentiero → CAI non deviato). Mostra subito la
+  /// traccia grezza (tratteggiata) + spinner nella card, poi finalizza in
+  /// background. Ritorna `null` se ok (import avviato), o un messaggio d'errore.
   Future<String?> importGpx(String xml) async {
+    final ({String name, List<LatLng> path}) parsed;
     try {
-      final track = const GpxService()
-          .importFromGpx(xml, id: _newId())
-          .copyWith(createdAt: DateTime.now());
-      state = TracksState(
-        tracks: [...state.tracks, track],
-        editingId: state.editingId,
-        selectedId: state.selectedId,
-        geometryNonce: state.geometryNonce + 1,
-      );
-      final now = DateTime.now();
-      try {
-        await ref.read(tracksRepositoryProvider).save(track, updatedAt: now);
-      } catch (_) {/* best-effort */}
-      unawaited(ref.read(cloudSyncProvider.notifier).autoPush(track, now));
-      return null;
+      parsed = const GpxService().parseTrack(xml);
     } on FormatException catch (e) {
       return e.message;
-    } catch (e) {
+    } catch (_) {
       return 'GPX non valido';
     }
+
+    final id = _newId();
+    final idxs = const PolylineSimplifier()
+        .simplifyIndices(parsed.path, tolerance: 30, maxPoints: 40);
+    final waypoints = [for (final i in idxs) parsed.path[i]];
+    final track = DrawnTrack(
+      id: id,
+      name: parsed.name.isNotEmpty ? parsed.name : 'Importato',
+      snapToTrail: true,
+      waypoints: waypoints,
+      createdAt: DateTime.now(),
+    );
+    // Mostra subito la traccia importata (grezza tratteggiata via
+    // importPreviewProvider) + spinner nella card (savingId); instrada dopo.
+    state = TracksState(
+      tracks: [...state.tracks, track],
+      selectedId: id,
+      savingId: id,
+      geometryNonce: state.geometryNonce + 1,
+    );
+    ref.read(importPreviewProvider.notifier).set(id, parsed.path);
+    unawaited(_finishImport(id, parsed.path, idxs));
+    return null;
+  }
+
+  /// Instradamento ibrido + metriche + segnavia della traccia importata, poi
+  /// finalizzazione (toglie spinner e riferimento grezzo) e persistenza.
+  Future<void> _finishImport(
+      String id, List<LatLng> raw, List<int> idxs) async {
+    final routed = await _hybridRoute(raw, idxs);
+
+    TrackMetrics? metrics;
+    try {
+      metrics = await const TrackMetricsCalculator()
+          .compute(routed, ref.read(elevationServiceProvider));
+    } catch (_) {
+      metrics = null;
+    }
+    List<TrailSegment> segments = const [];
+    var resolved = false;
+    try {
+      segments = await ref.read(trailServiceProvider).trailSegmentsAlong(routed);
+      resolved = true;
+    } catch (_) {
+      resolved = false;
+    }
+    final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
+    if (metrics != null && segments.isNotEmpty) {
+      metrics = metrics.copyWith(trailSegments: segments);
+    }
+
+    ref.read(importPreviewProvider.notifier).clear();
+    if (state.byId(id) == null) return; // eliminata nel frattempo
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id)
+            t.copyWith(
+                routedPath: routed,
+                metrics: metrics,
+                trailRefs: refs,
+                trailsResolved: resolved)
+          else
+            t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      // savingId azzerato → spinner via.
+      geometryNonce: state.geometryNonce + 1,
+    );
+
+    final saved = state.byId(id);
+    if (saved != null) {
+      final now = DateTime.now();
+      try {
+        await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
+      } catch (_) {/* best-effort */}
+      unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+    }
+  }
+
+  /// Instrada i segmenti (snap) e, per ciascuno, sceglie snap **oppure** il
+  /// tratto grezzo se lo snap devia troppo (fuori sentiero / detour).
+  Future<List<LatLng>> _hybridRoute(List<LatLng> raw, List<int> idxs) async {
+    const geo = PathGeometry();
+    final keys = [
+      for (var k = 0; k < idxs.length - 1; k++)
+        _SegKey(raw[idxs[k]], raw[idxs[k + 1]], true),
+    ];
+    final snaps = await _snapBounded(keys);
+    final path = <LatLng>[raw[idxs.first]];
+    for (var k = 0; k < idxs.length - 1; k++) {
+      final rawSub = raw.sublist(idxs[k], idxs[k + 1] + 1);
+      final snapped = snaps[k];
+      final rawLen = geo.totalDistance(rawSub);
+      final snapLen = geo.totalDistance(snapped);
+      var maxDev = 0.0;
+      for (final p in snapped) {
+        final d = geo.distanceToPath(p, rawSub);
+        if (d > maxDev) maxDev = d;
+      }
+      // Snap accettato solo se resta **vicino** alla grezza e non troppo più
+      // lungo; altrimenti si tiene il sotto-tratto grezzo.
+      final diverges = (rawLen > 1 && snapLen > 1.6 * rawLen) || maxDev > 60;
+      path.addAll((diverges ? rawSub : snapped).skip(1));
+    }
+    return path;
+  }
+
+  /// Instrada [keys] con concorrenza limitata (gentile col server BRouter
+  /// pubblico) riusando la cache di `segmentRouteProvider`.
+  Future<List<List<LatLng>>> _snapBounded(List<_SegKey> keys,
+      {int concurrency = 6}) async {
+    final out = List<List<LatLng>>.filled(keys.length, const []);
+    var next = 0;
+    Future<void> worker() async {
+      while (true) {
+        final i = next++;
+        if (i >= keys.length) break;
+        out[i] = await ref.read(segmentRouteProvider(keys[i]).future);
+      }
+    }
+
+    await Future.wait(
+        [for (var w = 0; w < concurrency && w < keys.length; w++) worker()]);
+    return out;
   }
 
   /// Modifica la traccia in editing; ogni cambio ai waypoint azzera i dati
@@ -631,6 +750,19 @@ class SelectedWaypoint extends Notifier<int?> {
 
 final selectedWaypointProvider =
     NotifierProvider<SelectedWaypoint, int?>(SelectedWaypoint.new);
+
+/// Traccia **grezza** importata, da mostrare **tratteggiata** sulla mappa mentre
+/// l'import la instrada (riferimento). `(id, raw)` durante l'import; `null` a
+/// import concluso (poi si tiene solo la versione instradata).
+class ImportPreview extends Notifier<(String, List<LatLng>)?> {
+  @override
+  (String, List<LatLng>)? build() => null;
+  void set(String id, List<LatLng> raw) => state = (id, raw);
+  void clear() => state = null;
+}
+
+final importPreviewProvider =
+    NotifierProvider<ImportPreview, (String, List<LatLng>)?>(ImportPreview.new);
 
 /// Database locale (drift) e repository delle tracce (persistenza su disco).
 final databaseProvider = Provider<AppDatabase>((ref) {

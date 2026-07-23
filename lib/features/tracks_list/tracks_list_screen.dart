@@ -239,9 +239,16 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     if (file == null) return;
     final xml = await file.readAsString();
     final error = await ref.read(tracksProvider.notifier).importGpx(xml);
-    if (mounted) {
-      showIosToast(context, error ?? 'Tracciato importato');
+    if (!mounted) return;
+    if (error != null) {
+      showIosToast(context, error);
+      return;
     }
+    // Import avviato: torna alla mappa a vedere la traccia importata (grezza
+    // tratteggiata + caricamento, poi il percorso instradato lungo i sentieri).
+    final id = ref.read(tracksProvider).selectedId;
+    if (context.canPop()) context.pop();
+    if (id != null) ref.read(mapFocusProvider.notifier).focusTrack(id);
   }
 
   Future<void> _exportGpx(DrawnTrack track) async {

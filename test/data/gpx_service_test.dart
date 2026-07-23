@@ -19,7 +19,7 @@ void main() {
     expect(xml, contains('lat="45.0"'));
   });
 
-  test('round-trip export → import preserva nome e geometria', () {
+  test('round-trip export → parseTrack preserva nome e geometria', () {
     const track = DrawnTrack(
       id: 't1',
       name: 'Anello',
@@ -27,18 +27,17 @@ void main() {
       routedPath: [LatLng(45.0, 7.0), LatLng(45.01, 7.01), LatLng(45.02, 7.02)],
     );
     final xml = service.exportToGpx(track);
-    final imported = service.importFromGpx(xml, id: 't2');
+    final parsed = service.parseTrack(xml);
 
-    expect(imported.name, 'Anello');
-    expect(imported.snapToTrail, isFalse);
-    expect(imported.routedPath.length, 3);
-    expect(imported.routedPath.first.latitude, closeTo(45.0, 1e-6));
-    expect(imported.routedPath.last.longitude, closeTo(7.02, 1e-6));
+    expect(parsed.name, 'Anello');
+    expect(parsed.path.length, 3);
+    expect(parsed.path.first.latitude, closeTo(45.0, 1e-6));
+    expect(parsed.path.last.longitude, closeTo(7.02, 1e-6));
   });
 
   test('GPX senza traccia => FormatException', () {
     expect(
-      () => service.importFromGpx('<gpx></gpx>', id: 'x'),
+      () => service.parseTrack('<gpx></gpx>'),
       throwsA(isA<FormatException>()),
     );
   });
