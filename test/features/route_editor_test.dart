@@ -281,31 +281,52 @@ void main() {
     expect(calls.length, 5); // +2 (non +3): incrementale
   });
 
-  test('importGpx: semplifica, instrada (ibrido) e finalizza con dati', () async {
-    const xml = '<?xml version="1.0"?><gpx><trk><name>Import</name><trkseg>'
-        '<trkpt lat="45.000" lon="7.000"></trkpt>'
-        '<trkpt lat="45.001" lon="7.000"></trkpt>'
-        '<trkpt lat="45.002" lon="7.001"></trkpt>'
-        '<trkpt lat="45.003" lon="7.002"></trkpt>'
-        '</trkseg></trk></gpx>';
-    final err = await notifier().importGpx(xml);
-    expect(err, isNull);
-    final id = state().selectedId!;
-    // Durante l'import: spinner (savingId) + riferimento grezzo attivo.
-    expect(state().saving, isTrue);
-    expect(container.read(importPreviewProvider), isNotNull);
+  const importXml = '<?xml version="1.0"?><gpx><trk><name>Import</name><trkseg>'
+      '<trkpt lat="45.000" lon="7.000"></trkpt>'
+      '<trkpt lat="45.001" lon="7.000"></trkpt>'
+      '<trkpt lat="45.002" lon="7.001"></trkpt>'
+      '<trkpt lat="45.003" lon="7.002"></trkpt>'
+      '</trkseg></trk></gpx>';
 
-    // Attende la finalizzazione async (routing/metriche/segnavia finti).
-    for (var i = 0; i < 100 && state().saving; i++) {
+  test('importGpx: caricamento → editing (non persiste), Salva persiste',
+      () async {
+    final err = await notifier().importGpx(importXml);
+    expect(err, isNull);
+    // Fase 1 — caricamento: NON in editing, riferimento grezzo + loading attivi.
+    expect(container.read(importLoadingProvider), isNotNull);
+    expect(container.read(importPreviewProvider), isNotNull);
+    expect(state().drawing, isFalse);
+    expect(state().tracks.length, 1);
+
+    // Attende la fine del caricamento (routing/metriche/segnavia finti).
+    for (var i = 0;
+        i < 100 && container.read(importLoadingProvider) != null;
+        i++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    expect(state().saving, isFalse);
-    expect(container.read(importPreviewProvider), isNull);
+    // Fase 2 — editing sulla traccia ricalcolata; grezza ancora riferimento.
+    final id = state().editingId;
+    expect(id, isNotNull);
+    expect(container.read(importPreviewProvider), isNotNull);
     final t = state().byId(id)!;
     expect(t.name, 'Import');
-    expect(t.snapToTrail, isTrue);
     expect(t.routedPath.length, greaterThanOrEqualTo(2));
     expect(t.metrics, isNotNull);
+
+    // Salva: persiste, esce da editing, via il riferimento grezzo.
+    await notifier().finishDrawing();
+    expect(state().drawing, isFalse);
+    expect(state().selectedId, id);
+    expect(container.read(importPreviewProvider), isNull);
+  });
+
+  test('importGpx: Annulla durante il caricamento scarta la traccia', () async {
+    await notifier().importGpx(importXml);
+    expect(state().tracks.length, 1);
+    notifier().cancelImport();
+    expect(state().tracks, isEmpty);
+    expect(container.read(importLoadingProvider), isNull);
+    expect(container.read(importPreviewProvider), isNull);
   });
 
   test('importGpx: GPX non valido → messaggio d\'errore, nessuna traccia',

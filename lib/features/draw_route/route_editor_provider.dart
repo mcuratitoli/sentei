@@ -265,10 +265,11 @@ class Tracks extends Notifier<TracksState> {
     if (maxN >= 0) _counter = maxN + 1;
 
     // _load() è async (fire-and-forget da build()) e può risolversi mentre
-    // l'utente sta già disegnando/salvando: preserva l'eventuale traccia in
-    // corso non ancora su disco, altrimenti la sovrascriveremmo con i dati del
-    // disco (su install pulita = lista vuota → traccia azzerata).
-    final inProgressId = state.editingId ?? state.savingId;
+    // l'utente sta già disegnando/salvando/**importando**: preserva l'eventuale
+    // traccia in corso non ancora su disco, altrimenti la sovrascriveremmo con i
+    // dati del disco (su install pulita = lista vuota → traccia azzerata).
+    final inProgressId =
+        state.editingId ?? state.savingId ?? ref.read(importLoadingProvider);
     final preserved = inProgressId != null &&
             loaded.every((t) => t.id != inProgressId)
         ? state.byId(inProgressId)
@@ -319,6 +320,7 @@ class Tracks extends Notifier<TracksState> {
     final snapshot = _editSnapshot;
     _editSnapshot = null;
     _undoStack.clear();
+    ref.read(importPreviewProvider.notifier).clear(); // via il riferimento grezzo
     if (snapshot == null) {
       state = TracksState(
         tracks: state.tracks.where((t) => t.id != id).toList(),
@@ -342,12 +344,33 @@ class Tracks extends Notifier<TracksState> {
     if (track == null) return;
     _editSnapshot = null;
     _undoStack.clear();
+    ref.read(importPreviewProvider.notifier).clear(); // via il riferimento grezzo
 
     if (track.waypoints.length < 2) {
       state = TracksState(
         tracks: state.tracks.where((t) => t.id != id).toList(),
         geometryNonce: state.geometryNonce + 1,
       );
+      return;
+    }
+
+    // Import **non modificato** (o traccia già instradata): il percorso è già
+    // valido → non ri-instradare (preserva il risultato ibrido dell'import),
+    // seleziona e persisti così com'è.
+    if (track.routedPath.length >= 2 && track.metrics != null) {
+      state = TracksState(
+        tracks: state.tracks,
+        selectedId: id,
+        geometryNonce: state.geometryNonce + 1,
+      );
+      final saved = state.byId(id);
+      if (saved != null) {
+        final now = DateTime.now();
+        try {
+          await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
+        } catch (_) {/* best-effort */}
+        unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+      }
       return;
     }
 
@@ -522,12 +545,16 @@ class Tracks extends Notifier<TracksState> {
     unawaited(ref.read(cloudSyncProvider.notifier).autoDelete(target));
   }
 
-  /// Importa una traccia da GPX con **riallineamento ibrido**: la traccia grezza
-  /// è semplificata in waypoint (Douglas-Peucker), poi ogni segmento è instradato
-  /// lungo i sentieri (snap) *se* lo snap coincide con la grezza; altrimenti si
-  /// tiene il tratto grezzo (fuori sentiero → CAI non deviato). Mostra subito la
-  /// traccia grezza (tratteggiata) + spinner nella card, poi finalizza in
-  /// background. Ritorna `null` se ok (import avviato), o un messaggio d'errore.
+  /// Generazione dell'import corrente: `cancelImport()` la incrementa per
+  /// invalidare (annullare) un `_runImport` in volo.
+  int _importGen = 0;
+
+  /// Importa una traccia da GPX con **riallineamento ibrido**, in due fasi:
+  /// 1) **caricamento** (annullabile) che semplifica la grezza e la instrada lungo
+  ///    i sentieri (snap dove coincide, grezza fuori sentiero);
+  /// 2) **revisione/editing**: si entra in modifica sulla traccia ricalcolata, con
+  ///    la grezza ancora **tratteggiata** come riferimento; si persiste **solo al
+  ///    Salva**. Ritorna `null` se l'import è **avviato**, o un messaggio d'errore.
   Future<String?> importGpx(String xml) async {
     final ({String name, List<LatLng> path}) parsed;
     try {
@@ -549,24 +576,28 @@ class Tracks extends Notifier<TracksState> {
       waypoints: waypoints,
       createdAt: DateTime.now(),
     );
-    // Mostra subito la traccia importata (grezza tratteggiata via
-    // importPreviewProvider) + spinner nella card (savingId); instrada dopo.
+    // Fase 1 — caricamento: la traccia esiste (per il focus mappa) ma **non** è
+    // selezionata/in editing né persistita; la grezza è tratteggiata e la card
+    // di caricamento (annullabile) è attiva via importLoadingProvider.
+    final gen = ++_importGen;
     state = TracksState(
-      tracks: [...state.tracks, track],
-      selectedId: id,
-      savingId: id,
-      geometryNonce: state.geometryNonce + 1,
-    );
+        tracks: [...state.tracks, track],
+        geometryNonce: state.geometryNonce + 1);
     ref.read(importPreviewProvider.notifier).set(id, parsed.path);
-    unawaited(_finishImport(id, parsed.path, idxs));
+    ref.read(importLoadingProvider.notifier).set(id);
+    unawaited(_runImport(gen, id, parsed.path, idxs));
     return null;
   }
 
-  /// Instradamento ibrido + metriche + segnavia della traccia importata, poi
-  /// finalizzazione (toglie spinner e riferimento grezzo) e persistenza.
-  Future<void> _finishImport(
-      String id, List<LatLng> raw, List<int> idxs) async {
-    final routed = await _hybridRoute(raw, idxs);
+  /// Instradamento ibrido + metriche + segnavia (fase 1), poi passaggio in
+  /// **editing** sulla traccia ricalcolata (fase 2). Annullabile: `cancelImport`
+  /// incrementa `_importGen` (o rimuove la traccia) → qui si esce senza effetti.
+  Future<void> _runImport(
+      int gen, String id, List<LatLng> raw, List<int> idxs) async {
+    bool cancelled() => gen != _importGen || state.byId(id) == null;
+
+    final routed = await _hybridRoute(raw, idxs, cancelled);
+    if (cancelled()) return;
 
     TrackMetrics? metrics;
     try {
@@ -575,6 +606,8 @@ class Tracks extends Notifier<TracksState> {
     } catch (_) {
       metrics = null;
     }
+    if (cancelled()) return;
+
     List<TrailSegment> segments = const [];
     var resolved = false;
     try {
@@ -583,13 +616,18 @@ class Tracks extends Notifier<TracksState> {
     } catch (_) {
       resolved = false;
     }
+    if (cancelled()) return;
     final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
     if (metrics != null && segments.isNotEmpty) {
       metrics = metrics.copyWith(trailSegments: segments);
     }
 
-    ref.read(importPreviewProvider.notifier).clear();
-    if (state.byId(id) == null) return; // eliminata nel frattempo
+    // Fase 2 — editing/revisione: routedPath = ibrido; la grezza resta come
+    // riferimento (importPreview). Traccia "nuova" → l'annulla la scarta; si
+    // persiste solo al Salva (finishDrawing).
+    _editSnapshot = null;
+    _undoStack.clear();
+    ref.read(importLoadingProvider.notifier).set(null);
     state = TracksState(
       tracks: [
         for (final t in state.tracks)
@@ -602,35 +640,40 @@ class Tracks extends Notifier<TracksState> {
           else
             t,
       ],
-      editingId: state.editingId,
-      selectedId: state.selectedId,
-      // savingId azzerato → spinner via.
+      editingId: id,
       geometryNonce: state.geometryNonce + 1,
     );
+  }
 
-    final saved = state.byId(id);
-    if (saved != null) {
-      final now = DateTime.now();
-      try {
-        await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
-      } catch (_) {/* best-effort */}
-      unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+  /// Annulla l'import in corso (dalla card di caricamento): scarta la traccia e
+  /// i riferimenti; il `_runImport` in volo si autoinvalida (`_importGen`).
+  void cancelImport() {
+    _importGen++;
+    final id = ref.read(importLoadingProvider);
+    ref.read(importLoadingProvider.notifier).set(null);
+    ref.read(importPreviewProvider.notifier).clear();
+    if (id != null) {
+      state = TracksState(
+        tracks: state.tracks.where((t) => t.id != id).toList(),
+        geometryNonce: state.geometryNonce + 1,
+      );
     }
   }
 
   /// Instrada i segmenti (snap) e, per ciascuno, sceglie snap **oppure** il
   /// tratto grezzo se lo snap devia troppo (fuori sentiero / detour).
-  Future<List<LatLng>> _hybridRoute(List<LatLng> raw, List<int> idxs) async {
+  Future<List<LatLng>> _hybridRoute(
+      List<LatLng> raw, List<int> idxs, bool Function() cancelled) async {
     const geo = PathGeometry();
     final keys = [
       for (var k = 0; k < idxs.length - 1; k++)
         _SegKey(raw[idxs[k]], raw[idxs[k + 1]], true),
     ];
-    final snaps = await _snapBounded(keys);
+    final snaps = await _snapBounded(keys, cancelled);
     final path = <LatLng>[raw[idxs.first]];
     for (var k = 0; k < idxs.length - 1; k++) {
       final rawSub = raw.sublist(idxs[k], idxs[k + 1] + 1);
-      final snapped = snaps[k];
+      final snapped = snaps[k].length >= 2 ? snaps[k] : [raw[idxs[k]], raw[idxs[k + 1]]];
       final rawLen = geo.totalDistance(rawSub);
       final snapLen = geo.totalDistance(snapped);
       var maxDev = 0.0;
@@ -647,13 +690,15 @@ class Tracks extends Notifier<TracksState> {
   }
 
   /// Instrada [keys] con concorrenza limitata (gentile col server BRouter
-  /// pubblico) riusando la cache di `segmentRouteProvider`.
-  Future<List<List<LatLng>>> _snapBounded(List<_SegKey> keys,
+  /// pubblico) riusando la cache di `segmentRouteProvider`. Si ferma se [cancelled].
+  Future<List<List<LatLng>>> _snapBounded(
+      List<_SegKey> keys, bool Function() cancelled,
       {int concurrency = 6}) async {
     final out = List<List<LatLng>>.filled(keys.length, const []);
     var next = 0;
     Future<void> worker() async {
       while (true) {
+        if (cancelled()) break;
         final i = next++;
         if (i >= keys.length) break;
         out[i] = await ref.read(segmentRouteProvider(keys[i]).future);
@@ -763,6 +808,17 @@ class ImportPreview extends Notifier<(String, List<LatLng>)?> {
 
 final importPreviewProvider =
     NotifierProvider<ImportPreview, (String, List<LatLng>)?>(ImportPreview.new);
+
+/// Id della traccia il cui import è in **fase di caricamento** (instradamento in
+/// corso, annullabile). `null` quando non c'è un import in caricamento.
+class ImportLoading extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final importLoadingProvider =
+    NotifierProvider<ImportLoading, String?>(ImportLoading.new);
 
 /// Database locale (drift) e repository delle tracce (persistenza su disco).
 final databaseProvider = Provider<AppDatabase>((ref) {

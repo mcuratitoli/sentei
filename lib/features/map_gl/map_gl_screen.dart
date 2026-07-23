@@ -440,6 +440,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     try {
       final state = ref.read(tracksProvider);
       final hidden = ref.read(tracksHiddenProvider);
+      final importing = ref.read(importLoadingProvider) != null;
       await _savedLines!.deleteAll();
       await _savedEnds!.deleteAll();
       await _liveLine!.deleteAll();
@@ -449,13 +450,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       _wpIndexById.clear();
       _midpointIndexById.clear();
 
-      // Traccia grezza importata (riferimento tratteggiato) durante l'import.
+      // Traccia grezza importata (riferimento **tratteggiato, dimmed**) durante
+      // caricamento ed editing dell'import.
       final preview = ref.read(importPreviewProvider);
       if (preview != null && preview.$2.length >= 2) {
         await _importRawLine!.create(PolylineAnnotationOptions(
           geometry: _lineOf(preview.$2),
           lineColor: 0xFF6E6E73,
           lineWidth: 3,
+          lineOpacity: 0.5,
         ));
       }
 
@@ -467,9 +470,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
         if (!editing) {
           if (hidden) continue; // tracce salvate nascoste
-          // In creazione/modifica di una traccia, nascondi TUTTE le altre: la
-          // mappa resta pulita e l'editing (drag/inserimenti) è più facile.
-          if (state.editingId != null) continue;
+          // In creazione/modifica (o durante il caricamento di un import),
+          // nascondi TUTTE le altre: mappa pulita, editing più facile.
+          if (state.editingId != null || importing) continue;
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa e con bordo più marcato.
           final isSelected = t.id == state.selectedId;
@@ -999,9 +1002,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     // Card visibile (traccia selezionata o in modifica): occupa il fondo e
     // sostituisce la toolbar (che viene nascosta).
     final showCard = ref.watch(tracksProvider.select((s) => s.showCard));
+    // Caricamento import in corso (mostra la card di caricamento annullabile).
+    final importing = ref.watch(importLoadingProvider) != null;
     // Info punto in esplorazione (mini-card): solo se non c'è la card traccia.
     final inspected = ref.watch(inspectedPointProvider);
-    final showPointCard = inspected != null && !showCard;
+    final showPointCard = inspected != null && !showCard && !importing;
     // La card traccia (selezione/disegno) ha priorità: azzera il punto ispezionato.
     ref.listen(tracksProvider.select((s) => s.showCard), (_, show) {
       if (show) ref.read(inspectedPointProvider.notifier).clear();
@@ -1023,6 +1028,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ref.listen(selectedWaypointProvider, (_, __) => _renderAll());
     // Comparsa/sparizione della traccia grezza importata (tratteggiata).
     ref.listen(importPreviewProvider, (_, __) => _renderAll());
+    // Il caricamento import cambia cosa nascondere/mostrare (altre tracce).
+    ref.listen(importLoadingProvider, (_, __) => _renderAll());
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
@@ -1069,6 +1076,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const DrawRouteControls(),
+                  // Caricamento import (annullabile): riallineamento in corso.
+                  if (importing)
+                    _ImportLoadingCard(
+                      onCancel: () =>
+                          ref.read(tracksProvider.notifier).cancelImport(),
+                    ),
                   // Pannello di ricerca luoghi (dalla lente): sopra la menubar,
                   // con i risultati che crescono verso l'alto.
                   if (_searchOpen)
@@ -1098,8 +1111,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
                     const SizedBox(height: 12),
                   ],
                   // La toolbar c'è quando NON è mostrata la card traccia (che
-                  // occupa il fondo dello schermo); la mini-card punto le sta sopra.
-                  if (!showCard)
+                  // occupa il fondo dello schermo) né il caricamento import.
+                  if (!showCard && !importing)
                     _BottomBar(
                       onSearch: _openSearch,
                       onLayers: _onLayers,
@@ -1326,6 +1339,50 @@ class _TopoSplashPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TopoSplashPainter old) => old.t != t;
+}
+
+/// Card di caricamento dell'import (fase 1): riallineamento della traccia
+/// importata ai sentieri, con **Annulla** per interrompere.
+class _ImportLoadingCard extends StatelessWidget {
+  const _ImportLoadingCard({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+      child: GlassSurface(
+        opacity: 0.92,
+        blur: 30,
+        borderRadius: AppRadii.rCard,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+          child: Row(
+            children: [
+              const CupertinoActivityIndicator(radius: 10),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Riallineamento della traccia importata ai sentieri…',
+                  style: AppText.caption.copyWith(color: AppColors.bodyText),
+                ),
+              ),
+              const SizedBox(width: 4),
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                minimumSize: const ui.Size(0, 36),
+                onPressed: onCancel,
+                child: Text('Annulla',
+                    style: AppText.pillLabel
+                        .copyWith(color: AppColors.destructive)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Barra flottante in basso (dock): ricerca · + · tracce · impostazioni.
