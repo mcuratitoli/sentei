@@ -68,11 +68,11 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.groupedBg,
+      backgroundColor: context.palette.scaffoldBg,
       appBar: AppBar(
         title: const Text('Tracciati'),
         centerTitle: true,
-        backgroundColor: AppColors.groupedBg,
+        backgroundColor: context.palette.scaffoldBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
         actions: [

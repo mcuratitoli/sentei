@@ -13,6 +13,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../app/theme.dart';
+import '../../app/theme_provider.dart';
+import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/legends.dart';
 import '../../ui/tokens.dart';
@@ -36,11 +39,11 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.groupedBg,
+      backgroundColor: context.palette.scaffoldBg,
       appBar: AppBar(
         title: const Text('Impostazioni'),
         centerTitle: true,
-        backgroundColor: AppColors.groupedBg,
+        backgroundColor: context.palette.scaffoldBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
       ),
@@ -66,6 +69,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const _AppearanceSection(),
           const _CloudSection(),
           CupertinoListSection.insetGrouped(
             header: const Text('Informazioni'),
@@ -99,6 +103,85 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Sezione **Aspetto**: modalità di tema (Automatico/Chiaro/Scuro) e, quando il
+/// tema effettivo è scuro, la variante (Standard/Notturno/Risparmio energetico).
+class _AppearanceSection extends ConsumerWidget {
+  const _AppearanceSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(appThemeModeProvider);
+    final variant = ref.watch(appDarkVariantProvider);
+    // "Automatico" segue il sistema: la variante scura ha senso mostrarla solo
+    // quando il tema **effettivo** è scuro (manuale, o auto + sistema in dark).
+    final systemIsDark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final isEffectivelyDark =
+        mode == AppThemeMode.dark || (mode == AppThemeMode.auto && systemIsDark);
+
+    return CupertinoListSection.insetGrouped(
+      header: const Text('Aspetto'),
+      children: [
+        Builder(
+          builder: (tileCtx) => CupertinoListTile(
+            leading: const Icon(CupertinoIcons.moon_fill,
+                color: AppColors.primary),
+            title: const Text('Tema'),
+            additionalInfo: Text(mode.label),
+            trailing: const CupertinoListTileChevron(),
+            onTap: () => _showThemeMenu(tileCtx, ref, mode),
+          ),
+        ),
+        if (isEffectivelyDark)
+          Builder(
+            builder: (tileCtx) => CupertinoListTile(
+              leading: const Icon(CupertinoIcons.sparkles,
+                  color: AppColors.primary),
+              title: const Text('Variante scura'),
+              additionalInfo: Text(variant.label),
+              trailing: const CupertinoListTileChevron(),
+              onTap: () => _showVariantMenu(tileCtx, ref, variant),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showThemeMenu(
+      BuildContext context, WidgetRef ref, AppThemeMode current) {
+    final notifier = ref.read(appThemeModeProvider.notifier);
+    return showIosMenu(
+      context: context,
+      anchorContext: context,
+      items: [
+        for (final m in AppThemeMode.values)
+          IosMenuItem(
+            label: m.label,
+            selected: m == current,
+            onPressed: () => notifier.set(m),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _showVariantMenu(
+      BuildContext context, WidgetRef ref, AppDarkVariant current) {
+    final notifier = ref.read(appDarkVariantProvider.notifier);
+    return showIosMenu(
+      context: context,
+      anchorContext: context,
+      items: [
+        for (final v in AppDarkVariant.values)
+          IosMenuItem(
+            label: v.label,
+            selected: v == current,
+            onPressed: () => notifier.set(v),
+          ),
+      ],
     );
   }
 }

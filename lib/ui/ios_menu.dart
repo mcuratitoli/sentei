@@ -11,11 +11,13 @@ import 'tokens.dart';
 const double _kMenuWidth = 250;
 const double _kConfirmMaxWidth = 270;
 const double _kRadius = 14;
-const Color _kFill = Color(0xF5FFFFFF); // chiaro, quasi opaco (app solo light)
-const Color _kSeparator = Color(0x243C3C43); // separatore iOS chiaro
-const Color _kLabel = AppColors.label;
-const Color _kSecondary = Color(0x99000000);
-const Color _kDestructive = AppColors.destructive; // systemRed
+const Color _kDestructive = AppColors.destructive; // systemRed, non theme-aware
+
+/// Riempimento del riquadro menu/conferma: quasi opaco, dal tema corrente.
+Color _fillOf(BuildContext c) => c.palette.glassFill.withValues(alpha: 0.96);
+
+/// Separatore hairline dal tema corrente.
+Color _sepOf(BuildContext c) => c.palette.hairline.withValues(alpha: 0.14);
 
 /// Una voce del menu.
 class IosMenuItem {
@@ -198,13 +200,13 @@ class _MenuCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
           child: DecoratedBox(
-            decoration: BoxDecoration(color: _kFill, borderRadius: radius),
+            decoration: BoxDecoration(color: _fillOf(context), borderRadius: radius),
             // Dentro showGeneralDialog non c'è un DefaultTextStyle "buono":
             // senza questo il testo mostra la doppia sottolineatura di debug.
             child: DefaultTextStyle(
               style: AppText.menuItem.copyWith(
                 decoration: TextDecoration.none,
-                color: _kLabel,
+                color: context.palette.label,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -223,7 +225,7 @@ class _Sep extends StatelessWidget {
   const _Sep();
   @override
   Widget build(BuildContext context) =>
-      const SizedBox(height: 0.5, child: ColoredBox(color: _kSeparator));
+      SizedBox(height: 0.5, child: ColoredBox(color: _sepOf(context)));
 }
 
 class _MenuRow extends StatelessWidget {
@@ -234,7 +236,7 @@ class _MenuRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.isDestructive ? _kDestructive : _kLabel;
+    final color = item.isDestructive ? _kDestructive : context.palette.label;
     final label = Text(
       item.label,
       textAlign: centered ? TextAlign.center : TextAlign.start,
@@ -283,6 +285,7 @@ class _ConfirmHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       child: Column(
@@ -292,14 +295,15 @@ class _ConfirmHeader extends StatelessWidget {
             Text(
               title!,
               textAlign: TextAlign.center,
-              style: AppText.value.copyWith(color: _kLabel),
+              style: AppText.value.copyWith(color: palette.label),
             ),
             const SizedBox(height: 5),
           ],
           Text(
             message,
             textAlign: TextAlign.center,
-            style: AppText.footnote.copyWith(height: 1.35, color: _kSecondary),
+            style: AppText.footnote
+                .copyWith(height: 1.35, color: palette.secondaryLabel),
           ),
         ],
       ),

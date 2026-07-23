@@ -36,6 +36,7 @@ class GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
@@ -53,10 +54,10 @@ class GlassSurface extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: AppColors.glassFill.withValues(alpha: opacity),
+              color: palette.glassFill.withValues(alpha: opacity),
               borderRadius: borderRadius,
               border: Border.all(
-                color: AppColors.glassFill.withValues(alpha: 0.6),
+                color: palette.glassBorder,
                 width: 0.6,
               ),
             ),

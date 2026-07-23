@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 // **Design token** dell'app (tema unico *chiaro*). Centralizzano i valori che
 // prima erano hardcoded e duplicati nelle schermate → una sola fonte di verità
@@ -32,6 +32,145 @@ abstract final class AppColors {
   static const Color glassFill = Color(0xFFFFFFFF); // riempimento superfici vetro
   static const Color hairline = Color(0xFF3C3C43); // separatori (usare con alpha)
   static const Color overlayDark = Color(0xF01C1C1E); // tooltip/toast scuri
+}
+
+/// Palette **strutturale** dipendente dal tema (chiaro/scuro): sfondi, testo,
+/// grigi, vetro, linee. Si risolve da `context.palette`. I colori
+/// **brand/semantici** (primary, destructive, difficoltà CAI, palette tracce)
+/// restano costanti in [AppColors].
+@immutable
+class AppPalette extends ThemeExtension<AppPalette> {
+  const AppPalette({
+    required this.scaffoldBg,
+    required this.glassFill,
+    required this.glassBorder,
+    required this.label,
+    required this.secondaryLabel,
+    required this.bodyText,
+    required this.iconGrey,
+    required this.iconGreyLight,
+    required this.tertiaryIcon,
+    required this.hairline,
+  });
+
+  final Color scaffoldBg; // sfondo grouped delle schermate
+  final Color glassFill; // colore base delle superfici in vetro
+  final Color glassBorder; // bordo chiaro delle superfici in vetro
+  final Color label; // testo primario
+  final Color secondaryLabel; // sottotitoli/caption
+  final Color bodyText; // corpo descrittivo
+  final Color iconGrey; // icone/valori inattivi
+  final Color iconGreyLight; // icone tenui
+  final Color tertiaryIcon; // placeholder/chiudi
+  final Color hairline; // separatori (usare con alpha)
+
+  /// Palette **chiara** (= valori storici in [AppColors]).
+  static const light = AppPalette(
+    scaffoldBg: AppColors.groupedBg,
+    glassFill: AppColors.glassFill,
+    glassBorder: Color(0x99FFFFFF),
+    label: AppColors.label,
+    secondaryLabel: AppColors.secondaryLabel,
+    bodyText: AppColors.bodyText,
+    iconGrey: AppColors.iconGrey,
+    iconGreyLight: AppColors.iconGreyLight,
+    tertiaryIcon: AppColors.tertiaryIcon,
+    hairline: AppColors.hairline,
+  );
+
+  /// **Standard** — dark elegante in stile iOS (superfici elevate #1C1C1E su
+  /// nero, testo bianco). Variante di default.
+  static const darkStandard = AppPalette(
+    scaffoldBg: Color(0xFF000000),
+    glassFill: Color(0xFF1C1C1E),
+    glassBorder: Color(0x1FFFFFFF),
+    label: Color(0xFFFFFFFF),
+    secondaryLabel: Color(0x99EBEBF5),
+    bodyText: Color(0xFFEBEBF5),
+    iconGrey: Color(0xFF8E8E93),
+    iconGreyLight: Color(0xFF98989D),
+    tertiaryIcon: Color(0xFF636366),
+    hairline: Color(0xFF545458),
+  );
+
+  /// **Notturno** — uso in montagna: toni caldi/smorzati (niente bianco puro né
+  /// blu freddo) per minimizzare l'abbagliamento e preservare la visione notturna.
+  static const darkNight = AppPalette(
+    scaffoldBg: Color(0xFF120A05),
+    glassFill: Color(0xFF1F140C),
+    glassBorder: Color(0x1FFFEEDD),
+    label: Color(0xFFF5D9C0),
+    secondaryLabel: Color(0xFFB08F72),
+    bodyText: Color(0xFFE0BFA0),
+    iconGrey: Color(0xFF8A7460),
+    iconGreyLight: Color(0xFF9C8670),
+    tertiaryIcon: Color(0xFF6B5A48),
+    hairline: Color(0xFF4A3B2E),
+  );
+
+  /// **Risparmio energetico** — nero puro (OLED) ovunque possibile, per
+  /// minimizzare i pixel accesi; grigi ridotti all'essenziale per la leggibilità.
+  static const darkOled = AppPalette(
+    scaffoldBg: Color(0xFF000000),
+    glassFill: Color(0xFF000000),
+    glassBorder: Color(0x14FFFFFF),
+    label: Color(0xFFFFFFFF),
+    secondaryLabel: Color(0xFF8E8E93),
+    bodyText: Color(0xFFD0D0D0),
+    iconGrey: Color(0xFF7A7A7D),
+    iconGreyLight: Color(0xFF86868A),
+    tertiaryIcon: Color(0xFF59595C),
+    hairline: Color(0xFF262626),
+  );
+
+  @override
+  AppPalette copyWith({
+    Color? scaffoldBg,
+    Color? glassFill,
+    Color? glassBorder,
+    Color? label,
+    Color? secondaryLabel,
+    Color? bodyText,
+    Color? iconGrey,
+    Color? iconGreyLight,
+    Color? tertiaryIcon,
+    Color? hairline,
+  }) =>
+      AppPalette(
+        scaffoldBg: scaffoldBg ?? this.scaffoldBg,
+        glassFill: glassFill ?? this.glassFill,
+        glassBorder: glassBorder ?? this.glassBorder,
+        label: label ?? this.label,
+        secondaryLabel: secondaryLabel ?? this.secondaryLabel,
+        bodyText: bodyText ?? this.bodyText,
+        iconGrey: iconGrey ?? this.iconGrey,
+        iconGreyLight: iconGreyLight ?? this.iconGreyLight,
+        tertiaryIcon: tertiaryIcon ?? this.tertiaryIcon,
+        hairline: hairline ?? this.hairline,
+      );
+
+  @override
+  AppPalette lerp(AppPalette? other, double t) {
+    if (other == null) return this;
+    return AppPalette(
+      scaffoldBg: Color.lerp(scaffoldBg, other.scaffoldBg, t)!,
+      glassFill: Color.lerp(glassFill, other.glassFill, t)!,
+      glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
+      label: Color.lerp(label, other.label, t)!,
+      secondaryLabel: Color.lerp(secondaryLabel, other.secondaryLabel, t)!,
+      bodyText: Color.lerp(bodyText, other.bodyText, t)!,
+      iconGrey: Color.lerp(iconGrey, other.iconGrey, t)!,
+      iconGreyLight: Color.lerp(iconGreyLight, other.iconGreyLight, t)!,
+      tertiaryIcon: Color.lerp(tertiaryIcon, other.tertiaryIcon, t)!,
+      hairline: Color.lerp(hairline, other.hairline, t)!,
+    );
+  }
+}
+
+/// Accesso rapido alla [AppPalette] del tema corrente (fallback: chiara).
+extension AppPaletteX on BuildContext {
+  AppPalette get palette =>
+      Theme.of(this).extension<AppPalette>() ?? AppPalette.light;
 }
 
 /// Scala di spaziatura su griglia 4dp.

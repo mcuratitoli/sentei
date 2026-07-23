@@ -72,7 +72,7 @@ Future<void> showAbbreviationsLegend(BuildContext context) {
 Future<void> _showSheet(BuildContext context, Widget child) {
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: context.palette.glassFill,
     isScrollControlled: true,
     showDragHandle: true,
     // Cap dell'altezza (~88%): con contenuti lunghi il foglio arrivava a **tutta
@@ -95,6 +95,7 @@ class _DifficultyLegendSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -107,7 +108,7 @@ class _DifficultyLegendSheet extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Sigle convenzionali della «Guida dei Monti d\'Italia» (CAI).',
-              style: AppText.body.copyWith(color: AppColors.secondaryLabel),
+              style: AppText.body.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 16),
             const _SectionLabel('Escursionistiche'),
@@ -131,7 +132,7 @@ class _DifficultyLegendSheet extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Ogni grado può essere suddiviso in inferiore (−) o superiore (+).',
-              style: AppText.footnote.copyWith(color: AppColors.secondaryLabel),
+              style: AppText.footnote.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 16),
             const _NoteBox(
@@ -152,6 +153,7 @@ class _AbbreviationsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
@@ -179,7 +181,7 @@ class _AbbreviationsSheet extends StatelessWidget {
                     Expanded(
                       child: Text(full,
                           style: AppText.body
-                              .copyWith(color: AppColors.bodyText, height: 1.3)),
+                              .copyWith(color: palette.bodyText, height: 1.3)),
                     ),
                   ],
                 ),
@@ -205,7 +207,7 @@ class _SectionLabel extends StatelessWidget {
         child: Text(
           text.toUpperCase(),
           style: AppText.captionSmall.copyWith(
-            color: AppColors.secondaryLabel,
+            color: context.palette.secondaryLabel,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
@@ -257,7 +259,7 @@ class _GradeRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(body,
                     style: AppText.bodyDetail
-                        .copyWith(color: AppColors.bodyText)),
+                        .copyWith(color: context.palette.bodyText)),
               ],
             ),
           ),
@@ -274,24 +276,24 @@ class _NoteBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.groupedBg,
+        color: palette.scaffoldBg,
         borderRadius: AppRadii.rMd,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline,
-              size: 18, color: AppColors.secondaryLabel),
+          Icon(Icons.info_outline, size: 18, color: palette.secondaryLabel),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: AppText.footnote
-                  .copyWith(color: AppColors.secondaryLabel, height: 1.35),
+                  .copyWith(color: palette.secondaryLabel, height: 1.35),
             ),
           ),
         ],

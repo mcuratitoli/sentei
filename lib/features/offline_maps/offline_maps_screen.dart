@@ -102,11 +102,11 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
     final regions = ref.watch(downloadedRegionsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.groupedBg,
+      backgroundColor: context.palette.scaffoldBg,
       appBar: AppBar(
         title: const Text('Mappe offline'),
         centerTitle: true,
-        backgroundColor: AppColors.groupedBg,
+        backgroundColor: context.palette.scaffoldBg,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
       ),
@@ -156,11 +156,12 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                         ),
                       ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'Scarica mappa + elevazione dell\'area inquadrata, per '
                       'usarla senza connessione (mappa fino allo zoom 15; '
                       'D+/profilo offline).',
-                      style: TextStyle(fontSize: 12.5, color: AppColors.secondaryLabel),
+                      style: TextStyle(
+                          fontSize: 12.5, color: context.palette.secondaryLabel),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -178,11 +179,12 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
               child: Center(child: Text('Errore: $e')),
             ),
             data: (list) => list.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 40),
                     child: Center(
                       child: Text('Nessuna area scaricata',
-                          style: TextStyle(color: AppColors.secondaryLabel)),
+                          style: TextStyle(
+                              color: context.palette.secondaryLabel)),
                     ),
                   )
                 : CupertinoListSection.insetGrouped(

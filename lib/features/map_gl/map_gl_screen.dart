@@ -1365,7 +1365,7 @@ class _ImportLoadingCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Riallineamento della traccia importata ai sentieri…',
-                  style: AppText.caption.copyWith(color: AppColors.bodyText),
+                  style: AppText.caption.copyWith(color: context.palette.bodyText),
                 ),
               ),
               const SizedBox(width: 4),
@@ -1494,6 +1494,7 @@ class _PointInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final palette = context.palette;
     final place = data.place;
     final hasPlace = place != null && !place.isEmpty;
     return ConstrainedBox(
@@ -1536,7 +1537,7 @@ class _PointInfoCard extends StatelessWidget {
                             style: AppText.sectionValue.copyWith(
                               color: data.elevation != null
                                   ? scheme.primary
-                                  : AppColors.iconGrey,
+                                  : palette.iconGrey,
                             ),
                           ),
                       ],
@@ -1551,7 +1552,7 @@ class _PointInfoCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text('Individuazione luogo…',
                               style: AppText.footnote
-                                  .copyWith(color: AppColors.iconGreyLight)),
+                                  .copyWith(color: palette.iconGreyLight)),
                         ],
                       ),
                     ] else if (hasPlace) ...[
@@ -1560,10 +1561,10 @@ class _PointInfoCard extends StatelessWidget {
                         place.label,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13.5,
                             height: 1.25,
-                            color: AppColors.bodyText),
+                            color: palette.bodyText),
                       ),
                     ],
                     const SizedBox(height: 3),
@@ -1583,13 +1584,13 @@ class _PointInfoCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               _fmtCoords(data.point),
-                              style: const TextStyle(
-                                  fontSize: 12.5, color: AppColors.secondaryLabel),
+                              style: TextStyle(
+                                  fontSize: 12.5, color: palette.secondaryLabel),
                             ),
                           ),
                           const SizedBox(width: 5),
-                          const Icon(CupertinoIcons.doc_on_doc,
-                              size: 13, color: AppColors.iconGreyLight),
+                          Icon(CupertinoIcons.doc_on_doc,
+                              size: 13, color: palette.iconGreyLight),
                         ],
                       ),
                     ),
@@ -1600,8 +1601,8 @@ class _PointInfoCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 minimumSize: const ui.Size(40, 40),
                 onPressed: onClose,
-                child: const Icon(CupertinoIcons.clear_circled_solid,
-                    size: 24, color: AppColors.tertiaryIcon),
+                child: Icon(CupertinoIcons.clear_circled_solid,
+                    size: 24, color: palette.tertiaryIcon),
               ),
             ],
           ),
@@ -1611,8 +1612,6 @@ class _PointInfoCard extends StatelessWidget {
   }
 }
 
-/// Grigio antracite neutro per le icone della barra (iOS-like).
-const Color _kBarIcon = AppColors.bodyText;
 
 /// Icona tappabile della barra in vetro: press-dim iOS, niente ripple Material.
 /// Con [child] si passa un glifo custom al posto dell'icona.
@@ -1639,7 +1638,7 @@ class _BarButton extends StatelessWidget {
         width: 46,
         height: 46,
         child: Center(
-          child: child ?? Icon(icon, size: 24, color: _kBarIcon),
+          child: child ?? Icon(icon, size: 24, color: context.palette.bodyText),
         ),
       ),
     );
@@ -1656,21 +1655,22 @@ class _TrailGlyph extends StatelessWidget {
   const _TrailGlyph();
 
   @override
-  Widget build(BuildContext context) => const CustomPaint(
-        size: ui.Size(24, 24),
-        painter: _TrailPainter(),
+  Widget build(BuildContext context) => CustomPaint(
+        size: const ui.Size(24, 24),
+        painter: _TrailPainter(color: context.palette.bodyText),
       );
 }
 
 class _TrailPainter extends CustomPainter {
-  const _TrailPainter();
+  const _TrailPainter({required this.color});
+  final Color color;
 
   @override
   void paint(Canvas canvas, ui.Size size) {
     final w = size.width;
     final h = size.height;
     final stroke = Paint()
-      ..color = _kBarIcon
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
@@ -1680,14 +1680,14 @@ class _TrailPainter extends CustomPainter {
       ..cubicTo(w * 0.58, h * 0.74, w * 0.30, h * 0.30, w * 0.76, h * 0.24);
     canvas.drawPath(path, stroke);
     final dot = Paint()
-      ..color = _kBarIcon
+      ..color = color
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(w * 0.24, h * 0.76), 2.7, dot);
     canvas.drawCircle(Offset(w * 0.76, h * 0.24), 2.7, dot);
   }
 
   @override
-  bool shouldRepaint(_TrailPainter old) => false;
+  bool shouldRepaint(_TrailPainter old) => old.color != color;
 }
 
 /// Controlli in alto a destra, dall'alto verso il basso: bussola · 2D/3D ·
@@ -1761,7 +1761,7 @@ class _PillDivider extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 0.6,
         width: 30,
-        color: AppColors.hairline.withValues(alpha: 0.2),
+        color: context.palette.hairline.withValues(alpha: 0.2),
       );
 }
 
@@ -1795,11 +1795,15 @@ class _CompassNeedle extends StatelessWidget {
   const _CompassNeedle();
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(size: const ui.Size(15, 18), painter: _NeedlePainter());
+  Widget build(BuildContext context) => CustomPaint(
+      size: const ui.Size(15, 18),
+      painter: _NeedlePainter(south: context.palette.iconGrey));
 }
 
 class _NeedlePainter extends CustomPainter {
+  const _NeedlePainter({required this.south});
+  final Color south;
+
   @override
   void paint(Canvas canvas, ui.Size size) {
     final cx = size.width / 2;
@@ -1809,17 +1813,17 @@ class _NeedlePainter extends CustomPainter {
       ..lineTo(0, cy)
       ..lineTo(size.width, cy)
       ..close();
-    final south = Path()
+    final southPath = Path()
       ..moveTo(cx, size.height)
       ..lineTo(0, cy)
       ..lineTo(size.width, cy)
       ..close();
     canvas.drawPath(north, Paint()..color = const Color(0xFFE53935));
-    canvas.drawPath(south, Paint()..color = AppColors.iconGrey);
+    canvas.drawPath(southPath, Paint()..color = south);
   }
 
   @override
-  bool shouldRepaint(_NeedlePainter oldDelegate) => false;
+  bool shouldRepaint(_NeedlePainter old) => old.south != south;
 }
 
 /// Pannello di ricerca luoghi, ancorato **in basso** (sopra la menubar): la
@@ -1846,6 +1850,7 @@ class _SearchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final barIcon = context.palette.bodyText;
     final width = MediaQuery.of(context).size.width - 16;
     return SizedBox(
       width: width,
@@ -1868,14 +1873,14 @@ class _SearchPanel extends StatelessWidget {
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: _kBarIcon.withValues(alpha: 0.12),
+                      color: barIcon.withValues(alpha: 0.12),
                     ),
                     itemBuilder: (context, i) {
                       final r = results[i];
                       return ListTile(
                         dense: true,
-                        leading: const Icon(CupertinoIcons.placemark,
-                            size: 20, color: _kBarIcon),
+                        leading: Icon(CupertinoIcons.placemark,
+                            size: 20, color: barIcon),
                         title: Text(r.name,
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: r.context.isEmpty
@@ -1898,7 +1903,7 @@ class _SearchPanel extends StatelessWidget {
                 children: [
                   IconButton(
                     tooltip: 'Chiudi',
-                    icon: const Icon(CupertinoIcons.back, color: _kBarIcon),
+                    icon: Icon(CupertinoIcons.back, color: barIcon),
                     onPressed: onClose,
                   ),
                   Expanded(
@@ -1922,8 +1927,8 @@ class _SearchPanel extends StatelessWidget {
                   else if (controller.text.isNotEmpty)
                     IconButton(
                       tooltip: 'Cancella',
-                      icon: const Icon(CupertinoIcons.clear_circled_solid,
-                          size: 20, color: AppColors.tertiaryIcon),
+                      icon: Icon(CupertinoIcons.clear_circled_solid,
+                          size: 20, color: context.palette.tertiaryIcon),
                       onPressed: () {
                         controller.clear();
                         onChanged('');

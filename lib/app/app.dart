@@ -1,32 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
 import 'router.dart';
 import 'theme.dart';
+import 'theme_provider.dart';
 
 /// Widget radice dell'app.
-class SenteiApp extends StatelessWidget {
+class SenteiApp extends ConsumerWidget {
   const SenteiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(appThemeModeProvider);
+    final variant = ref.watch(appDarkVariantProvider);
     return MaterialApp.router(
       title: AppConstants.appDisplayName,
       theme: AppTheme.light(),
-      // Sentèi è disegnata **solo per il tema chiaro** (mappa, superfici in vetro
-      // bianco, palette blu, sfondi grouped chiari). Forziamo il light mode così
-      // testo e sfondi restano coerenti anche quando il sistema è in Dark Mode
-      // (altrimenti: testo chiaro su sfondi chiari hardcodati = quasi invisibile,
-      // e i widget Cupertino renderizzano scuri → incoerenza).
-      themeMode: ThemeMode.light,
-      // Il `builder` forza la brightness a *light* anche per i widget **Cupertino**
-      // (liste inset-grouped, action sheet, ecc.), che seguono `platformBrightness`
-      // dalla MediaQuery e non il `themeMode` di Material.
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(platformBrightness: Brightness.light),
-        child: child ?? const SizedBox.shrink(),
-      ),
+      darkTheme: AppTheme.dark(variant),
+      themeMode: mode.flutterMode,
+      // I widget **Cupertino** (liste inset-grouped, action sheet, ecc.)
+      // seguono `platformBrightness` dalla MediaQuery, non il `themeMode`
+      // Material. Se l'utente ha scelto esplicitamente Chiaro/Scuro, forziamo
+      // la stessa brightness anche lì; in **Automatico** lasciamo passare quella
+      // reale del sistema (i Cupertino seguono il sistema come il resto dell'app).
+      builder: (context, child) {
+        if (mode == AppThemeMode.auto) {
+          return child ?? const SizedBox.shrink();
+        }
+        final forced =
+            mode == AppThemeMode.light ? Brightness.light : Brightness.dark;
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(platformBrightness: forced),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
     );
