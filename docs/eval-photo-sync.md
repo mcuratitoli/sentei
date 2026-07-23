@@ -86,47 +86,82 @@ Il matching realistico è quindi a **due segnali indipendenti**:
   un po' fuori sentiero) + pin sul profilo altimetrico (alla distanza-lungo-
   percorso del punto più vicino, quello sì). Tap → viewer foto.
 
-## Il nodo "Sync" — decisione da prendere
+## Il nodo "Sync" — risolto senza server (decisione 23 lug 2026)
 
 Il nome "**sync** album fotografico" e l'architettura cloud esistente
 (`CloudSyncService`, iCloud/Google Drive già sincronizzano le tracce) creano
-un'aspettativa: che le foto **viaggino con la traccia** tra dispositivi. Ma:
+un'aspettativa: che le foto **viaggino con la traccia** tra dispositivi. Un
+**asset della libreria foto** (`PHAsset.localIdentifier` su iOS, id MediaStore
+su Android) è però **locale al dispositivo**: non è portabile via iCloud
+Drive/Google Drive insieme al GPX/JSON, e caricare i file foto stessi nella
+cartella cloud sarebbe l'unica alternativa "vera" — ma oneroso (spazio/banda,
+duplicati, parità iCloud/Drive) e contrario al requisito **"le foto restano
+in galleria"**.
 
-- Un **asset della libreria foto** (identificato da `PHAsset.localIdentifier`
-  su iOS o l'id MediaStore su Android) è **locale al dispositivo** — non è
-  portabile via iCloud Drive/Google Drive insieme al GPX/JSON della traccia.
-  Se la traccia sincronizza su un secondo dispositivo, i riferimenti alle
-  foto **non risolverebbero** lì.
-- Per una vera sincronizzazione cross-device servirebbe **caricare i file
-  foto stessi** (non solo il riferimento) nella stessa cartella cloud della
-  traccia — più oneroso: spazio/banda, gestione duplicati, parità tra iCloud
-  e Google Drive.
+### Soluzione scelta: metadati come "ricetta", non come puntatore
 
-**Due scenari alternativi, da scegliere:**
+Invece di salvare l'id della foto (valido solo su quel device), si salvano nel
+JSON della traccia (già sincronizzato via iCloud/Google Drive — **nessun nuovo
+backend**) per ogni foto collegata:
+- **posizione GPS** + **timestamp** originali (dall'EXIF)
+- **distanza-lungo-percorso** (calcolata una volta al collegamento, per il pin
+  sul profilo)
+- un **thumbnail piccolo** (poche KB, es. 200×200 JPEG) — **incluso nei
+  metadati sync**, così viaggia sempre con la traccia
+- **l'originale non viene mai caricato né copiato**: resta solo nella galleria
+  del dispositivo, recuperato al tap sul pin.
 
-1. **Collegamento locale** (più semplice, più veloce da realizzare): le foto
-   restano nella libreria del dispositivo che ha fatto il match; il
-   collegamento traccia↔foto è **solo locale a quel dispositivo**. Chi apre
-   la traccia sincronizzata su un altro device non vede le foto (a meno di
-   rifare il match lì, se le foto sono anche su quel device/libreria).
-2. **Sync vero** (più oneroso): le foto (o miniature+originale) vengono
-   caricate nella cartella cloud della traccia, accanto al GPX/JSON, così
-   viaggiano insieme ovunque. Più vicino al nome della feature, ma
-   architettura e costo (spazio cloud dell'utente, tempo di upload,
-   duplicazione dei file) molto maggiori.
+Al momento di mostrare il pin, **ogni dispositivo** rifà una ricerca *locale*
+nella propria galleria per una foto che combacia con GPS+timestamp salvati
+("re-match", non un id diretto):
+- **stesso dispositivo** che ha fatto il collegamento → trova sempre l'originale;
+- **altro dispositivo dello stesso utente** → lo trova **se** quella foto è
+  arrivata lì tramite la sincronizzazione **nativa** della libreria foto del
+  telefono (iCloud Photos/Google Photos), indipendente da Sentèi;
+- **foto assente su quel device** → si mostra comunque il **thumbnail** (i
+  metadati ce l'hanno) con un badge "originale non disponibile qui" invece di
+  un errore muto — degrado onesto, non rotto.
 
-## Domande aperte (da decidere prima di implementare)
+Questo copre il caso reale (utente singolo, stessi device, foto già
+sincronizzate a modo loro dal sistema operativo) senza introdurre login,
+server o storage centralizzato. Un server centralizzato risolverebbe solo il
+caso limite "foto trovata sempre e ovunque anche senza sync nativo del
+telefono" — non necessario per un'app single-user senza social.
 
-1. **Scope "sync"**: collegamento locale (1) o sincronizzazione vera dei file
-   foto (2)? Cambia moltissimo l'effort.
-2. **Data dell'escursione**: va bene leggere `<time>` dal GPX quando presente
-   (e altrimenti chiedere/non filtrare per data), o si preferisce sempre
-   chiedere conferma all'utente?
-3. **Retro-matching vs automatico**: la ricerca foto è un'azione manuale
-   ("Trova foto" nella card) o automatica dopo ogni salvataggio/import
-   (costo: scansione libreria ad ogni traccia)?
-4. **Permesso "libreria completa" vs "foto selezionate"**: iOS offre un
-   permesso limitato (l'utente sceglie quali foto condividere) — più
-   privacy-friendly ma UX diversa (l'utente deve scegliere a mano le foto
-   pertinenti anziché lasciare fare all'app la scansione automatica per
-   posizione/data). Preferenza?
+**Alternative scartate**: Google Photos API / iCloud Photos API dirette —
+Apple non espone un'API pubblica iCloud Photos a sviluppatori terzi; Google
+Photos richiederebbe un secondo OAuth solo per Android → asimmetria inutile
+rispetto allo schema sopra.
+
+### Suggerimento foto vicine — richiede permesso pieno + griglia nostra
+
+Due strade per far scegliere le foto all'utente:
+- **Picker di sistema** (Apple/Google): niente permesso esteso, ma è una
+  scatola nera — non possiamo ordinarlo per vicinanza al percorso.
+- **Griglia nostra dentro Sentèi** (**scelta**): serve il **permesso pieno**
+  alla libreria foto (`NSPhotoLibraryUsageDescription`/`READ_MEDIA_IMAGES`),
+  ma permette di leggere la posizione di ogni foto, calcolare la distanza dal
+  percorso e mostrare **"Trovate N foto vicino al percorso"** ordinate per
+  vicinanza, con possibilità di sfogliare comunque tutta la libreria.
+
+### Decisione finale (23 lug 2026)
+
+- **Permesso pieno** alla libreria foto, richiesto dalla UI di Sentèi.
+- **Griglia in-app** ("Trovate N foto vicino al percorso") invece del picker
+  di sistema.
+- **Metadati + thumbnail** sincronizzati nel JSON della traccia; **originale
+  sempre e solo dalla galleria locale**, mai caricato/copiato.
+- **Nessun server/login/backend**: si procede sulla soluzione serverless sopra.
+- Lavoro su **branch dedicato** (`feature/photo-sync` o simile), non su `main`.
+
+## Domande aperte residue (da chiarire durante l'implementazione)
+
+1. **Data dell'escursione** (per il filtro secondario): leggere `<time>` dal
+   GPX quando presente, altrimenti niente filtro data (solo spaziale)? O
+   sempre chiedere conferma dell'intervallo di date all'utente?
+2. **Retro-matching vs automatico**: la ricerca foto è un'azione manuale
+   ("Trova foto" nella card) o automatica dopo ogni salvataggio/import (costo:
+   scansione libreria ad ogni traccia)? *Consiglio: manuale*, per non
+   scansionare la libreria senza che l'utente lo chieda.
+3. **Soglia di distanza** dal percorso per considerare una foto "candidata"
+   (proposta iniziale: 60-100 m, da tarare).
