@@ -16,6 +16,7 @@ import '../../data/storage/tracks_repository.dart';
 import '../../data/trails/combined_trail_service.dart';
 import '../../data/trails/trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
+import '../../domain/models/track_photo.dart';
 import '../../domain/services/elevation_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/polyline_simplify.dart';
@@ -47,6 +48,7 @@ class DrawnTrack {
     this.trailRefs = const [],
     this.trailsResolved = false,
     this.createdAt,
+    this.photos = const [],
   });
 
   final String id;
@@ -74,6 +76,10 @@ class DrawnTrack {
   /// modo lazy alla selezione. Si azzera quando la geometria cambia.
   final bool trailsResolved;
 
+  /// Foto collegate alla traccia (§"Sync album fotografico"). Indipendenti
+  /// dalla geometria calcolata: **non** azzerate da [clearedComputed].
+  final List<TrackPhoto> photos;
+
   bool get canCompute => waypoints.length >= 2;
 
   DrawnTrack copyWith({
@@ -86,6 +92,7 @@ class DrawnTrack {
     List<String>? trailRefs,
     bool? trailsResolved,
     DateTime? createdAt,
+    List<TrackPhoto>? photos,
   }) =>
       DrawnTrack(
         id: id,
@@ -98,9 +105,13 @@ class DrawnTrack {
         trailRefs: trailRefs ?? this.trailRefs,
         trailsResolved: trailsResolved ?? this.trailsResolved,
         createdAt: createdAt ?? this.createdAt,
+        photos: photos ?? this.photos,
       );
 
-  /// Azzera i dati calcolati (quando i waypoint cambiano in modifica).
+  /// Azzera i dati calcolati (quando i waypoint cambiano in modifica). Le
+  /// [photos] **sopravvivono**: modificare il tracciato non deve scollegare
+  /// le foto già associate (la loro `distanceMeters` potrà risultare un po'
+  /// stale finché non si ricalcola, non è un dato critico).
   DrawnTrack clearedComputed() => DrawnTrack(
         id: id,
         waypoints: waypoints,
@@ -108,6 +119,7 @@ class DrawnTrack {
         color: color,
         snapToTrail: snapToTrail,
         createdAt: createdAt,
+        photos: photos,
       );
 }
 
@@ -773,6 +785,58 @@ class Tracks extends Notifier<TracksState> {
     _updateEditing((tt) =>
         tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..insert(index, p)));
   }
+
+  /// Collega [photos] alla traccia [id] (§"Sync album fotografico"), evitando
+  /// duplicati per id già collegati. Persiste e propaga al cloud (best-effort).
+  Future<void> addPhotos(String id, List<TrackPhoto> photos) async {
+    final track = state.byId(id);
+    if (track == null || photos.isEmpty) return;
+    final existingIds = track.photos.map((p) => p.id).toSet();
+    final merged = [
+      ...track.photos,
+      ...photos.where((p) => !existingIds.contains(p.id)),
+    ];
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id) t.copyWith(photos: merged) else t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      // Bump: la mappa ridisegna i pin foto sullo stesso segnale della geometria.
+      geometryNonce: state.geometryNonce + 1,
+    );
+    await _persistPhotos(id);
+  }
+
+  /// Scollega la foto [photoId] dalla traccia [id]. Persiste e propaga al cloud.
+  Future<void> removePhoto(String id, String photoId) async {
+    final track = state.byId(id);
+    if (track == null) return;
+    final updated = track.photos.where((p) => p.id != photoId).toList();
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id) t.copyWith(photos: updated) else t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      geometryNonce: state.geometryNonce + 1,
+    );
+    await _persistPhotos(id);
+  }
+
+  Future<void> _persistPhotos(String id) async {
+    final saved = state.byId(id);
+    if (saved == null) return;
+    final now = DateTime.now();
+    try {
+      await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
+    } catch (_) {/* best-effort */}
+    unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
+  }
 }
 
 final tracksProvider = NotifierProvider<Tracks, TracksState>(Tracks.new);
@@ -923,6 +987,22 @@ class ProfileCursor extends Notifier<ProfileSample?> {
 
 final profileCursorProvider =
     NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);
+
+/// Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico"),
+/// da mostrare in anteprima. Si azzera al cambio di traccia attiva.
+class SelectedPhoto extends Notifier<TrackPhoto?> {
+  @override
+  TrackPhoto? build() {
+    ref.watch(activeTrackIdProvider);
+    return null;
+  }
+
+  void set(TrackPhoto? photo) => state = photo;
+  void clear() => state = null;
+}
+
+final selectedPhotoProvider =
+    NotifierProvider<SelectedPhoto, TrackPhoto?>(SelectedPhoto.new);
 
 /// Nasconde dalla mappa le tracce **salvate** (la traccia in modifica resta
 /// sempre visibile). Stato in-memory: alla riapertura le tracce tornano visibili.

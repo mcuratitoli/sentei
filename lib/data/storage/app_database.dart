@@ -20,6 +20,9 @@ class TrackRows extends Table {
       boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  // Foto collegate (§"Sync album fotografico"): JSON [{id,la,ln,d,at,thumb},...]
+  // o null. `thumb` è il thumbnail in base64 (l'originale resta in galleria).
+  TextColumn get photos => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -31,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sentei'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +55,11 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
                 "UPDATE track_rows SET trails_resolved = 0 "
                 "WHERE trail_refs = '[]' OR trail_refs IS NULL");
+          }
+          // v4: aggiunge la colonna photos (foto collegate, nullable — le
+          // tracce esistenti non ne hanno finché non si usa la funzionalità).
+          if (from < 4) {
+            await m.addColumn(trackRows, trackRows.photos);
           }
         },
       );

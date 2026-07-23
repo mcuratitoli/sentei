@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/offline/terrarium_tile_cache.dart';
+import '../../ui/ios_progress.dart';
 import '../../ui/ios_toast.dart';
 import '../draw_route/route_editor_provider.dart';
 import 'offline_maps_providers.dart';
@@ -30,28 +31,8 @@ Future<void> downloadTrackOffline(
   final s = minLa - m, n = maxLa + m, w = minLo - m, e = maxLo + m;
 
   final phase = ValueNotifier<String>('Avvio…');
-  showCupertinoDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => CupertinoAlertDialog(
-      title: const Text('Salvataggio offline'),
-      content: Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: ValueListenableBuilder<String>(
-          valueListenable: phase,
-          builder: (_, v, __) => Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CupertinoActivityIndicator(radius: 9),
-              const SizedBox(width: 14),
-              Flexible(child: Text(v)),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
+  final closeProgress =
+      showIosProgress(context, title: 'Salvataggio offline', message: phase);
   try {
     await ref.read(offlineMapsServiceProvider).downloadArea(
           id: 'track-${t.id}',
@@ -72,13 +53,13 @@ Future<void> downloadTrackOffline(
       onProgress: (p) => phase.value = 'Elevazione ${(p * 100).round()}%',
     );
     ref.invalidate(downloadedRegionsProvider);
+    closeProgress();
     if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
       showIosToast(context, '"${t.name}" salvata offline');
     }
   } catch (err) {
+    closeProgress();
     if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
       showIosToast(context, 'Salvataggio offline fallito: $err');
     }
   } finally {

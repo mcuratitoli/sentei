@@ -16,6 +16,7 @@ import '../../core/constants.dart';
 import '../../core/util/format.dart';
 import '../../data/location/location_service.dart';
 import '../../data/search/geocoding_service.dart';
+import '../../domain/models/track_photo.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
 import '../../app/theme_provider.dart';
@@ -84,6 +85,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   CircleAnnotationManager? _waypointDots;
   CircleAnnotationManager? _cursorDot;
   CircleAnnotationManager? _inspectedDot;
+  // Foto collegate alla traccia attiva (§"Sync album fotografico"): pallino
+  // ambra alla posizione GPS reale dello scatto.
+  CircleAnnotationManager? _photoDots;
+  final Map<String, TrackPhoto> _photoById = <String, TrackPhoto>{};
   PolylineAnnotationManager? _liveLine;
   // Traccia grezza importata, mostrata **tratteggiata** durante l'import.
   PolylineAnnotationManager? _importRawLine;
@@ -388,10 +393,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     _cursorDot = await map.annotations.createCircleAnnotationManager();
     // Marker del punto ispezionato in esplorazione (info point).
     _inspectedDot = await map.annotations.createCircleAnnotationManager();
+    _photoDots = await map.annotations.createCircleAnnotationManager();
+    _photoDots!.tapEvents(onTap: _onPhotoTap);
     _ready = true; // tutto creato: ora si può renderizzare
     await _renderAll();
     await _renderSteepness();
     await _renderInspectedPoint();
+    await _renderPhotos();
     await _maybeFetchTrails();
     // Centratura iniziale (GPS) solo alla prima apertura, non a ogni cambio
     // stile: al re-setup dopo uno switch la camera va lasciata dov'è.
@@ -436,6 +444,34 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       circleStrokeColor: 0xFF1C1C1E, // anello antracite
       circleStrokeWidth: 3,
     ));
+  }
+
+  /// Marker delle foto collegate alla traccia **attiva** (in modifica o
+  /// selezionata): pallino ambra alla posizione GPS **reale** dello scatto —
+  /// non agganciato al percorso (più onesto: si vede anche se un po' fuori
+  /// sentiero). Tap → [_onPhotoTap] mostra l'anteprima.
+  Future<void> _renderPhotos() async {
+    final mgr = _photoDots;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    _photoById.clear();
+    final track = ref.read(tracksProvider).active;
+    for (final p in track?.photos ?? const <TrackPhoto>[]) {
+      final a = await mgr.create(CircleAnnotationOptions(
+        geometry:
+            Point(coordinates: Position(p.position.longitude, p.position.latitude)),
+        circleRadius: 7,
+        circleColor: 0xFFFFB300,
+        circleStrokeColor: 0xFFFFFFFF,
+        circleStrokeWidth: 2,
+      ));
+      _photoById[a.id] = p;
+    }
+  }
+
+  void _onPhotoTap(CircleAnnotation a) {
+    final photo = _photoById[a.id];
+    if (photo != null) ref.read(selectedPhotoProvider.notifier).set(photo);
   }
 
   /// Disegna la colorazione per ripidezza della traccia selezionata, se il
@@ -573,6 +609,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           await _drawWaypoints(t.waypoints);
         }
       }
+      await _renderPhotos();
     } finally {
       _rendering = false;
       if (_renderAgain) {
@@ -1087,6 +1124,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // Info punto in esplorazione (mini-card): solo se non c'è la card traccia.
     final inspected = ref.watch(inspectedPointProvider);
     final showPointCard = inspected != null && !showCard && !importing;
+    // Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico").
+    final selectedPhoto = ref.watch(selectedPhotoProvider);
     // La card traccia (selezione/disegno) ha priorità: azzera il punto ispezionato.
     ref.listen(tracksProvider.select((s) => s.showCard), (_, show) {
       if (show) ref.read(inspectedPointProvider.notifier).clear();
@@ -1162,6 +1201,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Anteprima della foto selezionata (tap su un pin), sopra la
+                  // card traccia.
+                  if (selectedPhoto != null) ...[
+                    _PhotoInfoCard(
+                      photo: selectedPhoto,
+                      onClose: () =>
+                          ref.read(selectedPhotoProvider.notifier).clear(),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const DrawRouteControls(),
                   // Caricamento import (annullabile): riallineamento in corso.
                   if (importing)
@@ -1699,6 +1748,71 @@ class _PointInfoCard extends StatelessWidget {
   }
 }
 
+/// Mini-card in vetro con l'anteprima della foto selezionata (tap su un pin
+/// mappa/profilo, §"Sync album fotografico"): thumbnail + data di scatto (se
+/// nota). L'originale non è recuperabile da qui (re-match locale non ancora
+/// implementato) — solo i metadati sincronizzati sono mostrati.
+class _PhotoInfoCard extends StatelessWidget {
+  const _PhotoInfoCard({required this.photo, required this.onClose});
+
+  final TrackPhoto photo;
+  final VoidCallback onClose;
+
+  static String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final thumbnail = photo.thumbnail;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width - 16,
+      ),
+      child: GlassSurface(
+        borderRadius: AppRadii.rPill,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: AppRadii.rMd,
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: thumbnail != null
+                      ? Image.memory(thumbnail, fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: palette.hairline.withValues(alpha: 0.08),
+                          child: Icon(CupertinoIcons.photo,
+                              color: palette.tertiaryIcon),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  photo.takenAt != null
+                      ? _fmtDate(photo.takenAt!)
+                      : 'Foto collegata',
+                  style: AppText.value.copyWith(color: palette.label),
+                ),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const ui.Size(40, 40),
+                onPressed: onClose,
+                child: Icon(CupertinoIcons.clear_circled_solid,
+                    size: 24, color: palette.tertiaryIcon),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Icona tappabile della barra in vetro: press-dim iOS, niente ripple Material.
 /// Con [child] si passa un glifo custom al posto dell'icona.

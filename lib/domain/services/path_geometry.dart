@@ -84,4 +84,47 @@ class PathGeometry {
     }
     return best;
   }
+
+  /// Come [distanceToPath], ma ritorna **anche** la distanza cumulata lungo
+  /// [path] (in metri, dall'inizio) nel punto più vicino a [p]. Serve al
+  /// piazzamento di un elemento esterno (es. una foto geolocalizzata) sul
+  /// grafico del profilo altimetrico, il cui asse X è la distanza-lungo-
+  /// percorso — non serve alcun dato temporale sulla traccia.
+  ///
+  /// Ritorna `distanceToPath: infinity, distanceAlongPath: 0` per percorsi vuoti.
+  ({double distanceToPath, double distanceAlongPath}) nearestOnPath(
+      LatLng p, List<LatLng> path) {
+    if (path.isEmpty) {
+      return (distanceToPath: double.infinity, distanceAlongPath: 0);
+    }
+    if (path.length == 1) {
+      return (distanceToPath: distance(p, path.first), distanceAlongPath: 0);
+    }
+
+    const mPerDegLat = 111320.0;
+    final mPerDegLon = mPerDegLat * math.cos(p.latitude * math.pi / 180.0);
+    double x(LatLng q) => (q.longitude - p.longitude) * mPerDegLon;
+    double y(LatLng q) => (q.latitude - p.latitude) * mPerDegLat;
+
+    var best = double.infinity;
+    var bestAlong = 0.0;
+    var cumulative = 0.0;
+    for (var i = 0; i < path.length - 1; i++) {
+      final segLen = distance(path[i], path[i + 1]);
+      final ax = x(path[i]), ay = y(path[i]);
+      final bx = x(path[i + 1]), by = y(path[i + 1]);
+      final dx = bx - ax, dy = by - ay;
+      final lenSq = dx * dx + dy * dy;
+      final t = lenSq == 0 ? 0.0 : ((-ax) * dx + (-ay) * dy) / lenSq;
+      final tc = t.clamp(0.0, 1.0);
+      final px = ax + dx * tc, py = ay + dy * tc;
+      final d = math.sqrt(px * px + py * py);
+      if (d < best) {
+        best = d;
+        bestAlong = cumulative + segLen * tc;
+      }
+      cumulative += segLen;
+    }
+    return (distanceToPath: best, distanceAlongPath: bestAlong);
+  }
 }

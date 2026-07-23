@@ -4,6 +4,7 @@ import 'dart:ui' show Color;
 import 'package:drift/drift.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../domain/models/track_photo.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../features/draw_route/route_editor_provider.dart';
 import 'app_database.dart';
@@ -45,6 +46,7 @@ class TracksRepository {
       trailsResolved: Value(track.trailsResolved),
       createdAt: Value(track.createdAt ?? now),
       updatedAt: Value(updatedAt ?? now),
+      photos: Value(_encodePhotos(track.photos)),
     ));
   }
 
@@ -67,6 +69,13 @@ class TracksRepository {
       ? null
       : TrackCodec.metricsFromJson(jsonDecode(json) as Map<String, dynamic>);
 
+  static String? _encodePhotos(List<TrackPhoto> photos) =>
+      photos.isEmpty ? null : jsonEncode(TrackCodec.photosToJson(photos));
+
+  static List<TrackPhoto> _decodePhotos(String? json) => json == null
+      ? const []
+      : TrackCodec.photosFromJson(jsonDecode(json) as List);
+
   static DrawnTrack _fromRow(TrackRow r) => DrawnTrack(
         id: r.id,
         name: r.name,
@@ -78,5 +87,6 @@ class TracksRepository {
         metrics: _decodeMetrics(r.metrics),
         trailsResolved: r.trailsResolved,
         createdAt: r.createdAt,
+        photos: _decodePhotos(r.photos),
       );
 }

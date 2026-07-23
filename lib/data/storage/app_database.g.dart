@@ -86,6 +86,11 @@ class $TrackRowsTable extends TrackRows
   late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _photosMeta = const VerificationMeta('photos');
+  @override
+  late final GeneratedColumn<String> photos = GeneratedColumn<String>(
+      'photos', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -98,7 +103,8 @@ class $TrackRowsTable extends TrackRows
         metrics,
         trailsResolved,
         createdAt,
-        updatedAt
+        updatedAt,
+        photos
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -169,6 +175,10 @@ class $TrackRowsTable extends TrackRows
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('photos')) {
+      context.handle(_photosMeta,
+          photos.isAcceptableOrUnknown(data['photos']!, _photosMeta));
+    }
     return context;
   }
 
@@ -200,6 +210,8 @@ class $TrackRowsTable extends TrackRows
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      photos: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}photos']),
     );
   }
 
@@ -221,6 +233,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   final bool trailsResolved;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? photos;
   const TrackRow(
       {required this.id,
       required this.name,
@@ -232,7 +245,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       this.metrics,
       required this.trailsResolved,
       required this.createdAt,
-      required this.updatedAt});
+      required this.updatedAt,
+      this.photos});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -249,6 +263,9 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     map['trails_resolved'] = Variable<bool>(trailsResolved);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || photos != null) {
+      map['photos'] = Variable<String>(photos);
+    }
     return map;
   }
 
@@ -267,6 +284,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       trailsResolved: Value(trailsResolved),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      photos:
+          photos == null && nullToAbsent ? const Value.absent() : Value(photos),
     );
   }
 
@@ -285,6 +304,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       trailsResolved: serializer.fromJson<bool>(json['trailsResolved']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      photos: serializer.fromJson<String?>(json['photos']),
     );
   }
   @override
@@ -302,6 +322,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'trailsResolved': serializer.toJson<bool>(trailsResolved),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'photos': serializer.toJson<String?>(photos),
     };
   }
 
@@ -316,7 +337,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           Value<String?> metrics = const Value.absent(),
           bool? trailsResolved,
           DateTime? createdAt,
-          DateTime? updatedAt}) =>
+          DateTime? updatedAt,
+          Value<String?> photos = const Value.absent()}) =>
       TrackRow(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -329,6 +351,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
         trailsResolved: trailsResolved ?? this.trailsResolved,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        photos: photos.present ? photos.value : this.photos,
       );
   TrackRow copyWithCompanion(TrackRowsCompanion data) {
     return TrackRow(
@@ -347,6 +370,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           : this.trailsResolved,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      photos: data.photos.present ? data.photos.value : this.photos,
     );
   }
 
@@ -363,14 +387,26 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('metrics: $metrics, ')
           ..write('trailsResolved: $trailsResolved, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('photos: $photos')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, color, snapToTrail, waypoints,
-      routedPath, trailRefs, metrics, trailsResolved, createdAt, updatedAt);
+  int get hashCode => Object.hash(
+      id,
+      name,
+      color,
+      snapToTrail,
+      waypoints,
+      routedPath,
+      trailRefs,
+      metrics,
+      trailsResolved,
+      createdAt,
+      updatedAt,
+      photos);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -385,7 +421,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.metrics == this.metrics &&
           other.trailsResolved == this.trailsResolved &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.photos == this.photos);
 }
 
 class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
@@ -400,6 +437,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
   final Value<bool> trailsResolved;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<String?> photos;
   final Value<int> rowid;
   const TrackRowsCompanion({
     this.id = const Value.absent(),
@@ -413,6 +451,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.trailsResolved = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.photos = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TrackRowsCompanion.insert({
@@ -427,6 +466,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.trailsResolved = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.photos = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         color = Value(color),
@@ -445,6 +485,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     Expression<bool>? trailsResolved,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<String>? photos,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -459,6 +500,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       if (trailsResolved != null) 'trails_resolved': trailsResolved,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (photos != null) 'photos': photos,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -475,6 +517,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       Value<bool>? trailsResolved,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
+      Value<String?>? photos,
       Value<int>? rowid}) {
     return TrackRowsCompanion(
       id: id ?? this.id,
@@ -488,6 +531,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       trailsResolved: trailsResolved ?? this.trailsResolved,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      photos: photos ?? this.photos,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -528,6 +572,9 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (photos.present) {
+      map['photos'] = Variable<String>(photos.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -548,6 +595,7 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
           ..write('trailsResolved: $trailsResolved, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('photos: $photos, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -577,6 +625,7 @@ typedef $$TrackRowsTableCreateCompanionBuilder = TrackRowsCompanion Function({
   Value<bool> trailsResolved,
   required DateTime createdAt,
   required DateTime updatedAt,
+  Value<String?> photos,
   Value<int> rowid,
 });
 typedef $$TrackRowsTableUpdateCompanionBuilder = TrackRowsCompanion Function({
@@ -591,6 +640,7 @@ typedef $$TrackRowsTableUpdateCompanionBuilder = TrackRowsCompanion Function({
   Value<bool> trailsResolved,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
+  Value<String?> photos,
   Value<int> rowid,
 });
 
@@ -636,6 +686,9 @@ class $$TrackRowsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get photos => $composableBuilder(
+      column: $table.photos, builder: (column) => ColumnFilters(column));
 }
 
 class $$TrackRowsTableOrderingComposer
@@ -680,6 +733,9 @@ class $$TrackRowsTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get photos => $composableBuilder(
+      column: $table.photos, builder: (column) => ColumnOrderings(column));
 }
 
 class $$TrackRowsTableAnnotationComposer
@@ -723,6 +779,9 @@ class $$TrackRowsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get photos =>
+      $composableBuilder(column: $table.photos, builder: (column) => column);
 }
 
 class $$TrackRowsTableTableManager extends RootTableManager<
@@ -759,6 +818,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<bool> trailsResolved = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
+            Value<String?> photos = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TrackRowsCompanion(
@@ -773,6 +833,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             trailsResolved: trailsResolved,
             createdAt: createdAt,
             updatedAt: updatedAt,
+            photos: photos,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -787,6 +848,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<bool> trailsResolved = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
+            Value<String?> photos = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               TrackRowsCompanion.insert(
@@ -801,6 +863,7 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             trailsResolved: trailsResolved,
             createdAt: createdAt,
             updatedAt: updatedAt,
+            photos: photos,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -115,7 +115,13 @@ class _IosToastState extends State<_IosToast> {
                 child: Text(
                   widget.message,
                   textAlign: TextAlign.center,
-                  style: AppText.toast.copyWith(color: CupertinoColors.white),
+                  // decoration esplicita: senza, un Text senza DefaultTextStyle
+                  // d'ambiente (questo è un OverlayEntry "nudo") eredita lo stile
+                  // di debug di Flutter — sottolineato doppio giallo.
+                  style: AppText.toast.copyWith(
+                    color: CupertinoColors.white,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
             ),
