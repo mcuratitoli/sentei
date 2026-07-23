@@ -18,6 +18,7 @@ import '../../data/location/location_service.dart';
 import '../../data/search/geocoding_service.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
+import '../../app/theme_provider.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
@@ -39,11 +40,23 @@ String get _outdoorsStyleUri =>
     _envMapStyle.isEmpty ? MapboxStyles.OUTDOORS : _envMapStyle;
 
 /// Stile **satellite** con strade/etichette (utile in escursione: si vedono
-/// nomi e sentieri sopra l'ortofoto).
+/// nomi e sentieri sopra l'ortofoto). **Invariato** col tema app (l'ortofoto
+/// non ha un "verso scuro" sensato, per decisione utente).
 const String _satelliteStyleUri =
     'mapbox://styles/mapbox/satellite-streets-v12';
 
-/// Vista mappa selezionabile dal tasto "livelli" nella barra.
+/// Stile **scuro** usato al posto di Outdoors quando il tema dell'app è scuro
+/// (automatico, coordinato col tema — non una scelta separata dell'utente).
+/// `dark-v11` è uno stile Mapbox generico ("data visualization"), non tarato
+/// per l'escursionismo: buona parte del carattere outdoor di Sentèi resta
+/// comunque nei layer nostri sopra (hillshade, terreno 3D, sentieri CAI).
+/// Vedi `docs/eval-dark-map.md`.
+const String _darkStyleUri = MapboxStyles.DARK;
+
+/// Vista mappa selezionabile dal tasto "livelli" nella barra (Outdoors ↔
+/// Satellite). Ortogonale al **tema** (chiaro/scuro): Outdoors risolve a
+/// `_outdoorsStyleUri` o `_darkStyleUri` in base al tema; Satellite resta
+/// sempre `_satelliteStyleUri`.
 enum MapStyleChoice { outdoors, satellite }
 
 /// Mappa principale su **Mapbox GL** (migrazione, Fase 4): base Outdoors +
@@ -60,7 +73,8 @@ class MapGlScreen extends ConsumerStatefulWidget {
   ConsumerState<MapGlScreen> createState() => _MapGlScreenState();
 }
 
-class _MapGlScreenState extends ConsumerState<MapGlScreen> {
+class _MapGlScreenState extends ConsumerState<MapGlScreen>
+    with WidgetsBindingObserver {
   MapboxMap? _map;
 
   // Manager annotation: tracce salvate (linee+estremi), waypoint in modifica,
@@ -98,6 +112,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   // il cambio vista avviene in modo imperativo con `map.loadStyleURI`, così il
   // prop del widget non cambia e non innesca ricariche doppie.
   MapStyleChoice _styleChoice = MapStyleChoice.outdoors;
+  // Tema **mappa** (chiaro/scuro), coordinato automaticamente col tema app:
+  // quando true, la vista Outdoors risolve a `_darkStyleUri` invece di
+  // `_outdoorsStyleUri` (Satellite resta invariata). Calcolato una volta in
+  // `initState` (per lo stile iniziale del MapWidget) e poi tenuto sincro da
+  // `_syncMapTheme` (cambio Tema nelle Impostazioni) e da
+  // `didChangePlatformBrightness` (cambio del sistema mentre si è in Automatico).
+  late bool _mapIsDark;
   // La parte "one-shot" del setup (centratura iniziale) va fatta solo alla
   // prima apertura, non a ogni cambio stile.
   bool _postSetupOnce = false;
@@ -143,7 +164,44 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mapIsDark = _resolveMapDark();
     _splashTimeout = Timer(const Duration(seconds: 12), _hideSplash);
+  }
+
+  /// Il tema **effettivo** è scuro se l'utente ha scelto "Scuro", oppure se ha
+  /// scelto "Automatico" e il sistema è in dark. Stessa logica di
+  /// `_AppearanceSection` nelle Impostazioni.
+  bool _resolveMapDark() {
+    final mode = ref.read(appThemeModeProvider);
+    return switch (mode) {
+      AppThemeMode.dark => true,
+      AppThemeMode.light => false,
+      AppThemeMode.auto =>
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark,
+    };
+  }
+
+  /// Chiamato quando il **tema app** cambia (Impostazioni → Tema) o quando il
+  /// **sistema** cambia luminosità mentre si è in Automatico
+  /// (`didChangePlatformBrightness`). Se la mappa deve seguire, ricarica lo
+  /// stile Outdoors↔Dark (Satellite resta invariata, per decisione utente).
+  Future<void> _syncMapTheme() async {
+    final wantDark = _resolveMapDark();
+    if (wantDark == _mapIsDark) return;
+    _mapIsDark = wantDark;
+    await _applyAttributionColor();
+    if (_styleChoice != MapStyleChoice.outdoors || _map == null) return;
+    _styleLoaded = false;
+    _needTerrainReassert = true;
+    await _map!.loadStyleURI(_resolveStyleUri(MapStyleChoice.outdoors));
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    _syncMapTheme();
   }
 
   Future<void> _onMapCreated(MapboxMap map) async {
@@ -185,15 +243,25 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       marginLeft: 6,
       marginTop: 30,
     ));
-    // NB: la **dimensione** dell'icona "i" è fissata dall'SDK nativo Mapbox
-    // (AttributionSettings non espone size) → non riducibile via API; qui la
-    // spostiamo solo un filo più in alto e a sinistra, mantenendo la spaziatura
-    // sotto il logo.
+    await _applyAttributionColor();
+  }
+
+  /// Colore dell'icona attribuzione "i": antracite su Outdoors chiaro/Satellite
+  /// (invariata), **chiaro** su Outdoors scuro (leggibile sullo stile Dark).
+  /// Ripassa **sempre anche posizione e margini** insieme al colore (verificato
+  /// sul controller nativo: se `position`/margini non sono passati, l'SDK
+  /// ricade sui default — bottom-right, margini 0 — anziché lasciarli invariati).
+  /// NB: la **dimensione** dell'icona "i" è fissata dall'SDK nativo Mapbox
+  /// (AttributionSettings non espone size) → non riducibile via API.
+  Future<void> _applyAttributionColor() async {
+    final map = _map;
+    if (map == null) return;
+    final dark = _mapIsDark && _styleChoice == MapStyleChoice.outdoors;
     await map.attribution.updateSettings(AttributionSettings(
       position: OrnamentPosition.TOP_LEFT,
       marginLeft: 6,
       marginTop: 56,
-      iconColor: 0xFF3A3A3C, // antracite, coerente con la barra
+      iconColor: dark ? 0xFFE5E5EA : 0xFF3A3A3C,
     ));
   }
 
@@ -231,11 +299,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       'source': 'mapbox-dem',
       'exaggeration': 1.5,
     }));
-    // Cielo atmosferico: dà profondità all'orizzonte in vista 3D.
+    // Cielo atmosferico: dà profondità all'orizzonte in vista 3D. Sole più
+    // tenue in dark: un bagliore acceso stonerebbe su un basamento scuro.
     await map.style.addLayer(SkyLayer(
       id: 'sentei-sky',
       skyType: SkyType.ATMOSPHERE,
-      skyAtmosphereSunIntensity: 10,
+      skyAtmosphereSunIntensity: _mapIsDark ? 5 : 10,
     ));
     // Hillshade extra per un rilievo più marcato (Outdoors ne ha uno tenue).
     // Inserito SOTTO la prima etichetta così non copre testo/sentieri/strade.
@@ -249,12 +318,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       }
     }
     if (_styleChoice == MapStyleChoice.outdoors) {
+      // Su `dark-v11` il basamento è già scuro: un highlight bianco acceso
+      // "sbiancherebbe" il rilievo, quindi lo attenuiamo; l'ombra resta simile
+      // (già scura) ma un filo più opaca per restare percepibile sul nero.
       final hillshade = HillshadeLayer(
         id: 'sentei-hillshade',
         sourceId: 'mapbox-dem',
         hillshadeExaggeration: 0.5,
-        hillshadeShadowColor: 0x59413A33,
-        hillshadeHighlightColor: 0x33FFFFFF,
+        hillshadeShadowColor: _mapIsDark ? 0x73000000 : 0x59413A33,
+        hillshadeHighlightColor: _mapIsDark ? 0x1FFFFFFF : 0x33FFFFFF,
       );
       if (firstSymbolId != null) {
         await map.style
@@ -269,6 +341,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       id: _trailSourceId,
       data: '{"type":"FeatureCollection","features":[]}',
     ));
+    // Verde scuro su alone bianco (Outdoors chiaro) → verde chiaro su alone
+    // scuro (mappa dark): stessa leggibilità "a bandiera" invertita di tono.
     await map.style.addLayer(SymbolLayer(
       id: _trailLayerId,
       sourceId: _trailSourceId,
@@ -276,8 +350,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       symbolSpacing: 220,
       textFieldExpression: <Object>['get', 'ref'],
       textSize: 13,
-      textColor: 0xFF1B5E20,
-      textHaloColor: 0xFFFFFFFF,
+      textColor: _mapIsDark ? 0xFF81C784 : 0xFF1B5E20,
+      textHaloColor: _mapIsDark ? 0xFF1B1B1B : 0xFFFFFFFF,
       textHaloWidth: 2,
       textHaloBlur: 0.5,
     ));
@@ -918,15 +992,20 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
         : MapStyleChoice.outdoors);
   }
 
+  /// Risolve l'URI di stile per la vista [choice]: Outdoors segue il **tema
+  /// mappa** (chiaro→`_outdoorsStyleUri`, scuro→`_darkStyleUri`); Satellite è
+  /// sempre `_satelliteStyleUri` (invariata col tema, per decisione utente).
+  String _resolveStyleUri(MapStyleChoice choice) => switch (choice) {
+        MapStyleChoice.outdoors => _mapIsDark ? _darkStyleUri : _outdoorsStyleUri,
+        MapStyleChoice.satellite => _satelliteStyleUri,
+      };
+
   /// Cambia la vista mappa: ricarica lo stile e ri-esegue il setup (terreno,
   /// hillshade, layer sentieri, manager annotation) al `onStyleLoaded`.
   Future<void> _setStyle(MapStyleChoice choice) async {
     final map = _map;
     if (map == null || choice == _styleChoice) return;
-    final uri = switch (choice) {
-      MapStyleChoice.outdoors => _outdoorsStyleUri,
-      MapStyleChoice.satellite => _satelliteStyleUri,
-    };
+    final uri = _resolveStyleUri(choice);
     setState(() => _styleChoice = choice);
     _ready = false; // i manager verranno ricreati dopo il caricamento
     _needTerrainReassert = true; // ri-applica il terreno al primo idle
@@ -988,6 +1067,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _splashTimeout?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
@@ -1030,6 +1110,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
     ref.listen(importPreviewProvider, (_, __) => _renderAll());
     // Il caricamento import cambia cosa nascondere/mostrare (altre tracce).
     ref.listen(importLoadingProvider, (_, __) => _renderAll());
+    // Cambio di Tema dalle Impostazioni (Automatico/Chiaro/Scuro): coordina la
+    // mappa (Outdoors↔Dark), se serve. I cambi di brightness di sistema mentre
+    // si è in Automatico arrivano invece da `didChangePlatformBrightness`.
+    ref.listen(appThemeModeProvider, (_, __) => _syncMapTheme());
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
@@ -1045,7 +1129,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
       body: Stack(
         children: [
           MapWidget(
-            styleUri: _outdoorsStyleUri,
+            // Stile iniziale fisso (letto una volta in initState via
+            // `_mapIsDark`): i cambi successivi (vista o tema) sono imperativi
+            // via `loadStyleURI`, non attraverso questo prop.
+            styleUri: _resolveStyleUri(MapStyleChoice.outdoors),
             onMapCreated: _onMapCreated,
             onStyleLoadedListener: _onStyleLoaded,
             onMapIdleListener: (_) => _onMapIdle(),
