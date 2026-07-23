@@ -42,6 +42,15 @@
 
 **📌 Validazione (TODO):** download **mappe+elevazione offline** in modalità aereo su device · smoothing dislivello su tracce reali · difficoltà CAI su tracce reali · smoke test OSM2CAI on-device.
 
+**✅ Da testare su device — editing punti intermedi + legende (23 lug 2026, implementati, non ancora provati a schermo):**
+- [ ] **Grab dei punti**: in modalità disegno, trascinare un waypoint intermedio deve prendere il punto (prima si spostava la mappa).
+- [ ] **Maniglie di metà-segmento**: tra due punti c'è un pallino bianco/anello-blu → trascinarlo inserisce un waypoint lì e splitta il segmento.
+- [ ] **Selezione + elimina**: tap su un punto lo evidenzia (più grande + anello) e apre la barra "Punto N · Elimina" (con conferma); niente più cancellazioni al tap.
+- [ ] **Undo a stack**: dopo più operazioni (add/move/insert/remove), "Annulla" le ripercorre a ritroso; disabilitato quando non c'è nulla da annullare.
+- [ ] **Incrementale**: spostando un punto su una traccia lunga, il ricalcolo è rapido (solo i segmenti adiacenti).
+- [ ] **Altre tracce nascoste in editing**: entrando in creazione/modifica, le altre tracce spariscono; riappaiono all'uscita.
+- [ ] **Legende aggiornate**: Impostazioni → Legenda difficoltà mostra escursionistiche (T/E/EE/EEA) + **alpinistiche F/PD** + **scala Welzenbach I/II/III** + nota condizioni; la voce **Abbreviazioni** (ANA/ASF/CAF/CAI/GTA/IGM/IGN/UGET) apre lo sheet; entrambe le sheet **si chiudono** (fix altezza).
+
 **⭐ Distribuzione agli amici — DECISO (22 lug 2026): iOS Unlisted + Android Play closed testing (Google Group).**
 - Obiettivo utente: uso privato/gratuito tra amici, senza vetrina pubblica e senza gestione costi. Scartata l'idea "store pubblici + codice alfanumerico" (esposizione massima + il codice lato client **non** protegge il token Mapbox → controllo costi debole). Alla scala "amici" si resta comunque nel **free tier Mapbox**.
 - **iOS → Unlisted App Distribution:** app in review normale ma **non ricercabile** (solo via **link diretto**, `apps.apple.com/...` **stabile e permanente**). Aggiornamenti = flusso App Store normale (**stesso link**, auto-update). **Revocabile**: "Remove from Sale" spegne i nuovi download (reversibile; chi l'ha già non la perde). Modello **link-gated, non per-utente**: chiunque abbia il link installa → non diffonderlo troppo. Vicino allo stato attuale (già su App Store Connect, team `W8XCSNY6V3`).

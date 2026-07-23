@@ -451,6 +451,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen> {
 
         if (!editing) {
           if (hidden) continue; // tracce salvate nascoste
+          // In creazione/modifica di una traccia, nascondi TUTTE le altre: la
+          // mappa resta pulita e l'editing (drag/inserimenti) è più facile.
+          if (state.editingId != null) continue;
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa e con bordo più marcato.
           final isSelected = t.id == state.selectedId;
