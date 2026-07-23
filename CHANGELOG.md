@@ -8,10 +8,14 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+_Nessuna novità in coda al momento._
+
+## 1.0.0 (5) — 24 luglio 2026
+
 - 🌙 **Modalità scura** con 3 varianti — Standard, Notturno (toni caldi per
   preservare la visione notturna in montagna) e Risparmio energetico (nero
   puro, pannelli senza sfocatura); cambio tema con transizione morbida invece
-  che a scatto.
+  che a scatto, accento caldo coerente in tutta l'app (non solo testo/icone).
 - 🗺️ **Mappa scura automatica**, coordinata col tema dell'app.
 - ✏️ **Editing avanzato dei tracciati**: aggiungere/spostare punti intermedi,
   undo multiplo, ri-instradamento incrementale sui sentieri.
@@ -23,6 +27,8 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 - 📸 Prime fondamenta per collegare le **foto scattate lungo il percorso**
   alla traccia (ricerca nella libreria, non ancora in interfaccia).
 - 📍 All'apertura la mappa si centra sempre sulla posizione GPS corrente.
+- 📋 **Novità in-app**: questo changelog, in versione sintetica, ora si vede
+  toccando Impostazioni → Informazioni → Sentèi.
 
 ## 1.0.0 (4) — 5 luglio 2026
 

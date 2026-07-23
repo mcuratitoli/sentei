@@ -27,6 +27,17 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 5,
+    date: '24 luglio 2026',
+    highlights: [
+      'Modalità scura: Standard, Notturno e Risparmio energetico',
+      'Editing avanzato dei tracciati (punti intermedi, undo, ri-instradamento)',
+      'Import GPX migliorato + legenda difficoltà estesa',
+      'Novità in-app: questo changelog',
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 4,
     date: '5 luglio 2026',
     highlights: [
