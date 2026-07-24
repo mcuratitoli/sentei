@@ -2,210 +2,219 @@
 
 > Roadmap P6 ("Accesso & analitiche"). Analisi 24 lug 2026, **nessuna implementazione** —
 > richiesta esplicitamente solo l'analisi, per decidere come procedere.
-
-## Obiettivo (dalla richiesta)
-
-Capire quanto e come viene usata Sentèi, su base temporale (settimana/mese), senza
-per forza richiedere un login. Metriche desiderate, testuali:
-
-1. Quante tracce vengono create/salvate.
-2. Quante volte viene aperta l'app.
-3. Quanti accessi si fanno alle API Mapbox.
-4. Quanti utenti sincronizzano i dati (iCloud/Google Drive).
-5. In generale: "analitiche di utilizzo".
-
-Valutare sia lo status quo (niente analitiche) sia un eventuale login, restando aperti a
-tutto.
+>
+> **Aggiornamento 24 lug 2026:** la privacy policy **non è un vincolo** in questa fase (due
+> soli tester, entrambi consapevoli) — vedi nota in fondo alla sezione "Vincoli". Le metriche
+> elencate dall'utente nella richiesta iniziale (tracce salvate, aperture app, accessi
+> Mapbox, utenti che sincronizzano) erano **proposte indicative**, non requisiti: questa
+> versione ragiona a tutto campo su cosa sarebbe davvero utile sapere per Sentèi, oltre alla
+> lista di partenza, e chiude con due proposte di implementazione concrete.
 
 ---
 
-## Il vincolo che conta più di ogni scelta tecnica
+## 1. Cosa conterebbe davvero, per Sentèi, in questa fase
 
-Sentèi **ha già dichiarato pubblicamente**, nella privacy policy (`docs/privacy-policy.html`
-§1) e nel README (§"Natura del progetto"):
+Prima di scegliere uno strumento, vale la pena chiedersi: **quali numeri cambierebbero
+davvero una decisione**, per un progetto hobby di uno sviluppatore solo, con 2 tester oggi e
+un gruppo di amici in prospettiva (Roadmap P6)? Non tutte le metriche hanno lo stesso
+valore. Le ordino per quanto informerebbero le prossime scelte, non per quanto sono facili
+da raccogliere.
 
-> "non raccogliamo né conserviamo i tuoi dati personali su nostri sistemi"
+### Livello 1 — Affidabilità: quello che oggi è invisibile e ha già causato bug reali
 
-e nel `CLAUDE.md` (§2, decisione architetturale fissata): **zero backend, privacy-first**.
-Qualunque opzione qui sotto che preveda l'invio di dati — anche solo un contatore anonimo
-— a un server (tuo o di terzi) **richiede aggiornare questa dichiarazione** e, trattandosi
-di beta distribuita ad amici che l'hanno già installata sulla parola di quella promessa,
-avvisarli esplicitamente del cambio (non è solo un dettaglio tecnico: è una promessa di
-fiducia già fatta). Questo non blocca nessuna opzione, ma va tenuto in conto nel costo
-reale di ciascuna, non solo in quello di sviluppo.
+Sentèi dipende da **quattro servizi terzi gratuiti e non garantiti** (BRouter, OSM2CAI,
+Overpass, Terrarium/tile Mapbox) più iCloud/Google Drive. La cronologia del progetto
+(`docs/CHANGELOG-DEV.md`) mostra che i problemi più seri finora sono stati proprio guasti
+**silenziosi** di questi servizi, scoperti solo grazie a un tester che si accorgeva di un
+sintomo:
+
+- Il bug "ricerca fallita ≠ vuota" (1 lug 2026): i servizi segnavia inghiottivano errori di
+  rete/timeout e la traccia restava marcata come "nessun segnavia trovato" invece che "la
+  ricerca è fallita, riprova" — scoperto solo perché un tester ha notato un caso specifico
+  (Bivacco Ravelli) senza numeri sentiero.
+- BRouter che degrada un tratto a linea retta per timeout del server pubblico (documentato
+  più volte, es. *"operation killed by thread-priority-watchdog"*).
+- Il codice ha oggi **41 blocchi `catch (_) { }`** che ignorano silenziosamente l'errore
+  (best-effort esplicito in alcuni casi, ma senza alcuna visibilità se il tasso di
+  fallimento sale).
+
+**Perché conta più delle metriche "di prodotto":** sapere che BRouter fallisce nel 30% dei
+tratti su una certa zona, o che la sync iCloud fallisce spesso su un device, ti direbbe
+*cosa aggiustare domani*. Sapere "quante volte si è aperta l'app" no. A questa scala, con
+pochi utenti, un solo crash o un solo servizio che degrada silenziosamente **è già un
+segnale**, non serve un campione grande per essere utile — il contrario delle metriche di
+prodotto "vanity" che servono numeri alti per dire qualcosa.
+
+### Livello 2 — Adozione delle feature: aiuta a pesare la roadmap
+
+Diverse voci della roadmap sono "epiche" costose (es. P1#11 "Foto lungo il percorso", *SP
+13*) prese di petto sulla fiducia che serviranno. Sapere se le feature già spedite vengono
+**davvero toccate** aiuterebbe a validare quella fiducia prima di investirci ancora:
+
+- Variante di tema scelta (Standard/Notturno/Risparmio energetico) — la "Notturno" è stata
+  pensata apposta per l'uso in montagna: viene scelta?
+- Tracciato disegnato a mano vs importato da GPX — dice se il flusso principale è "creo qui"
+  o "porto da fuori".
+- Download aree offline usato o no — è dichiarato "priorità alta" nel CLAUDE.md, ma è
+  davvero usato?
+- Provider di sync scelto (iCloud vs Google Drive) e se la sync viene poi **usata** dopo il
+  primo collegamento (non solo "connesso una volta e mai più sincronizzato").
+- Vista Satellite vs Outdoors vs Scura — quale si usa per davvero.
+- Apertura delle legende (difficoltà CAI, abbreviazioni) — dice se sono scoperte/utili o
+  ignorate.
+
+### Livello 3 — Le metriche "di conteggio" della richiesta iniziale
+
+Aperture app, tracce salvate, "quanti utenti sincronizzano" nel senso di conteggio grezzo:
+utili come polso generale, ma da sole dicono poco senza il livello 1/2 sopra. Restano nella
+proposta (sono economiche da avere una volta strumentato il resto), ma non sarebbero, da
+sole, la ragione per costruire qualcosa.
+
+### Ho scartato (per ora)
+
+- **Session replay / heatmap** (tipici di tool come PostHog/Firebase): utili per prodotti
+  con UX da ottimizzare su grandi numeri; con 2-10 utenti che sono amici e danno feedback a
+  voce, il segnale in più non giustifica l'invasività.
+- **Metriche di performance/frame rate**: utili più avanti se emergono lamentele su
+  lentezza/jank; oggi nessun segnale che serva.
 
 ---
 
-## Prima cosa: due delle quattro metriche sono già disponibili gratis, senza scrivere una riga
+## 2. Vincoli (aggiornati)
 
-| Metrica richiesta | Fonte già esistente | Costo |
+- **Privacy policy**: **non è più un freno** — l'utente ha deciso che con due tester
+  consapevoli è pienamente accettabile modificarla senza cerimonie. Resta comunque buona
+  norma **tenerla aggiornata e onesta** (repo pubblico, §9 CLAUDE.md) — un paio di frasi,
+  non una riscrittura drammatica. **Attenzione futura:** se/quando la distribuzione si
+  allarga oltre la cerchia stretta (Roadmap P6, gruppo "Amici"), vale la pena ridare
+  un'occhiata a cosa si raccoglie e a come è comunicato, perché i nuovi tester potrebbero
+  non essere consapevoli quanto i due attuali — non è un blocco oggi, è un promemoria per
+  quando cambierà la scala.
+- **Zero backend** resta comunque una scelta architetturale dichiarata (`CLAUDE.md` §2): non
+  è vietato uscirne, ma è una decisione da prendere con consapevolezza, non un dettaglio.
+- **Effort**: sei l'unico sviluppatore — qualunque soluzione che richieda manutenzione
+  continua (dashboard da guardare, infra da tenere in piedi) ha un costo ricorrente, non
+  solo iniziale.
+
+---
+
+## 3. Quick win a costo zero, prima di scrivere codice
+
+| Metrica | Fonte già esistente | Costo |
 |---|---|---|
-| **Accessi alle API Mapbox** | **Dashboard Mapbox** (account.mapbox.com → Statistics): map loads, tile request, per-token, con grafici temporali giornalieri/mensili | Zero — è già lì, serve solo guardarla. Nessun impatto privacy (Mapbox conta le richieste lato suo, indipendentemente da cosa fa l'app). |
-| **Quante volte si apre l'app / quante installazioni** (aggregato, non per singolo evento in-app) | **App Store Connect → Analytics** (iOS, già configurato: sessioni, installazioni, dispositivi attivi, retention) e, quando sarà pronto Play Console (Roadmap P6), le **Play Console Statistics** equivalenti su Android | Zero. Copertura più grossolana di un evento custom `app_open` (niente breakdown per singola sessione/orario), ma per "quanto viene usata l'app in generale" è spesso sufficiente. |
+| Accessi Mapbox | Dashboard Mapbox (account.mapbox.com → Statistics): map load/tile request nel tempo | Zero, già lì |
+| Aperture app / sessioni (aggregato) | App Store Connect → Analytics (iOS, già attivo su TestFlight); Play Console Statistics quando pronto (Android) | Zero, grana grossa |
 
-**Conseguenza pratica:** per Mapbox e per un primo polso sull'utilizzo generale, **non
-serve costruire nulla** — basta guardare due pannelli che esistono già e sono coerenti con
-la privacy policy attuale (Mapbox è già dichiarato al punto 5 della privacy policy; App
-Store Connect Analytics è dati che Apple fornisce allo sviluppatore su ciò che già gestisce
-per la distribuzione, non una nuova raccolta).
-
-Restano scoperte con questo solo approccio: **tracce create/salvate** e **quanti utenti
-sincronizzano** (specialmente lato iCloud, vedi sotto) — per queste serve dell'altro.
+Vale sempre la pena guardarle per prime — coprono due voci della richiesta iniziale senza
+scrivere nulla.
 
 ---
 
-## Perché "login" non risolve, da solo, "quanti utenti sincronizzano"
+## 4. Perché "login" non risolve, da solo, "chi sincronizza"
 
-Un'osservazione che vale la pena esplicitare perché non è ovvia: **aggiungere un login non
-dà automaticamente questo numero**.
-
-- **Google Drive**: usa già OAuth (`google_sign_in`). Google Cloud Console mostra un
-  conteggio approssimativo di utenti che hanno completato il consenso OAuth per il progetto
-  (APIs & Services → schermata di consenso OAuth) — **già disponibile oggi**, senza alcun
-  login aggiuntivo, perché l'"account" è già Google stesso.
-- **iCloud**: usa `icloud_storage` (contenitore iCloud Drive), non CloudKit database — Apple
-  **non espone alcuna dashboard** con "quanti utenti della tua app hanno iCloud Drive
-  attivo". Un login separato in-app (es. "Sign in with Apple") **non cambia questo fatto**:
-  Sign in with Apple identificherebbe l'utente nella tua UI, ma non ti direbbe se quello
-  stesso utente ha *anche* attivato la sincronizzazione iCloud Drive — quell'informazione
-  vive lato Apple, non lato tuo, con o senza login.
-
-L'unico modo per sapere davvero "quanti utenti hanno sincronizzato" (iCloud **incluso**) è
-un **evento anonimo che l'app stessa registra** quando la sincronizzazione va a buon fine
-("ho sincronizzato con successo, provider = iCloud/Drive") — il login non è un prerequisito
-per questo, è un problema ortogonale.
+Resta valido indipendentemente da tutto il resto: **Google Drive** ha già un proxy gratuito
+(Google Cloud Console → schermata di consenso OAuth mostra quanti hanno dato il consenso).
+**iCloud** no: usa `icloud_storage` (contenitore Drive, non CloudKit database), e Apple non
+espone alcuna dashboard sull'uso di iCloud Drive della tua app. Un login separato in-app
+(anche "Sign in with Apple") **non risolverebbe questo specifico buco**: ti direbbe chi ha
+fatto login nella tua UI, non se quella persona ha *anche* la sync iCloud attiva — quel dato
+vive solo lato Apple. L'unico modo per saperlo è un evento che l'app registra da sé quando la
+sync riesce. Il login è quindi una decisione di prodotto indipendente (vedi §6), non un
+prerequisito per le analitiche.
 
 ---
 
-## Le opzioni per "tracce create/salvate" + "utenti che sincronizzano" (i due numeri che servono davvero costruire)
+## 5. Due proposte di implementazione
 
-### Opzione A — Status quo, nessuna analitica custom
+Entrambe strumentano gli stessi tre livelli (§1): errori/affidabilità, adozione feature,
+conteggi grezzi. Cambia lo strumento, non cosa si misura.
 
-- **Costo:** zero.
-- **Cosa hai:** Mapbox dashboard + App Store Connect/Play Console (vedi sopra). Nessun dato
-  su tracce create o adozione della sync.
-- **Coerenza:** perfetta con la privacy policy attuale, nessuna comunicazione da fare ai
-  tester.
-- Alla scala attuale (beta privata tra amici, poche decine di installazioni) potrebbe
-  essere **onestamente sufficiente**: i numeri "grezzi" che contano di più (te lo usano? la
-  mappa Mapbox costa? crashano?) sono già coperti gratis; il resto è curiosità in più, non
-  decisioni operative bloccate dalla sua assenza.
+### Proposta 1 — Firebase (Crashlytics + Analytics): la più rapida e completa
 
-### Opzione B — SDK di terze parti (es. Firebase Analytics / Google Analytics for Firebase)
+Ora che la privacy policy non è un vincolo, questa è probabilmente la scelta con il miglior
+rapporto valore/sforzo.
 
-- **Costo di sviluppo:** basso (poche ore: pacchetto `firebase_analytics`, inizializzazione,
-  `logEvent()` nei punti giusti). Dashboard, funnel, retention già pronti.
-- **Contro:**
-  - Riporta l'app dentro l'infrastruttura Google anche per le funzioni che oggi non ce
-    l'hanno (oggi Google è usato solo per chi *sceglie* Google Drive; l'analitica invece
-    girerebbe per **tutti**, anche chi non ha mai toccato la sync) — è una rottura più
-    profonda della promessa "zero backend" di quanto sembri.
-  - Va aggiornata la privacy policy e la sezione "App Privacy" su App Store Connect
-    (nutrition label: anche dati anonimi/aggregati vanno dichiarati come "Usage Data").
-  - Serve un file `PrivacyInfo.xcprivacy` (privacy manifest, obbligatorio da Apple per SDK
-    che usano "Required Reason API") — un piccolo costo di manutenzione in più ad ogni
-    aggiornamento del pacchetto.
-  - Non richiede login: l'identificatore è un ID di installazione anonimo generato dall'SDK.
+- **`firebase_crashlytics`**: crash automatici + `recordError()` per errori non fatali. Si
+  aggancia **esattamente** ai punti già esistenti nel codice: i blocchi `catch` di
+  `TrailLookupException` (`data/trails/`), `CloudSyncException` (`data/cloud/`), i fallback
+  BRouter a linea retta (`brouter_routing_service.dart`), e via via gli altri dei 41
+  `catch (_)` che oggi non riportano nulla. Avrebbe **intercettato prima** il bug "ricerca
+  fallita ≠ vuota" invece di aspettare che un tester notasse il sintomo.
+- **`firebase_analytics`**: eventi custom (`logEvent`) per il livello 2/3 — schema eventi
+  proposto sotto. Sessioni/retention/DAU-WAU arrivano automatiche, senza codice aggiuntivo.
+- **Setup**: file di configurazione (`google-services.json` / `GoogleService-Info.plist`) —
+  stesso trattamento di `configs/` già in uso per i client OAuth Google (gitignorato, mai nel
+  repo pubblico).
+- **Costo**: tier gratuito ampiamente sufficiente a questa scala; nessun costo di
+  manutenzione infrastrutturale (Google ospita tutto); dashboard pronte, zero query da
+  scrivere a mano.
+- **Contro onesto**: dipendenza da Google anche per chi non usa Google Drive; un file
+  `PrivacyInfo.xcprivacy` (privacy manifest Apple) da mantenere ad ogni aggiornamento SDK —
+  un costo piccolo, non bloccante.
 
-### Opzione C — Anonima, "fatta in casa", senza login (raccomandata se si vuole più di A)
+### Proposta 2 — Sentry (errori) — eventualmente + PostHog (prodotto): più mirata, meno Google
 
-Un contatore minimo, coerente con lo spirito privacy-first, che risponde esattamente alle
-metriche mancanti e nient'altro:
+Se preferisci non portare Google dentro l'app per questo, o vuoi uno strumento pensato
+apposta per gli errori (più ricco di Crashlytics su stack trace/breadcrumb/contesto):
 
-1. **ID anonimo locale**: UUID generato una volta, salvato in `shared_preferences` — non
-   email, non device ID di sistema, non collegato ad alcun account.
-2. **Manciata di eventi discreti**, non un log dettagliato dell'uso:
-   - `app_open` (una volta per sessione/avvio)
-   - `track_saved` (alla creazione o import di una traccia, con un flag `origin:
-     drawn|imported`)
-   - `sync_connected` (quando la connessione a un provider va a buon fine, con
-     `provider: icloud|google_drive` — **nessun dato del tracciato**, solo l'evento)
-3. **Un endpoint di ingestione minimale**, non un "backend" nel senso pieno: una funzione
-   serverless (Cloudflare Workers, tier gratuito ~100k richieste/giorno; o Supabase Edge
-   Functions, tier gratuito) che riceve `{event, anon_id, timestamp, app_version}` e lo
-   scrive in un KV/tabella. Query periodiche (te le fai tu, non serve una dashboard
-   sofisticata) aggregano per settimana/mese: "N tracce salvate questa settimana", "N id
-   distinti che hanno fatto `sync_connected` questo mese" (proxy di "utenti che
-   sincronizzano" — imperfetto se qualcuno reinstalla l'app, accettabile per una beta tra
-   amici).
-4. **Nessun contenuto delle tracce** lascia mai il dispositivo per motivi di analitica — la
-   sync vera (GPX/JSON) resta quello che è oggi, sul cloud personale dell'utente.
+- **Sentry** (`sentry_flutter`): cattura crash + errori non fatali con contesto ricco
+  (breadcrumb delle azioni precedenti, stack trace completo, tag per servizio: `brouter`,
+  `osm2cai`, `overpass`, `icloud`, `google_drive`). Tier gratuito generoso (5k errori/mese),
+  open-source (self-hostabile in futuro se mai volessi uscirne). Copre bene tutto il
+  **Livello 1** (§1), il più prezioso.
+- **PostHog** (`posthog_flutter`), opzionale, per il **Livello 2/3**: alternativa a Firebase
+  Analytics con tier gratuito (1M eventi/mese), posizionata come più privacy-conscious,
+  open-source e self-hostabile se in futuro si volesse riportare tutto "in casa" senza
+  riscrivere il client. Funnel/retention inclusi.
+- **Costo**: due strumenti invece di uno (due dashboard, due SDK) — leggermente più lavoro
+  di setup rispetto alla Proposta 1, ma ciascuno più specializzato nel suo compito.
+- **Vantaggio**: nessuna dipendenza Google; se un domani si volesse davvero "zero terze
+  parti", PostHog è l'unico dei quattro (Firebase/Crashlytics/Sentry/PostHog) auto-ospitabile
+  senza cambiare SDK lato client.
 
-- **Costo di sviluppo:** medio (il codice client è semplice; la parte nuova è mettere in
-  piedi e mantenere, anche minimamente, un endpoint — è la prima volta che il progetto
-  avrebbe *qualcosa* fuori dal dispositivo dell'utente sotto il tuo controllo diretto).
-- **Costo economico:** presumibilmente zero, nei tier gratuiti, alla scala attuale.
-- **Contro:** rompe comunque, anche se in modo minimo e onesto, la frase "zero backend" —
-  va detto chiaramente nella privacy policy ("un contatore anonimo e aggregato, senza dati
-  personali, per capire quanto viene usata l'app"), ma è un cambiamento piccolo e onesto da
-  comunicare, non uno strutturale.
+### Schema eventi proposto (valido per entrambe le proposte)
 
-### Opzione D — Login obbligatorio/opzionale (Google/Apple) + analitiche per-utente
+| Evento | Quando | Payload minimo |
+|---|---|---|
+| *(automatico)* crash/errore | catch esistenti + crash non gestiti | stack trace, tag servizio (`brouter`/`osm2cai`/`overpass`/`icloud`/`google_drive`/`terrarium`) |
+| `track_saved` | fine disegno o import GPX | `origin: drawn\|imported` |
+| `sync_connected` | login provider riuscito | `provider: icloud\|google_drive` |
+| `sync_run` | "Sincronizza ora" completata | `provider`, `uploaded`, `downloaded` (già calcolati da `computeSyncPlan`) |
+| `offline_area_downloaded` | fine download area offline | `kind: map\|elevation` |
+| `theme_variant_selected` | cambio variante scura | `variant: standard\|notturno\|oled` |
+| `map_style_switched` | cambio Outdoors/Satellite/Scura | `style` |
+| `legend_opened` | apertura legenda difficoltà/abbreviazioni | `legend` |
+| *(automatico)* sessioni/aperture | gestito dall'SDK stesso | — |
 
-Questa è la parte che la roadmap aveva già segnato come "questione architetturale aperta"
-(§10 CLAUDE.md, P6 ROADMAP) — e la conferma dell'analisi è: **è una decisione a sé,
-indipendente e molto più pesante di quella sulle analitiche**.
-
-Cosa comporterebbe, oltre a quanto sopra:
-
-- **Un vero gate di login** in app (schermata prima della mappa o opzionale da
-  Impostazioni), persistenza sessione, logout — oggi non esiste (Google Sign-In è usato
-  *solo* come autorizzazione OAuth per Drive, non come "account Sentèi"; iCloud usa
-  l'account di sistema, non un login applicativo).
-- **Sign in with Apple obbligatorio su iOS** (Guideline 4.8) se offri login social — un
-  intero flusso in più da implementare e mantenere, con la sua UX di gestione account,
-  eliminazione account (Guideline 5.1.1(v): un'app con account deve permettere di
-  cancellarlo dall'app stessa).
-- **Un backend reale** per collegare eventi/dati a un utente autenticato (non basta più un
-  endpoint anonimo: serve gestione identità, sessioni, probabilmente un database utenti) —
-  un salto di complessità e manutenzione enorme rispetto all'Opzione C, per un'app gratuita
-  di un solo sviluppatore.
-- **Riscrittura sostanziale della privacy policy** e della sezione "Natura del progetto" del
-  README: da "zero backend, nessun dato raccolto" a "esiste un account, esistono dati
-  legati alla tua identità su un server" — un posizionamento diverso del progetto, non un
-  dettaglio.
-- **Vantaggio reale che porta**: metriche per-utente vere (non solo conteggi aggregati),
-  possibilità di supporto/comunicazione diretta agli utenti, continuità multi-dispositivo
-  legata all'identità invece che al solo cloud provider. Nessuno di questi benefici è
-  necessario per rispondere alle 4 domande di partenza — servirebbero per obiettivi diversi
-  (prodotto multi-dispositivo più maturo, community, ecc.).
-
-**In breve: il login non è un prerequisito per le analitiche che hai chiesto.** È una
-decisione di prodotto separata (vale la pena? per un'app gratuita per gli amici, quasi
-certamente non ancora) che va presa sui suoi meriti, non "tanto che ci siamo".
+Nessun contenuto di traccia (geometria, nome, foto) in nessun evento — solo cosa succede,
+mai il contenuto di cosa l'utente ha creato.
 
 ---
 
-## Tabella riassuntiva
+## 6. Login (Google/Apple) — resta una decisione separata
 
-| Opzione | Risponde a Mapbox | Risponde a "app aperta" | Risponde a "tracce salvate" | Risponde a "chi sincronizza" | Serve un backend? | Tocca la privacy policy? | Effort |
-|---|---|---|---|---|---|---|---|
-| **A — status quo** | ✅ (dashboard Mapbox) | 🟡 parziale (App Store/Play Analytics) | ❌ | ❌ | No | No | Zero |
-| **B — SDK terze parti (Firebase)** | ✅ | ✅ | ✅ | ✅ (parziale, anonimo) | No (Google lo ospita) | Sì (nutrition label + policy) | Basso |
-| **C — anonimo fatto in casa** | ✅ | ✅ | ✅ | ✅ (anonimo) | Sì, minimale | Sì (una frase onesta) | Medio |
-| **D — login + backend utenti** | ✅ | ✅ | ✅ | ✅ (per-utente reale) | Sì, completo | Sì, riscrittura | Alto |
+Non cambia rispetto alla versione precedente dell'analisi: introdurre un vero login
+applicativo (oggi Google Sign-In è solo autorizzazione OAuth per Drive, iCloud usa
+l'account di sistema) comporta un gate in-app, **Sign in with Apple obbligatorio su iOS**
+(Guideline 4.8) se offri login social, gestione/cancellazione account (Guideline 5.1.1(v)),
+e — soprattutto — non aggiunge nulla che la Proposta 1 o 2 non diano già per rispondere alle
+domande di analitica. Vale la pena valutarlo **solo** se emerge un motivo diverso (es.
+continuità multi-dispositivo legata all'identità, supporto utenti diretto), non per avere
+"analitiche migliori".
 
 ---
 
-## Raccomandazione
+## 7. Raccomandazione
 
-1. **Subito, a costo zero:** inizia a guardare **Mapbox Dashboard** e **App Store Connect
-   Analytics** — coprono già 1.5 delle 4 domande di partenza senza toccare una riga di
-   codice né la privacy policy.
-2. **Se servono davvero "tracce salvate" e "chi sincronizza":** **Opzione C** (contatore
-   anonimo fatto in casa, 3 eventi, endpoint minimale) — è l'unica che risponde a tutte e
-   quattro le domande restando coerente con lo spirito del progetto, con un costo di
-   sviluppo contenuto e un impatto sulla privacy policy onesto e circoscritto a una frase.
-   Scarterei la B (Firebase) a meno che la velocità di implementazione conti più della
-   coerenza con "zero backend/no Google se non richiesto" — è comunque un'alternativa
-   valida se preferisci non mantenere nemmeno un endpoint minimale.
-3. **Non legare questa decisione al login.** Il login/identità (Opzione D) è una domanda di
-   prodotto diversa e più grande, da valutare da sola quando/se emerge un motivo concreto
-   (non "per avere analitiche migliori", che si ottengono già con C). Resta un quesito
-   aperto separato in `docs/ROADMAP.md` (P6).
+1. **Subito, gratis:** guarda Mapbox Dashboard e App Store Connect Analytics (§3).
+2. **Se si vuole strumentare per davvero:** priorità al **Livello 1** (errori/affidabilità)
+   — è quello con il rapporto valore/sforzo più alto, ed è lo stesso indipendentemente dalla
+   proposta scelta.
+   - **Proposta 1 (Firebase)** se conta la velocità e non preoccupa la dipendenza Google.
+   - **Proposta 2 (Sentry [+ PostHog])** se preferisci restare fuori dall'ecosistema Google
+     o vuoi un'opzione auto-ospitabile in futuro.
+3. **Il login resta una domanda a parte** (§6) — non necessaria per nessuna delle due
+   proposte.
 
-Se si procede con l'opzione C, i prossimi passi concreti sarebbero: scegliere la piattaforma
-serverless (Cloudflare Workers vs Supabase Edge Functions — entrambe hanno tier gratuiti
-adeguati alla scala attuale), definire lo schema dei 3 eventi, aggiornare la privacy policy
-e il README, poi implementare lato client (`data/analytics/` seguendo lo stesso pattern a
-interfaccia comune già usato per `CloudSyncService`/`TrailService`).
+Nessuna implementazione fatta: in attesa di una decisione su quale proposta (o nessuna)
+procedere.

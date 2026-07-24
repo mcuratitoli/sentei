@@ -160,13 +160,14 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   track closed testing + Google Group come lista tester.
 - [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`).
 - [ ] **Analitiche d'uso** — analisi completa fatta (24 luglio 2026,
-  `docs/eval-usage-analytics.md`): Mapbox Dashboard + App Store Connect Analytics coprono
-  già "accessi Mapbox" e "app aperta" a costo zero, senza toccare codice o privacy policy.
-  Per "tracce salvate" e "chi sincronizza" **non serve il login** — raccomandato un
-  contatore anonimo minimale (3 eventi, ID locale, endpoint serverless su tier gratuito),
-  scartando Firebase (dipendenza Google non necessaria) e il login (non risolve il
-  problema da solo, vedi analisi). Decisione da prendere: procedere con l'opzione
-  anonima o restare allo status quo.
+  `docs/eval-usage-analytics.md`, aggiornata: privacy policy non è più un vincolo, solo 2
+  tester consapevoli). Mapbox Dashboard + App Store Connect Analytics coprono già "accessi
+  Mapbox" e "app aperta" a costo zero. Priorità raccomandata: **affidabilità dei servizi
+  terzi** (BRouter/OSM2CAI/Overpass/sync, oggi invisibile — causa già di bug reali passati
+  sotto silenzio) più che i conteggi grezzi. **Due proposte pronte**: (1) Firebase
+  Crashlytics + Analytics, più rapida; (2) Sentry (+ eventualmente PostHog), niente
+  dipendenza Google, auto-ospitabile in futuro. Il login **non serve** per nessuna delle
+  due. Decisione da prendere: quale proposta (o nessuna).
 - [ ] **Login autenticato (Google e/o Apple)** per identificare gli utenti — **decisione
   indipendente dalle analitiche** (vedi `docs/eval-usage-analytics.md`): introdurrebbe
   un'identità server-side + un vero backend utenti che oggi l'app non ha (privacy-first,
