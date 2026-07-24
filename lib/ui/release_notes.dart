@@ -6,6 +6,9 @@ import 'tokens.dart';
 /// **sintetica** — versione completa e dettagliata in `CHANGELOG.md` alla
 /// radice del repo. Tenere le due liste allineate quando si rilascia una
 /// nuova versione: aggiungere qui la voce più recente in cima.
+///
+/// Vedi anche [kUpcomingHighlights] più sotto: stessa idea ma per le
+/// prossime priorità, non ancora rilasciate.
 class ReleaseNote {
   const ReleaseNote({
     required this.version,
@@ -79,6 +82,20 @@ const List<ReleaseNote> kReleaseNotes = [
   ),
 ];
 
+/// Prossime priorità di sviluppo, in forma sintetica e in linguaggio semplice
+/// (niente nomi di file/provider) — versione completa, con dettagli e ordine
+/// di priorità, in `docs/ROADMAP.md` (sezione P1). Va aggiornata a mano
+/// quando cambiano le priorità in cima alla roadmap, stessa convenzione di
+/// [kReleaseNotes]. 3-6 voci: se la lista si allunga troppo, tenere solo le
+/// più rilevanti per chi usa l'app.
+const List<String> kUpcomingHighlights = [
+  'Tema chiaro/scuro sempre coerente con quello scelto, fin dall\'apertura',
+  'Tasto per eliminare una traccia direttamente dalla sua scheda',
+  'Traccia selezionata più in evidenza, le altre più trasparenti',
+  'Foto lungo il percorso: galleria, titoli e dettagli per ogni scatto',
+  'Modifica dei punti di un tracciato più semplice e intuitiva',
+];
+
 /// Mostra le novità per versione in un bottom sheet (stesso linguaggio
 /// visivo di `showDifficultyLegend`/`showAbbreviationsLegend` in `legends.dart`).
 Future<void> showReleaseNotes(BuildContext context) {
@@ -119,8 +136,52 @@ class _ReleaseNotesSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             for (final n in kReleaseNotes) _VersionBlock(note: n),
+            if (kUpcomingHighlights.isNotEmpty) const _UpcomingSection(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UpcomingSection extends StatelessWidget {
+  const _UpcomingSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(height: 1, color: palette.hairline),
+          const SizedBox(height: 16),
+          Text('In arrivo',
+              style: AppText.sectionValue.copyWith(color: palette.bodyText)),
+          const SizedBox(height: 6),
+          Text(
+            'Le prossime priorità di sviluppo — l\'ordine può cambiare.',
+            style: AppText.body.copyWith(color: palette.secondaryLabel),
+          ),
+          const SizedBox(height: 10),
+          for (final h in kUpcomingHighlights)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('•  ',
+                      style: AppText.body.copyWith(color: palette.secondaryLabel)),
+                  Expanded(
+                    child: Text(h,
+                        style: AppText.body
+                            .copyWith(color: palette.bodyText, height: 1.3)),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

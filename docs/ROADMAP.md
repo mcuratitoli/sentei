@@ -7,7 +7,7 @@
 
 ## Come leggere questo documento
 
-- Le sezioni sono numerate **P1 → P8** in ordine di priorità (P1 = da affrontare per primo).
+- Le sezioni sono numerate **P1 → P7** in ordine di priorità (P1 = da affrontare per primo).
 - Ogni punto è etichettato **[FIX]** (comportamento rotto/incoerente di una feature già
   rilasciata), **[FEATURE]** (funzionalità nuova) o **[TASK]** (lavoro tecnico, non visibile
   all'utente).
@@ -96,37 +96,7 @@
 
 ---
 
-## P2 — In-app: changelog + roadmap sintetica (proposta, nuovo)
-
-13. [ ] **[FEATURE] Mostrare anche una roadmap sintetica in-app** — *SP 3*. Oggi
-    Impostazioni → Informazioni → Sentèi mostra solo il changelog (`kReleaseNotes` in
-    `lib/ui/release_notes.dart`, sheet `showReleaseNotes`). L'utente ha chiesto di
-    esporre in-app anche un'anteprima, molto sintetica, di **cosa sta arrivando**.
-
-    **Proposta:** riusare esattamente lo stesso pattern del changelog, non una nuova
-    infrastruttura:
-    - nuova lista costante `kUpcomingHighlights` (3-6 voci, linguaggio utente, zero nomi
-      di file/provider/jargon tecnico) accanto a `kReleaseNotes`;
-    - una seconda sezione "In arrivo" nello stesso bottom sheet (o una voce separata
-      "Roadmap" nella stessa area Impostazioni → Informazioni), stesso stile visivo
-      (`_VersionBlock`-like, vetro, `AppText`);
-    - **convenzione di manutenzione** identica a quella già in uso per il changelog
-      (commento in testa al file `release_notes.dart`): quando si aggiornano le priorità
-      in `ROADMAP.md` (sezione P1), riportare a mano le 3-6 voci più rilevanti per
-      l'utente in `kUpcomingHighlights`, riscritte in linguaggio semplice.
-    - **Scartate:** (a) parsing di `ROADMAP.md` a runtime/build-time — il documento è
-      per gli sviluppatori, pieno di nomi file e dettagli implementativi non adatti a un
-      utente finale, e aggiungerebbe una dipendenza fragile (formato markdown → parser);
-      (b) pagina web esterna linkata da Impostazioni — funzionerebbe ma richiede hosting
-      dedicato (oltre alla privacy policy già su GitHub Pages) per un beneficio marginale
-      alla scala "beta tra amici"; via `url_launcher` resta un'opzione se in futuro la
-      lista in-app diventasse insufficiente.
-    - Nessuna dipendenza nuova, nessun backend: stesso costo di manutenzione del
-      changelog attuale (una lista Dart aggiornata a mano ad ogni cambio di priorità).
-
----
-
-## P3 — Editing tracce & UX mappa (aperti)
+## P2 — Editing tracce & UX mappa (aperti)
 
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
@@ -146,7 +116,7 @@
   stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
 
-## P4 — Validazione pendente su device
+## P3 — Validazione pendente su device
 
 Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
 su un telefono fisico:
@@ -165,7 +135,7 @@ su un telefono fisico:
 - [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
   dell'ambiente di sviluppo, va provato su rete reale.
 
-## P5 — Build & toolchain
+## P4 — Build & toolchain
 
 - [ ] **APK `--split-per-abi`** → ~40-50 MB invece di 122 MB.
 - [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
@@ -173,13 +143,13 @@ su un telefono fisico:
 - [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — non ancora
   configurata.
 
-## P6 — Rimandati
+## P5 — Rimandati
 
 - [ ] Bundling font offline (ora scaricati a runtime via `google_fonts`... nota: su iOS si
   usa già il font di sistema, verificare se il bundling serve ancora su Android).
 - [ ] Registrazione traccia live (background location, Fase 2 del CLAUDE.md).
 
-## P7 — Distribuzione & accesso
+## P6 — Distribuzione & accesso
 
 **Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
 closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
@@ -196,7 +166,7 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   (Firebase vs soluzione self-hosted/privacy-friendly) e revisione della privacy policy
   (oggi dichiara "nessuna raccolta dati su server propri").
 
-## P8 — Backlog tecnico (bassa priorità)
+## P7 — Backlog tecnico (bassa priorità)
 
 - [ ] Densificazione del path: passo fisso 15 m di default — valutare passo adattivo alla
   pendenza.

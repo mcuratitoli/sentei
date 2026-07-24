@@ -6,6 +6,9 @@
 > Documento di riferimento per lo sviluppo con Claude Code.
 > **Sentèi** — app per l'escursionismo che replica le funzionalità di base di **GaiaGPS**,
 > focalizzato sulle **Alpi del Nord Italia** e le zone di confine con **Francia** e **Svizzera**.
+>
+> ⚠️ **Questo repository è pubblico.** Non aggiungere qui (né altrove nel repo) token, chiavi
+> API, ID dispositivo, credenziali o altri dati personali/sensibili — vedi §9.
 
 ---
 
@@ -30,12 +33,13 @@ meteo, tracking di attività fitness avanzato.
 | Ambito | Scelta | Motivazione |
 |---|---|---|
 | Framework | **Flutter** (Dart) | Un solo codebase iOS+Android, ottimo ecosistema mappe. |
-| Rendering mappa | **`mapbox_maps_flutter`** (Mapbox GL) — *migrato da `flutter_map`* | Serve il **3D del terreno** (alla Suunto) col gesto nativo a due dita + stile vettoriale **Outdoors** + un solo motore. Migrazione completata (5 fasi) e **validata su iPhone**; `flutter_map` rimosso. Logica di dominio invariata (era engine-agnostica). Token: `--dart-define=MAPBOX_TOKEN=pk...` (runtime) + secret download token in `~/.netrc` e `~/.gradle/gradle.properties`. Vedi `docs/plan-mapbox-gl-migration.md`. |
-| Sorgenti mappa | **OpenStreetMap / OpenTopoMap** (base) + **SwissTopo** (CH) + **IGN** (FR) | Copertura sentieri alpina eccellente; topografiche ufficiali nelle zone di confine. |
-| Overlay sentieri | **Waymarked Trails (hiking)** | Evidenzia i percorsi escursionistici segnati. |
-| Offline | **Essenziale dalla v1** | Caching tile per area + elevazione offline + (fase 2) routing offline. |
+| Rendering mappa | **`mapbox_maps_flutter`** (Mapbox GL) | Stile vettoriale **Outdoors** (+ varianti Dark/Satellite) con **terreno 3D** nativo (gesto a due dita), un solo motore. Migrato da `flutter_map` (multi-sorgente raster), rimosso. Token pubblico via `--dart-define=MAPBOX_TOKEN` — mai nel repo, vedi §8/§9. |
+| Dati sentieri/segnavia | **OSM2CAI/INFOMONT** (catasto ufficiale CAI, Italia) primario + **Overpass API** (OSM `route=hiking`) fallback per le zone di confine FR/CH | Il layer sentieri della mappa lo disegna già Mapbox Outdoors; queste fonti servono per i **numeri segnavia** e il **grado di difficoltà CAI**, non per il layer visivo. |
+| Elevazione | **Terrarium** (terrain-RGB, DEM SRTM/Copernicus) | Cacheabile offline, decodifica pixel→quota locale, nessuna dipendenza da un servizio a pagamento. |
+| Offline | **Essenziale dalla v1** | Mappa + elevazione scaricabili per area (Mapbox OfflineManager + cache Terrarium); routing offline rimane Fase 2. |
 | Cloud | **File GPX/JSON su iCloud Drive + Google Drive** | Nessun backend da mantenere, privacy massima, costi zero. |
 | Storage locale | **SQLite (`drift`)** per metadati + file GPX su filesystem | Lista tracciati veloce, file standard esportabili. |
+| State management | **Riverpod** (`Notifier`/`NotifierProvider`) + **go_router** | Vedi §7 per lo storico della scelta. |
 
 > ⚠️ Queste scelte sono fissate. Se emergono motivi per cambiarle, **discuterne prima** di rifattorizzare.
 
@@ -43,33 +47,36 @@ meteo, tracking di attività fitness avanzato.
 
 ## 3. Stack tecnico e pacchetti chiave
 
+Elenco allineato a `pubspec.yaml` — quello resta la fonte di verità per le versioni esatte.
+
 ```yaml
 # Mappa & geo
-mapbox_maps_flutter:         # rendering mappa (Mapbox GL): vettoriale + 3D terreno
-latlong2:                    # coordinate / distanze (dominio engine-agnostico)
-geolocator:                  # posizione GPS (foreground; background in fase 2)
-# (ex flutter_map / flutter_map_dragmarker: RIMOSSI con la migrazione a Mapbox GL)
-# offline aree: usare l'OfflineManager di Mapbox (non più FMTC) — vedi Step 6
+mapbox_maps_flutter:   # rendering mappa (Mapbox GL): vettoriale + 3D terreno
+latlong2:              # coordinate/distanze (dominio engine-agnostico)
+geolocator:            # posizione GPS (foreground; background = Fase 2)
 
 # Tracciati & elevazione
-gpx:                         # parsing/generazione file GPX
-image:                       # decodifica PNG tile Terrarium (lettura pixel)
-http:                        # fetch tile Terrarium (online; offline via FMTC in 1.F)
-# (decoder Terrarium custom per l'elevazione — vedi §6; implementato)
+gpx:                   # parsing/generazione file GPX
+image:                 # decodifica PNG tile Terrarium (lettura pixel)
+http:                  # fetch tile Terrarium e servizi REST (BRouter, OSM2CAI, Overpass, Nominatim)
 
 # Persistenza
-drift + sqlite3:             # DB metadati tracciati
-path_provider:               # percorsi filesystem
-shared_preferences:          # impostazioni utente
+drift + drift_flutter: # DB metadati tracciati (SQLite)
+path_provider:         # percorsi filesystem
+shared_preferences:    # impostazioni utente (tema, ordinamento, ecc.)
 
 # Cloud
-icloud_storage:              # iCloud Drive (iOS)
-google_sign_in + googleapis: # Google Drive (Android/iOS)
-share_plus / file_picker:    # condivisione/import GPX via "File"
+icloud_storage:        # iCloud Drive (iOS)
+google_sign_in + googleapis + extension_google_sign_in_as_googleapis_auth: # Google Drive
+share_plus / file_selector: # condivisione/import GPX via "File"
+
+# Foto lungo il percorso (in corso, vedi docs/ROADMAP.md)
+photo_manager:         # accesso alla libreria foto per il matching spaziale con la traccia
 
 # UI/stato
-flutter_riverpod:            # state management (scelto — §10), API Notifier
-go_router:                   # routing
+flutter_riverpod:      # state management, API Notifier
+go_router:             # routing
+package_info_plus:     # versione app (mostrata in Impostazioni)
 ```
 
 > Verificare sempre l'ultima versione stabile su pub.dev e la compatibilità con la
@@ -77,136 +84,132 @@ go_router:                   # routing
 
 ---
 
-## 4. Sorgenti dati mappa (URL + licenze)
+## 4. Dati mappa, sentieri ed elevazione (fonti + licenze)
 
 **Rispettare SEMPRE le fair-use policy e l'attribuzione.** Niente download massivo aggressivo
 delle tile; il download offline deve essere limitato per area e con rate limiting.
 
-| Sorgente | Tipo | URL template | Licenza / note |
-|---|---|---|---|
-| OpenTopoMap | raster XYZ | `https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png` | © OpenTopoMap (CC-BY-SA). Attribuzione obbligatoria, fair use. |
-| OSM standard | raster XYZ | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | Usage policy restrittiva: NON per download di massa. Solo base/fallback. |
-| Waymarked Trails (hiking) | overlay XYZ | `https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png` | Overlay percorsi escursionistici segnati. |
-| OSM2CAI / INFOMONT (numeri sentiero) | REST GeoJSON | `https://osm2cai.cai.it/api/geojson/hiking_routes/bounding_box` | Catasto ufficiale REI (CAI + Wikimedia Italia), licenza **ODbL**. Solo Italia. Espone `ref` CAI/REI validati. Vedi `docs/osm2cai-investigation.md`. |
-| SwissTopo (pixelkarte) | WMTS | `https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg` | Gratuito per uso non commerciale, vincoli di licenza geo.admin.ch. |
-| IGN (Plan IGN / Géoplateforme) | WMTS | `https://data.geopf.fr/wmts?...&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&...` | Géoplateforme open. SCAN 25 topografico ha condizioni più restrittive — verificare. |
-| Terrain RGB (elevazione) | raster XYZ | `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` | DEM SRTM/Copernicus codificato Terrarium — cacheabile offline per il dislivello. |
+| Sorgente | Ruolo | Licenza / note |
+|---|---|---|
+| **Mapbox** (Outdoors / Dark / Satellite) | Base mappa (unico motore, §2) | Servizio a pagamento oltre il free tier — token pubblico via `--dart-define`, mai nel repo. |
+| **OSM2CAI / INFOMONT** — `https://osm2cai.cai.it/api/geojson/hiking_routes/bounding_box` | Numeri segnavia + difficoltà CAI, **solo Italia** | Catasto ufficiale REI (CAI + Wikimedia Italia), licenza **ODbL**. Indagine endpoint: `docs/osm2cai-investigation.md`. |
+| **Overpass API** (relazioni OSM `route=hiking`) | Numeri segnavia + difficoltà, fallback per l'intero arco alpino incl. confini FR/CH | Dati OpenStreetMap (ODbL); rispettare i limiti di frequenza delle istanze pubbliche. |
+| **Terrain RGB / Terrarium** — `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` | Elevazione (D+/D-, profilo altimetrico), cacheabile offline | DEM SRTM/Copernicus codificato Terrarium, riuso libero. |
+| **BRouter** (servizio pubblico) — `https://brouter.de/brouter` | Snap-to-trail (routing lungo i sentieri OSM) | Nessuna API key; vedi §5 per la catena di profili usata. |
+| **Nominatim** (OSM) | Geocoding di fallback (ricerca luoghi, reverse geocoding) | Rispettare la usage policy (rate limit, User-Agent). |
 
-**Architettura sorgenti:** layer base selezionabile dall'utente (OpenTopoMap / SwissTopo / IGN
-in base alla zona) + overlay opzionale Waymarked Trails. SwissTopo e IGN sono in proiezione
-Web Mercator (EPSG:3857) → compatibili con flutter_map senza riproiezione complessa.
+> **Sorgenti storiche, non più in uso** dopo la migrazione a Mapbox GL: OpenTopoMap, SwissTopo,
+> IGN, OSM raster standard, overlay raster Waymarked Trails (erano i layer base dell'epoca
+> `flutter_map` multi-sorgente). Dettagli in `docs/CHANGELOG-DEV.md`.
 
 ---
 
-## 5. Struttura del progetto (proposta)
+## 5. Struttura del progetto
 
 ```
 lib/
   main.dart
-  app/                  # bootstrap, routing, tema
-  core/                 # costanti, errori, util geo, licenze/attribuzioni
+  app/                  # bootstrap, routing (go_router), tema (chiaro/scuro, 3 varianti dark)
+  core/                 # costanti, formattazione, util geo (tile math)
   data/
-    map_sources/        # definizione TileLayer per ogni sorgente (§4)
-    offline/            # gestione download aree (FMTC), elevazione offline
-    storage/            # drift DB, repository tracciati
-    cloud/              # adapter iCloud + Google Drive (interfaccia comune)
-    gpx/                # import/export GPX
+    routing/            # BRouter (snap-to-trail)
+    trails/             # numeri segnavia + difficoltà CAI: OSM2CAI, Overpass, strategia combinata
+    offline/             # Mapbox OfflineManager + cache/decoder Terrarium (elevazione)
+    storage/             # drift (SQLite) + repository tracciati + codec di serializzazione
+    cloud/               # CloudSyncService: iCloud + Google Drive, motore last-write-wins
+    gpx/                 # import/export GPX
+    search/              # geocoding (Mapbox + Nominatim)
+    location/            # posizione GPS
+    photos/              # libreria foto + matching spaziale con la traccia (in corso)
+    map_sources/         # costanti residue (template Terrarium)
   domain/
-    models/             # Track, Waypoint, Route, MapRegion...
-    services/           # calcolo distanza/dislivello, routing, snapping
+    models/              # Track, ElevationProfile, TrackPhoto, ...
+    services/             # calcolo distanza/dislivello, semplificazione path, matching foto
   features/
-    map/                # schermata mappa principale
-    draw_route/         # disegno tracciato (tap-to-add, snap-to-trail)
-    tracks_list/        # libreria tracciati salvati
-    track_detail/       # dettaglio + profilo altimetrico + export
-    offline_maps/       # gestione mappe scaricate
-    settings/           # account cloud, sorgente mappa, unità
-  ui/                   # widget condivisi (profilo altimetrico, ecc.)
+    map_gl/               # schermata mappa principale (Mapbox GL) + info punto ispezionato
+    draw_route/           # disegno/editing tracciato, azioni foto vicine
+    tracks_list/          # libreria tracciati salvati (ordinamento, ricerca)
+    offline_maps/         # gestione mappe/elevazione scaricate
+    settings/             # tema, sorgente cloud, legende, changelog/roadmap in-app
+  ui/                     # widget condivisi (vetro iOS, toast/menu, profilo altimetrico, token di design)
 test/
 ```
+
+> Struttura indicativa: riflette l'organizzazione attuale del codice, non un vincolo rigido.
+> Quando una cartella cambia scopo in modo duraturo, aggiornarla qui.
 
 ---
 
 ## 6. Sfide tecniche e approccio scelto
 
 ### 6.1 Offline (priorità alta)
-- **Tile offline:** usare **FMTC** per scaricare per *bounding box / area su mappa* a range di zoom
-  definiti. Mostrare dimensione stimata e barra di avanzamento. Rispettare rate limit.
-- **Elevazione offline:** scaricare e cachare le tile **Terrarium (terrain-RGB)** per l'area.
+- **Tile mappa offline:** Mapbox OfflineManager + TileStore, download per bounding box (area
+  visualizzata) a un range di zoom definito, con progress.
+- **Elevazione offline:** cache su disco delle tile **Terrarium** per l'area scaricata.
   Decodifica: `elevation = (R * 256 + G + B / 256) - 32768` (metri). Da questo si calcolano
   D+/D- e il profilo altimetrico **senza rete**.
-- **Routing offline:** è la parte più complessa → **rinviato a Fase 2** (vedi §7). In MVP il
-  disegno è manuale (tap-to-add waypoint) con distanza/dislivello dal polilinea.
+- **Routing offline:** rinviato a Fase 2 (vedi §7) — servirebbe BRouter embedded (segment
+  files); fattibilità da confermare.
 
-### 6.2 Disegno tracciati + "snap-to-trail"
-- **MVP:** l'utente tocca la mappa per aggiungere waypoint; il tracciato è la polilinea tra i punti.
-  Distanza = somma haversine; dislivello = derivato dal profilo Terrarium campionato lungo il path.
-- **Snap-to-trail (IMPLEMENTATO, anticipato da Fase 2 su richiesta utente):** i waypoint vengono
-  instradati lungo i sentieri OSM.
-  - *Online (scelto):* **BRouter** servizio web pubblico (`https://brouter.de/brouter`, profilo
-    `hiking-mountain`, formato GeoJSON, **senza API key**). Restituisce geometria + `track-length`
-    + `filtered ascend` + quota per punto. Implementazione: `data/routing/brouter_routing_service.dart`
-    dietro l'interfaccia `domain/services/routing_service.dart`. **Fallback a linea retta** su errore.
-  - *Offline (Fase 2):* stesso motore **BRouter** embedded (segment files) — coerenza con l'online.
-  - *Catena profili:* `hiking-mountain → trekking`. Alcuni segmenti alpini fanno esplodere la
-    ricerca dei profili `hiking-*` (il server pubblico li uccide col watchdog ~8s); `trekking`
-    li calcola comunque seguendo i sentieri. Fallback a linea retta solo se entrambi falliscono.
-  - *Alternative valutate:* GraphHopper/Valhalla/OpenRouteService (richiedono API key) — tenute di
-    riserva se la reliability del servizio pubblico BRouter non basta.
-- **Numeri sentieri (ref CAI):** non disponibili da BRouter → recuperati dietro l'interfaccia comune
-  `TrailService` (`data/trails/`, template method: segmentazione punto→sentiero condivisa, le
-  sottoclassi forniscono solo `fetchRelations`). Strategia combinata (`CombinedTrailService`):
-  - *Primario:* **OSM2CAI / INFOMONT** (`Osm2CaiTrailService`), catasto ufficiale CAI+Wikimedia Italia
-    (open ODbL). `POST /api/geojson/hiking_routes/bounding_box` (`osm2cai_status=1,2,3,4`), preferenza
-    `ref` CAI → `ref_REI` → `ref_osm`. Espone il ref anche dove il tag OSM grezzo manca (es. Valle d'Aosta).
-    **Solo Italia.** Indagine endpoint: `docs/osm2cai-investigation.md`.
-  - *Fallback:* **Overpass API** (`OverpassTrailService`, relazioni `route=hiking` vicine → tag `ref`),
-    copre l'intero arco alpino incluse le zone di confine FR/CH dove OSM2CAI non arriva.
-  Risultato mostrato come chip + banda per-tratto (`TrailSegment`).
+### 6.2 Disegno tracciati + snap-to-trail
+- L'utente tocca la mappa per aggiungere waypoint; il percorso effettivo segue i sentieri OSM
+  via **BRouter** (servizio pubblico, profilo `hiking-mountain`, formato GeoJSON, senza API
+  key), instradato **per segmento** (un punto non instradabile degrada solo quel tratto a
+  linea retta, con retry).
+  - *Catena profili:* `hiking-mountain` → `trekking`. Alcuni segmenti alpini fanno esplodere
+    la ricerca dei profili `hiking-*` (il server pubblico li uccide dopo un timeout); il
+    profilo `trekking` li calcola comunque seguendo i sentieri. Linea retta solo se entrambi
+    falliscono.
+  - *Alternative valutate:* GraphHopper/Valhalla/OpenRouteService (richiedono API key) —
+    tenute di riserva se la reliability del servizio pubblico BRouter non bastasse.
+- **Numeri sentiero (ref CAI) e difficoltà:** non disponibili da BRouter → interfaccia comune
+  `TrailService` (`data/trails/`, template method: segmentazione punto→sentiero condivisa).
+  Strategia combinata (`CombinedTrailService`): **OSM2CAI** primario (Italia, `ref` CAI/REI
+  validati anche dove il tag OSM grezzo manca, es. Valle d'Aosta) → **Overpass** fallback
+  (copre anche le zone di confine FR/CH). Risultato: chip + banda per-tratto (`TrailSegment`,
+  incluso `cai_scale` T/E/EE/EEA).
 
 ### 6.3 Calcolo distanza/dislivello
 - Distanza: haversine cumulativo su punti densificati (interpolazione ogni ~10-25 m).
-- Dislivello: campionare l'elevazione lungo il path con **filtro/smoothing** (es. soglia di
-  risalita minima ~5-10 m) per evitare D+ gonfiato dal rumore del DEM. Documentare l'algoritmo.
+- Dislivello: campionamento dell'elevazione lungo il path con filtro a soglia (**deadband**,
+  default 8 m) per evitare D+ gonfiato dal rumore del DEM. Da validare con tracce reali
+  (vedi `docs/ROADMAP.md`).
 
 ### 6.4 GPX
-- Export: track (`<trk>`) + eventuali waypoint, con elevazione e nome. Pacchetto `gpx`.
-- Import: parsing GPX di terzi (gestire tag mancanti, multi-segmento).
+- Export: percorso instradato e densificato con quota (non i soli waypoint del disegno).
+- Import: parsing GPX di terzi + **riallineamento ibrido** ai sentieri rilevati (vedi
+  `docs/CHANGELOG-DEV.md` per il flusso a 2 fasi caricamento→revisione).
 
 ### 6.5 Cloud (iCloud + Google Drive)
-- Definire un'interfaccia comune `CloudSyncService` con due implementazioni:
-  - **iCloud:** `icloud_storage` (container iCloud dedicato).
-  - **Google Drive:** `google_sign_in` + `googleapis` (cartella dedicata o `appDataFolder`).
+- Interfaccia comune `CloudSyncService` con due implementazioni (iCloud, Google Drive).
 - Modello sync semplice: i tracciati sono file (`.gpx` + sidecar `.json` di metadati);
   conflitti risolti con "last write wins" + timestamp. Niente merge complesso in v1.
-- **iCloud richiede capability/entitlement** nel progetto Xcode + Apple Developer account.
+- **iCloud richiede capability/entitlement** nel progetto Xcode + Apple Developer Program.
+
+### 6.6 Foto lungo il percorso (in corso)
+- Nessun asse temporale affidabile sulla traccia (il parsing GPX scarta `<time>`) → matching
+  **spaziale**: EXIF GPS della foto proiettato sul percorso instradato (distanza cumulata).
+- Nessun upload dell'originale: solo metadati (GPS + timestamp + distanza-lungo-percorso +
+  thumbnail) viaggiano nel JSON della traccia già sincronizzato; ogni device rifà un
+  re-match locale nella propria libreria foto. Analisi completa: `docs/eval-photo-sync.md`.
 
 ---
 
-## 7. Roadmap a fasi
+## 7. Roadmap a fasi (storico + stato)
 
-**Fase 0 — Setup**
-- Init progetto Flutter, struttura cartelle, linting, CI base.
-- Schermata mappa con OpenTopoMap + selettore sorgente (SwissTopo/IGN) + overlay Waymarked Trails.
-- Attribuzioni/licenze visibili in mappa.
+| Fase | Contenuto | Stato |
+|---|---|---|
+| **Fase 0** | Setup progetto, struttura cartelle, mappa base + attribuzioni | ✅ Completa |
+| **Fase 1 (MVP)** | GPS, disegno + snap-to-trail, distanza/dislivello, salvataggio locale, GPX, aree offline | ✅ Completa |
+| **Fase 2** | Sync cloud (iCloud + Drive) ✅, snap-to-trail online ✅ · routing offline embedded ⏳ · registrazione traccia live ⏳ | In corso |
+| **Fase 3** | Rifiniture: ricerca località ✅, waypoint/foto ⏳, statistiche ⏳ | In corso |
 
-**Fase 1 — MVP usabile**
-- Posizione GPS utente sulla mappa.
-- Disegno tracciato manuale (tap-to-add, undo, drag punti).
-- Calcolo distanza + dislivello (elevazione Terrarium) + profilo altimetrico.
-- Salvataggio locale (drift) + export/import GPX.
-- Download area offline (tile + terrain) con gestione spazio.
-
-**Fase 2 — Cloud & routing intelligente**
-- Sync iCloud Drive + Google Drive.
-- Snap-to-trail (GraphHopper online → BRouter offline).
-- Registrazione traccia live (background location).
-
-**Fase 3 — Rifiniture**
-- Gestione cartelle/cartografia per zona, ricerca località, waypoint con icone, statistiche.
-
-> Costruire **end-to-end la Fase 1** prima di ottimizzare. Ogni feature: modello → repository →
-> servizio → UI, con test sulla logica geo (distanza/dislivello/GPX).
+> Costruire **end-to-end** ogni fase prima di ottimizzare. Ogni feature: modello → repository →
+> servizio → UI, con test sulla logica geo (distanza/dislivello/GPX) — è il cuore dell'app e
+> deve restare deterministica e separata dalla UI.
+>
+> Stato dettagliato, priorità e story point dei prossimi passi: **`docs/ROADMAP.md`**.
+> Cronologia completa di cosa è già stato fatto: **`docs/CHANGELOG-DEV.md`**.
 
 ---
 
@@ -223,25 +226,28 @@ flutter build ipa            # build iOS (richiede Xcode + account Apple)
 dart format .                # formattazione
 ```
 
-### Ambiente (stato attuale macOS)
-- **Flutter 3.44.2** (stabile). ⚠️ Il `dart` sul PATH è quello di Homebrew (diverso da quello di Flutter):
-  per i tool usare **`flutter pub run ...`**, NON `dart run ...` (altrimenti "Flutter SDK not available").
-- Dispositivi noti: **simulatore iPhone 17 Pro** UDID `5315265D-7156-4526-BBD3-6E3691BB49CC`
-  (⚠️ l'UDID cambia a ogni ricreazione del simulatore: se "No supported devices", rilanciare
-  `flutter devices` / `xcrun simctl list devices available`);
-  **iPhone fisico** id `00008150-001C25243C20401C` (via cavo; firma: team Apple ID già configurato in Xcode,
-  bundle id `com.mattiacuratitoli.sentei`).
+### Ambiente di sviluppo
+- **Flutter 3.44.2** (stabile). ⚠️ Il `dart` sul PATH può differire da quello di Flutter
+  (es. se installato anche via Homebrew): per i tool usare **`flutter pub run ...`**, NON
+  `dart run ...` (altrimenti "Flutter SDK not available").
+- **Dispositivi:** l'UDID del simulatore iOS **cambia a ogni ricreazione** — se "No supported
+  devices", rilanciare `flutter devices` (o `xcrun simctl list devices available`) e usare
+  l'UDID corrente. Per un iPhone fisico via cavo serve un Apple ID configurato in Xcode
+  (Settings → Accounts) e la firma del team di sviluppo già impostata nel progetto.
+- Bundle id: `com.mattiacuratitoli.sentei` (già in uso su App Store Connect; su Android è lo
+  stesso `applicationId` — vedere `ios/Runner.xcodeproj` e `android/app/build.gradle` come
+  fonte di verità).
 
-### Avviare il simulatore e l'app
 ```bash
-xcrun simctl boot 5315265D-7156-4526-BBD3-6E3691BB49CC   # avvia il simulatore (se spento)
+xcrun simctl boot <UDID>     # avvia il simulatore (se spento)
 open -a Simulator
-flutter run -d 5315265D-7156-4526-BBD3-6E3691BB49CC      # build + install + run
-# Sul telefono fisico: collegare via cavo, poi: flutter run -d 00008150-001C25243C20401C
+flutter run -d <UDID>        # build + install + run
+# Su un iPhone fisico via cavo: flutter run -d <device id da `flutter devices`>
 ```
-> **Hot reload:** in una sessione interattiva si usa `r`. In esecuzioni NON interattive (output reindirizzato)
-> il segnale di reload **termina** il processo: dopo una modifica Dart **rilanciare `flutter run`** (build in cache, ~10–20s).
-> Le modifiche a **plugin nativi** (es. geolocator, drift, file_selector) richiedono un rebuild completo (pod install).
+> **Hot reload:** in una sessione interattiva si usa `r`. In esecuzioni NON interattive (output
+> reindirizzato) il segnale di reload **termina** il processo: dopo una modifica Dart
+> **rilanciare `flutter run`** (build in cache, ~10–20s). Le modifiche a **plugin nativi**
+> (es. geolocator, drift, file_selector) richiedono un rebuild completo (pod install).
 
 ### Codegen e asset
 ```bash
@@ -252,94 +258,66 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 
 ---
 
-## 9. Convenzioni di codice
+## 9. Convenzioni di codice, segreti e sicurezza
 
 - **Dart/Flutter style** ufficiale; `flutter analyze` deve passare pulito prima di un commit.
 - Logica di dominio (geo, GPX, calcoli) **separata dalla UI** e **coperta da test** — è il cuore
   dell'app e deve essere deterministica.
-- Niente chiavi API o segreti nel repo: usare `--dart-define` / file non versionati.
-- Ogni nuova sorgente mappa va aggiunta in `data/map_sources/` con la sua **attribuzione**.
+- Ogni nuova sorgente dati va aggiunta in `data/` con la sua **attribuzione** (§4).
 - Commit piccoli e tematici. Messaggi in italiano o inglese, ma coerenti.
+- **Questo repository è pubblico: niente segreti nel repo, mai.** In pratica:
+  - token/chiavi API (Mapbox, Google) solo via `--dart-define` a build time, mai hardcoded;
+  - credenziali locali (secret download token Mapbox, ecc.) solo in file **fuori dal repo**
+    (`~/.netrc`, `~/.gradle/gradle.properties`) — vedi le guide in `docs/`;
+  - i client OAuth (Google) vivono in `configs/`, **gitignorato**;
+  - non incollare qui (né in altri file versionati) UDID di dispositivi reali, indirizzi email,
+    percorsi assoluti della macchina di sviluppo o altri identificatori personali — sono privi
+    di valore per chi legge il repo e non dovrebbero finire in un documento pubblico.
+- Team ID Apple e bundle id sono già pubblici di fatto (compaiono nel binario distribuito e
+  nei file di progetto `ios/`/`android/`), ma evitare comunque di ripeterli qui senza motivo.
 
 ---
 
-## 10. Questioni aperte (da decidere durante lo sviluppo)
+## 10. Questioni aperte (decisioni architetturali, non operative)
 
-- [x] **State management:** **Riverpod** scelto (API `Notifier`/`NotifierProvider`) + `go_router`.
-- [x] **Toolchain:** Flutter aggiornato a **3.44.2** in Fase 0 (Riverpod 2→3, flutter_map 7→8, go_router→17).
-- [ ] **Bundle id** definitivo (proposta: `com.mattiacuratitoli.sentei`). Nome app: `Sentèi` (display), `sentei` (tecnico) ✓.
-- [ ] **IGN SCAN 25:** verificare se la licenza topografica dettagliata è utilizzabile o se usare Plan IGN.
-- [~] **Routing:** snap-to-trail **online** fatto con BRouter pubblico. Resta da confermare la fattibilità **BRouter embedded offline** in Flutter (Fase 2) e la reliability del servizio pubblico.
-- [ ] **Apple Developer Program** (99€/anno) necessario per iCloud + distribuzione iOS reale.
-- [ ] **Google Cloud project** + OAuth consent per Google Drive.
-- [~] **Smoothing del dislivello:** implementato filtro a soglia deadband (default 8 m, `ElevationCalculator`). Da **validare con tracce reali**; zoom DEM Terrarium a z13 da verificare.
+- [ ] **IGN SCAN 25 / fonti mappa storiche:** obsoleto dopo la migrazione a Mapbox GL (§2) —
+  da riconsiderare solo se si tornasse a un'architettura multi-sorgente.
+- [ ] **Routing offline (BRouter embedded):** confermare la fattibilità reale in Flutter
+  (dimensione dei segment file) prima di impegnarsi — Fase 2.
+- [ ] **Login autenticato (Google/Apple) + analitiche d'uso:** introdurrebbe un'identità
+  server-side che oggi l'app non ha (privacy-first, zero backend) — decisione da prendere
+  prima di progettare l'implementazione. Dettagli in `docs/ROADMAP.md`.
+- [ ] **Unità di misura / localizzazione:** oggi solo metrico e italiano — valutare se serve
+  i18n.
+
+> Le questioni **operative** (cosa implementare, in che ordine, con che priorità) vivono in
+> `docs/ROADMAP.md`, non qui: questa sezione è solo per decisioni architetturali di fondo
+> ancora da prendere.
 
 ---
 
 ## 11. Note legali / licenze (importante)
 
-- **Attribuzione obbligatoria** per OSM, OpenTopoMap (CC-BY-SA), SwissTopo, IGN: mostrarla in mappa.
-- **Niente download massivo** delle tile OSM standard (vietato dalla usage policy).
-- SwissTopo e IGN sono **gratuite ma per uso non commerciale / con condizioni**: se in futuro
-  l'app diventasse a pagamento, **rivedere le licenze**.
+- **Attribuzione obbligatoria** per Mapbox, OpenStreetMap/OSM2CAI: mostrarla in-app (§4).
+- **Niente download massivo** delle tile: rispettare le usage policy di ogni servizio,
+  specialmente quelli gratuiti (Overpass, Nominatim).
 - **Sentèi** è un progetto personale ispirato a GaiaGPS, **non** ne riusa codice o dati proprietari.
+- Sentèi è **gratuita e senza fini di lucro**: se in futuro cambiasse modello, rivedere tutte
+  le licenze dei servizi di terze parti in uso (in particolare Mapbox, oltre il free tier).
 
 ---
 
-## 12. Stato di avanzamento (snapshot — luglio 2026)
+## 12. Stato del progetto
 
-> Dettaglio e prossimi passi in `docs/ROADMAP.md` (vedi "🚀 Ripartenza rapida" in cima).
+Sentèi è in **beta privata** (TestFlight + APK Android, distribuita ad amici). Per lo stato
+aggiornato, non duplicarlo qui — è mantenuto in tre punti, ciascuno con uno scopo preciso:
 
-**Implementato e testato (iPhone + simulatore):**
-- **Mappa** multi-sorgente + overlay sentieri; **GPS** (`geolocator`); bussola, scelta mappa e toggle sentieri in Impostazioni.
-- **Disegno multi-traccia** con **snap-to-trail**: BRouter pubblico, **routing per-segmento** con retry e
-  **catena profili `hiking-mountain → trekking`** (alcuni segmenti alpini mandano in crisi i profili `hiking-*`);
-  fallback a linea retta solo se tutto fallisce.
-- **Dislivello D+/D-** (DEM Terrarium, smoothing deadband) + **profilo altimetrico** con scrubbing
-  (evidenzia il punto in mappa) e **banda numeri sentiero CAI** sull'asse X.
-- **Numeri sentieri** via `TrailService` combinato: **OSM2CAI** (catasto ufficiale CAI/REI) primario +
-  **Overpass** (relazioni `route=hiking`) fallback per le zone di confine: elenco (chip) + per-tratto (`TrailSegment`).
-  Esposto anche il **grado di difficoltà CAI** (T/E/EE/EEA, `cai_scale`): banda nel grafico + **chip di sintesi**
-  nella card (tratto più impegnativo, `lib/ui/cai_difficulty.dart`).
-- **Card traccia** (`draw_route_controls.dart`): in **creazione** minimale (nome/colore/annulla-undo-Salva);
-  al **Salva** resta aperta con spinner finché i dati non ci sono (`finishDrawing` seleziona la traccia); in
-  **selezione** distanza/D+/D-/segnavia/difficoltà + profilo on-demand. **Backfill lazy** dei segnavia/difficoltà
-  alla selezione per le tracce vecchie (`DrawnTrack.trailsResolved`, colonna drift, `schemaVersion` 2). I servizi
-  segnavia **lanciano `TrailLookupException`** su errore (rete/timeout/non-200) e ritornano vuoto solo su risposta
-  valida: così `trailsResolved` distingue "cercato e non trovato" da "ricerca fallita" (retry). Migrazione
-  `schemaVersion` 3: sblocca le tracce risolte a vuoto dal vecchio comportamento.
-- **Persistenza locale** `drift`/SQLite (`data/storage/`), lista tracciati ordinabile/ricercabile, **export/import GPX** (`gpx`, `file_selector`, `share_plus`).
-- **Vista Mappa ⇄ Satellite**: tasto in barra alterna Outdoors ↔ `satellite-streets-v12` (re-setup terreno/sentieri/annotation a ogni cambio stile; terreno ri-applicato al primo idle).
-- **Info punto (esplorazione)**: toccando un punto senza tracce vicine → mini-card in vetro con **quota** (DEM Terrarium, anche offline), **coordinate** (copia al tap) e **località/provincia/nazione** (reverse geocoding Nominatim); marker pallino+anello antracite sul punto (`inspected_point_provider.dart`).
-- **Legenda difficoltà CAI** in Impostazioni (card overlay T/E/EE/EEA) + **tooltip** nel grafico; **versione app** in Impostazioni (`package_info_plus`, fonte `pubspec.yaml`).
-- **UI iOS-native** (revisione estetica lug 2026): primitivi in vetro smerigliato (`lib/ui/glass.dart`), controlli mappa raggruppati + bussola staccata, **barra flottante a 4 azioni** (ricerca · vista · **+** · lista tracce · impostazioni — il glifo "sentiero" è l'icona della lista), Impostazioni/Tracciati/Mappe offline in **Cupertino inset-grouped**, **toast iOS** (`lib/ui/ios_toast.dart`) al posto delle SnackBar, **tipografia di sistema** (San Francisco su iOS; niente più `google_fonts`/Lato). **Menu contestuali + conferme stile Apple Photos** (`lib/ui/ios_menu.dart`: `showIosMenu` ancorato al bottone, `showIosConfirm` centrata) — usati per Ordina/azioni-riga in Tracciati e per le conferme (annulla disegno, **elimina traccia con conferma**). Palette blu (seed `#1565C0`), logo+splash (sorgenti in `branding/`). **⚠️ App forzata in LIGHT MODE** (`themeMode.light` + override `platformBrightness` per i widget Cupertino, `lib/app/app.dart`): è disegnata solo per il tema chiaro (in Dark Mode i testi sparivano). Il toggle **nascondi tracce** è stato rimosso dalla barra (provider ancora nel codice).
-- **Ordinamento tracce persistito** (`tracks_sort_provider.dart`, `shared_preferences`, default **alfabetico**): Alfabetico · Per data · Dislivello (D+) · Quota più alta.
+- **`docs/ROADMAP.md`** — cosa resta da fare, in ordine di priorità, con peso di complessità.
+- **`docs/CHANGELOG-DEV.md`** — cronologia tecnica dettagliata di ciò che è stato implementato
+  (con cause-radice dei bug, decisioni, file coinvolti).
+- **`CHANGELOG.md`** (radice del repo) — novità per versione in linguaggio semplice, la stessa
+  lista mostrata in-app (Impostazioni → Informazioni → Sentèi, insieme a un'anteprima sintetica
+  delle prossime priorità).
 
-**Pacchetti chiave aggiunti rispetto a §3:** `flutter_map_dragmarker`, `image`, `http`, `geolocator`,
-`drift`+`drift_flutter`, `gpx`, `file_selector`, `share_plus`, `path_provider`, `google_fonts`,
-dev: `drift_dev`, `build_runner`, `flutter_launcher_icons`, `flutter_native_splash`.
-
-**Sync cloud (Google Drive) — FATTO, da testare col setup OAuth dell'utente:** interfaccia comune
-`CloudSyncService` + serializzazione condivisa `TrackCodec` + motore last-write-wins `computeSyncPlan`
-(testato) + backend `GoogleDriveSyncService` (`google_sign_in` v7 + `googleapis` Drive v3, scope `drive.file`,
-cartella "Sentèi", `<id>.json` + `<id>.gpx`). UI in Impostazioni. **Provider per-piattaforma:** iOS = selettore iCloud (default) · Google Drive; **Android = solo Google Drive** (iCloud nascosto). Credenziali: iOS `--dart-define=GOOGLE_CLIENT_ID`, **Android `--dart-define=GOOGLE_SERVER_CLIENT_ID`** (client Web; l'Android client è agganciato da package+SHA-1). Setup: `docs/cloud-google-drive-setup.md` (§5 Android). I JSON dei client OAuth stanno in `configs/` (**gitignorato** — contengono secret). **Snap-to-trail sempre attivo** (toggle "Segui sentieri" rimosso).
-
-**Servizi/architettura principali:**
-`data/routing/brouter_routing_service.dart` (RoutingService) · `data/trails/` (numeri sentiero:
-`trail_service.dart` interfaccia + segmentazione condivisa, `osm2cai_trail_service.dart` primario,
-`overpass_trail_service.dart` fallback, `combined_trail_service.dart` strategia) ·
-`data/offline/terrarium_*` (elevazione) · `data/storage/` (drift + repository + `TrackCodec`) ·
-`data/cloud/` (sync: interfaccia + Google Drive) · `data/gpx/gpx_service.dart` (export = percorso instradato
-densificato con quota) · `features/draw_route/route_editor_provider.dart` (stato multi-traccia `Tracks`) ·
-`features/map_gl/map_gl_screen.dart` (UI mappa Mapbox GL + barra) · `features/settings/` (UI sync cloud).
-
-**Distribuzione (5 lug 2026) — beta `1.0.0+4` rilasciata ai tester:**
-- **iOS:** su **TestFlight**, gruppo interno "Amici". Upload via **Xcode Organizer** (la CLI `flutter build ipa` fallisce l'export se *Xcode → Settings → Accounts* è vuoto → "No Accounts"; per buildare da CLI aggiungere l'Apple ID lì). Cert **Apple Distribution** team `W8XCSNY6V3`. Privacy policy su GitHub Pages, repo pubblico. Guide: `docs/testflight-setup.md`, `docs/testflight-amici.md`.
-- **Android:** **APK** (`app-release.apk`, ~122 MB, debug-signed, **Drive-ready**) distribuito ai tester. Toolchain **JDK17 + Android SDK 36 + NDK 28.2 + CMake** (reinstallata 4 lug in `/opt/homebrew/share/android-commandlinetools`). Build: `flutter build apk --release --dart-define=MAPBOX_TOKEN=pk... --dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Guida: `docs/android-apk-setup.md`.
-
-**Da fare (priorità):**
-1. **Validazioni sui device (1.0.0+4):** **login Google Drive su Android**; dark mode risolto; nuovi menu/conferme; download mappe/elevazione offline in modalità aereo.
-2. APK `--split-per-abi` per file più leggeri (~40-50 MB).
-3. *Rimandati:* **aggiornamento Flutter** (dopo la beta); **bundling font** offline; **registrazione traccia live** (background, Fase 2).
-
-> **Nota IGN/multi-sorgente:** OBSOLETO dopo la migrazione a Mapbox GL (mappa = singolo stile Mapbox).
+Architettura e stack restano quelli descritti in questo documento (§2-§6); quando cambiano in
+modo duraturo, questo file va aggiornato — lo stato di avanzamento **contingente**, invece, no.

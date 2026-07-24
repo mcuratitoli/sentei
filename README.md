@@ -24,6 +24,8 @@ _Un'alternativa open e gratuita a GaiaGPS, pensata per il Nord Italia e le zone 
 - ☁️ **Sync su iCloud Drive e Google Drive** — i tuoi tracciati sul tuo cloud personale, con **sincronizzazione automatica** dopo salvataggi ed eliminazioni.
 - 📴 **Offline-first** — scarica aree (mappa + elevazione) e usa l'app dove il segnale non arriva.
 - 🍎 **Interfaccia iOS-native** — controlli in vetro smerigliato, liste e sheet Cupertino, tipografia di sistema.
+- 🌙 **Modalità scura** — automatica o manuale, con 3 varianti (Standard, Notturno per la montagna, Risparmio energetico) e mappa scura coordinata.
+- ✏️ **Editing avanzato dei tracciati** — sposta, inserisci ed elimina punti intermedi con ri-instradamento incrementale; import GPX riallineato ai sentieri rilevati.
 
 ## 📱 Piattaforme
 
@@ -78,7 +80,7 @@ Scelte architetturali, sorgenti dati e licenze in **[`CLAUDE.md`](./CLAUDE.md)**
 
 ## ⚖️ Licenze & attribuzioni
 
-I dati cartografici appartengono ai rispettivi proprietari (OpenStreetMap, OpenTopoMap, SwissTopo, IGN) e sono usati nel rispetto delle relative licenze, con attribuzione in-app. I numeri dei sentieri provengono dal **Catasto della Rete Escursionistica Italiana (OSM2CAI/INFOMONT — CAI + Wikimedia Italia, licenza ODbL)** con fallback su OpenStreetMap. **Sentèi** è un progetto personale ispirato a GaiaGPS e non ne riusa codice o dati proprietari.
+La mappa di base è **Mapbox** (Outdoors/Dark/Satellite), con attribuzione in-app come richiesto dai termini del servizio. I numeri dei sentieri e il grado di difficoltà CAI provengono dal **Catasto della Rete Escursionistica Italiana (OSM2CAI/INFOMONT — CAI + Wikimedia Italia, licenza ODbL)**, con fallback su **OpenStreetMap** (Overpass API) nelle zone di confine con Francia e Svizzera. **Sentèi** è un progetto personale ispirato a GaiaGPS e non ne riusa codice o dati proprietari.
 
 ---
 

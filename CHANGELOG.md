@@ -9,7 +9,8 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
-_Nessuna novità in coda al momento._
+- 🗺️ Impostazioni → Informazioni → Sentèi mostra ora anche **"In arrivo"**: un'anteprima
+  sintetica delle prossime priorità di sviluppo, sotto il changelog.
 
 ## 1.0.0 (5) — 24 luglio 2026
 
