@@ -1,14 +1,16 @@
+import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
 import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
-/// Novità per versione (Impostazioni → Informazioni → Sentèi), in forma
-/// **sintetica** — versione completa e dettagliata in `CHANGELOG.md` alla
-/// radice del repo. Tenere le due liste allineate quando si rilascia una
-/// nuova versione: aggiungere qui la voce più recente in cima.
+/// Novità per versione (Impostazioni → Informazioni → Sentèi, tab "Novità"),
+/// in forma **sintetica** — versione completa e dettagliata in `CHANGELOG.md`
+/// alla radice del repo. **Tenere le due liste allineate**: quando si
+/// aggiorna `CHANGELOG.md` per una nuova versione, aggiungere qui la voce
+/// corrispondente nella stessa sessione di lavoro (vedi anche `CLAUDE.md` §9).
 ///
-/// Vedi anche [kUpcomingHighlights] più sotto: stessa idea ma per le
-/// prossime priorità, non ancora rilasciate.
+/// Vedi anche [kUpcomingHighlights] più sotto: stessa idea ma per la tab
+/// "Roadmap" (prossime priorità, non ancora rilasciate).
 class ReleaseNote {
   const ReleaseNote({
     required this.version,
@@ -36,7 +38,7 @@ const List<ReleaseNote> kReleaseNotes = [
       'Modalità scura: Standard, Notturno e Risparmio energetico',
       'Editing avanzato dei tracciati (punti intermedi, undo, ri-instradamento)',
       'Import GPX migliorato + legenda difficoltà estesa',
-      'Novità in-app: questo changelog',
+      'Novità in-app: questo changelog, ora con anche la roadmap',
     ],
   ),
   ReleaseNote(
@@ -82,12 +84,13 @@ const List<ReleaseNote> kReleaseNotes = [
   ),
 ];
 
-/// Prossime priorità di sviluppo, in forma sintetica e in linguaggio semplice
-/// (niente nomi di file/provider) — versione completa, con dettagli e ordine
-/// di priorità, in `docs/ROADMAP.md` (sezione P1). Va aggiornata a mano
-/// quando cambiano le priorità in cima alla roadmap, stessa convenzione di
-/// [kReleaseNotes]. 3-6 voci: se la lista si allunga troppo, tenere solo le
-/// più rilevanti per chi usa l'app.
+/// Prossime priorità di sviluppo (tab "Roadmap"), in forma sintetica e in
+/// linguaggio semplice (niente nomi di file/provider) — versione completa,
+/// con dettagli e ordine di priorità, in `docs/ROADMAP.md` (sezione P1).
+/// **Tenere allineata**: quando cambiano le priorità in cima alla roadmap,
+/// riportare qui a mano le 3-6 voci più rilevanti per chi usa l'app, nella
+/// stessa sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa
+/// convenzione di [kReleaseNotes], vedi anche `CLAUDE.md` §9).
 const List<String> kUpcomingHighlights = [
   'Tema chiaro/scuro sempre coerente con quello scelto, fin dall\'apertura',
   'Tasto per eliminare una traccia direttamente dalla sua scheda',
@@ -96,7 +99,9 @@ const List<String> kUpcomingHighlights = [
   'Modifica dei punti di un tracciato più semplice e intuitiva',
 ];
 
-/// Mostra le novità per versione in un bottom sheet (stesso linguaggio
+enum _NotesTab { changelog, roadmap }
+
+/// Mostra Novità e Roadmap in un bottom sheet a due tab (stesso linguaggio
 /// visivo di `showDifficultyLegend`/`showAbbreviationsLegend` in `legends.dart`).
 Future<void> showReleaseNotes(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -114,29 +119,73 @@ Future<void> showReleaseNotes(BuildContext context) {
   );
 }
 
-class _ReleaseNotesSheet extends StatelessWidget {
+class _ReleaseNotesSheet extends StatefulWidget {
   const _ReleaseNotesSheet();
+
+  @override
+  State<_ReleaseNotesSheet> createState() => _ReleaseNotesSheetState();
+}
+
+class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
+  _NotesTab _tab = _NotesTab.changelog;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final isChangelog = _tab == _NotesTab.changelog;
     return SafeArea(
       top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Novità', style: AppText.sheetTitle),
+            Text('Sentèi', style: AppText.sheetTitle),
             const SizedBox(height: 6),
             Text(
-              'Le versioni più recenti di Sentèi.',
+              isChangelog
+                  ? 'Le versioni più recenti.'
+                  : 'Le prossime priorità di sviluppo — l\'ordine può cambiare.',
               style: AppText.body.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 16),
-            for (final n in kReleaseNotes) _VersionBlock(note: n),
-            if (kUpcomingHighlights.isNotEmpty) const _UpcomingSection(),
+            SizedBox(
+              width: double.infinity,
+              child: CupertinoSlidingSegmentedControl<_NotesTab>(
+                groupValue: _tab,
+                children: const {
+                  _NotesTab.changelog: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Text('Novità'),
+                  ),
+                  _NotesTab.roadmap: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Text('Roadmap'),
+                  ),
+                },
+                onValueChanged: (v) {
+                  if (v != null) setState(() => _tab = v);
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: isChangelog
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final n in kReleaseNotes) _VersionBlock(note: n),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _bulletRows(kUpcomingHighlights, palette),
+                      ),
+              ),
+            ),
           ],
         ),
       ),
@@ -144,48 +193,23 @@ class _ReleaseNotesSheet extends StatelessWidget {
   }
 }
 
-class _UpcomingSection extends StatelessWidget {
-  const _UpcomingSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(height: 1, color: palette.hairline),
-          const SizedBox(height: 16),
-          Text('In arrivo',
-              style: AppText.sectionValue.copyWith(color: palette.bodyText)),
-          const SizedBox(height: 6),
-          Text(
-            'Le prossime priorità di sviluppo — l\'ordine può cambiare.',
-            style: AppText.body.copyWith(color: palette.secondaryLabel),
-          ),
-          const SizedBox(height: 10),
-          for (final h in kUpcomingHighlights)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('•  ',
-                      style: AppText.body.copyWith(color: palette.secondaryLabel)),
-                  Expanded(
-                    child: Text(h,
-                        style: AppText.body
-                            .copyWith(color: palette.bodyText, height: 1.3)),
-                  ),
-                ],
+/// Righe puntate condivise da changelog e roadmap (stesso stile).
+List<Widget> _bulletRows(List<String> items, AppPalette palette) => [
+      for (final h in items)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('•  ', style: AppText.body.copyWith(color: palette.secondaryLabel)),
+              Expanded(
+                child: Text(h,
+                    style: AppText.body.copyWith(color: palette.bodyText, height: 1.3)),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-}
+            ],
+          ),
+        ),
+    ];
 
 class _VersionBlock extends StatelessWidget {
   const _VersionBlock({required this.note});
@@ -211,22 +235,7 @@ class _VersionBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          for (final h in note.highlights)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('•  ',
-                      style: AppText.body.copyWith(color: palette.secondaryLabel)),
-                  Expanded(
-                    child: Text(h,
-                        style: AppText.body
-                            .copyWith(color: palette.bodyText, height: 1.3)),
-                  ),
-                ],
-              ),
-            ),
+          ..._bulletRows(note.highlights, palette),
         ],
       ),
     );

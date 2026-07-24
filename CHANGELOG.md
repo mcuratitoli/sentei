@@ -9,8 +9,8 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
-- 🗺️ Impostazioni → Informazioni → Sentèi mostra ora anche **"In arrivo"**: un'anteprima
-  sintetica delle prossime priorità di sviluppo, sotto il changelog.
+- 🗺️ Impostazioni → Informazioni → Sentèi ora si apre con due schede: **Novità** (come
+  prima) e **Roadmap**, un'anteprima sintetica delle prossime priorità di sviluppo.
 
 ## 1.0.0 (5) — 24 luglio 2026
 

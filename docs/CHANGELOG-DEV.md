@@ -14,14 +14,23 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 ## 24 luglio 2026 — Roadmap sintetica in-app (in lavorazione, non ancora rilasciato)
 
 Impostazioni → Informazioni → Sentèi mostrava solo il changelog (`kReleaseNotes`,
-`lib/ui/release_notes.dart`). Aggiunta una seconda sezione **"In arrivo"** nello stesso
-bottom sheet (`_UpcomingSection`), sotto l'elenco delle versioni, con una nuova costante
-`kUpcomingHighlights` (3-6 voci, linguaggio utente, zero nomi di file/provider). Stessa
-logica di manutenzione del changelog: quando cambia la sezione P1 di `ROADMAP.md`, le
-voci più rilevanti per l'utente vanno riportate a mano in `kUpcomingHighlights`. Scartate
-in fase di analisi: parsing di `ROADMAP.md` a runtime (documento per sviluppatori, non
-adatto a un utente finale) e una pagina web esterna linkata da Impostazioni (hosting
-dedicato non giustificato alla scala "beta tra amici").
+`lib/ui/release_notes.dart`). Aggiunta una nuova costante `kUpcomingHighlights` (3-6 voci,
+linguaggio utente, zero nomi di file/provider) per la roadmap sintetica. Stessa logica di
+manutenzione del changelog: quando cambia la sezione P1 di `ROADMAP.md`, le voci più
+rilevanti per l'utente vanno riportate a mano in `kUpcomingHighlights`, nella stessa
+sessione di lavoro (regola esplicita in `CLAUDE.md` §9). Scartate in fase di analisi:
+parsing di `ROADMAP.md` a runtime (documento per sviluppatori, non adatto a un utente
+finale) e una pagina web esterna linkata da Impostazioni (hosting dedicato non
+giustificato alla scala "beta tra amici").
+
+**UI (revisione):** prima versione con le due liste impilate in un unico scroll (sezione
+"In arrivo" sotto le versioni, separata da un hairline) — sostituita su richiesta utente
+con **due tab** nello stesso bottom sheet (`CupertinoSlidingSegmentedControl<_NotesTab>`,
+stesso pattern del selettore cloud in `settings_screen.dart`): "Novità" (default, aperta
+all'apertura del foglio) e "Roadmap". Titolo/sottotitolo del foglio e la sola area
+contenuti sotto il selettore scrollano (`Flexible` + `SingleChildScrollView`); il
+selettore resta fisso. Righe puntate fattorizzate in `_bulletRows` (riusate da entrambe
+le tab, prima duplicate tra `_VersionBlock` e la vecchia `_UpcomingSection`).
 
 ---
 

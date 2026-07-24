@@ -233,7 +233,9 @@ dart format .                # formattazione
 - **Dispositivi:** l'UDID del simulatore iOS **cambia a ogni ricreazione** — se "No supported
   devices", rilanciare `flutter devices` (o `xcrun simctl list devices available`) e usare
   l'UDID corrente. Per un iPhone fisico via cavo serve un Apple ID configurato in Xcode
-  (Settings → Accounts) e la firma del team di sviluppo già impostata nel progetto.
+  (Settings → Accounts) e la firma del team di sviluppo già impostata nel progetto. Gli UDID
+  correnti e il Team ID Apple, se servono per riferimento rapido, vanno tenuti in
+  `CLAUDE.local.md` (gitignorato, mai versionato — vedi §9), non qui.
 - Bundle id: `com.mattiacuratitoli.sentei` (già in uso su App Store Connect; su Android è lo
   stesso `applicationId` — vedere `ios/Runner.xcodeproj` e `android/app/build.gradle` come
   fonte di verità).
@@ -272,9 +274,18 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   - i client OAuth (Google) vivono in `configs/`, **gitignorato**;
   - non incollare qui (né in altri file versionati) UDID di dispositivi reali, indirizzi email,
     percorsi assoluti della macchina di sviluppo o altri identificatori personali — sono privi
-    di valore per chi legge il repo e non dovrebbero finire in un documento pubblico.
+    di valore per chi legge il repo e non dovrebbero finire in un documento pubblico;
+  - se questi identificativi servono comunque come riferimento rapido durante lo sviluppo,
+    vanno in **`CLAUDE.local.md`** (root del repo, gitignorato) — mai in un file versionato.
+    Non esiste un template committato: crearlo in locale al bisogno, con lo stesso taglio di
+    `CLAUDE.md` §8 (UDID simulatore/dispositivo, Team ID Apple).
 - Team ID Apple e bundle id sono già pubblici di fatto (compaiono nel binario distribuito e
   nei file di progetto `ios/`/`android/`), ma evitare comunque di ripeterli qui senza motivo.
+- **`kReleaseNotes` e `kUpcomingHighlights`** (`lib/ui/release_notes.dart`, changelog e
+  roadmap sintetica mostrati in-app) vanno **sempre tenuti allineati** rispettivamente a
+  `CHANGELOG.md` e alla sezione P1 di `docs/ROADMAP.md`: quando si aggiorna uno dei due file
+  del repo, aggiornare anche la lista Dart corrispondente **nella stessa sessione di lavoro**,
+  non in un secondo momento.
 
 ---
 

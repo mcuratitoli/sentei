@@ -53,3 +53,7 @@ android/build/
 
 # OAuth client secret JSON (mai committare — repo pubblico)
 configs/
+
+# Note locali con identificativi di questa macchina (UDID, team ID) — mai
+# nel repo pubblico, vedi CLAUDE.md §8/§9.
+CLAUDE.local.md
