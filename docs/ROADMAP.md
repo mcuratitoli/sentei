@@ -159,12 +159,20 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 - [ ] Android: creare Play Console, generare upload keystore, build `.aab` (non più APK),
   track closed testing + Google Group come lista tester.
 - [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`).
-- [ ] **Login autenticato (Google e/o Apple)** per identificare gli utenti — decisione
-  architetturale ancora aperta: introdurrebbe un'identità server-side che oggi l'app non
-  ha (privacy-first, zero backend). Da discutere prima di progettare l'implementazione.
-- [ ] **Analitiche d'uso** (dopo login e/o decisione backend) — tool da scegliere
-  (Firebase vs soluzione self-hosted/privacy-friendly) e revisione della privacy policy
-  (oggi dichiara "nessuna raccolta dati su server propri").
+- [ ] **Analitiche d'uso** — analisi completa fatta (24 luglio 2026,
+  `docs/eval-usage-analytics.md`): Mapbox Dashboard + App Store Connect Analytics coprono
+  già "accessi Mapbox" e "app aperta" a costo zero, senza toccare codice o privacy policy.
+  Per "tracce salvate" e "chi sincronizza" **non serve il login** — raccomandato un
+  contatore anonimo minimale (3 eventi, ID locale, endpoint serverless su tier gratuito),
+  scartando Firebase (dipendenza Google non necessaria) e il login (non risolve il
+  problema da solo, vedi analisi). Decisione da prendere: procedere con l'opzione
+  anonima o restare allo status quo.
+- [ ] **Login autenticato (Google e/o Apple)** per identificare gli utenti — **decisione
+  indipendente dalle analitiche** (vedi `docs/eval-usage-analytics.md`): introdurrebbe
+  un'identità server-side + un vero backend utenti che oggi l'app non ha (privacy-first,
+  zero backend), oltre a Sign in with Apple obbligatorio su iOS (guideline 4.8) e
+  eliminazione account in-app (guideline 5.1.1(v)). Da valutare solo se emerge un motivo
+  concreto diverso dalle analitiche (es. continuità multi-dispositivo, supporto utenti).
 
 ## P7 — Backlog tecnico (bassa priorità)
 

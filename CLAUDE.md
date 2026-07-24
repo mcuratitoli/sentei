@@ -295,9 +295,10 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   da riconsiderare solo se si tornasse a un'architettura multi-sorgente.
 - [ ] **Routing offline (BRouter embedded):** confermare la fattibilità reale in Flutter
   (dimensione dei segment file) prima di impegnarsi — Fase 2.
-- [ ] **Login autenticato (Google/Apple) + analitiche d'uso:** introdurrebbe un'identità
-  server-side che oggi l'app non ha (privacy-first, zero backend) — decisione da prendere
-  prima di progettare l'implementazione. Dettagli in `docs/ROADMAP.md`.
+- [ ] **Login autenticato (Google/Apple):** introdurrebbe un'identità server-side che oggi
+  l'app non ha (privacy-first, zero backend) — decisione indipendente dalle analitiche
+  d'uso (vedi `docs/eval-usage-analytics.md`: il login non è un prerequisito per quelle).
+  Dettagli in `docs/ROADMAP.md`.
 - [ ] **Unità di misura / localizzazione:** oggi solo metrico e italiano — valutare se serve
   i18n.
 
