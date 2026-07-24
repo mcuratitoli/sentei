@@ -197,6 +197,15 @@ class _CloudSection extends ConsumerWidget {
     final cloud = ref.watch(cloudSyncProvider);
     final notifier = ref.read(cloudSyncProvider.notifier);
     final providerName = ref.watch(cloudServiceProvider).providerName;
+    final provider = ref.watch(cloudProviderProvider);
+    // iCloud: la nuvola è già l'icona reale del servizio. Google Drive: icona
+    // distinta (triangolo "aggiungi a Drive") così le due righe non si
+    // confondono più a colpo d'occhio.
+    final providerIcon = switch (provider) {
+      CloudProvider.iCloud =>
+        cloud.signedIn ? CupertinoIcons.cloud_fill : CupertinoIcons.cloud,
+      CloudProvider.googleDrive => Icons.add_to_drive,
+    };
 
     ref.listen(cloudSyncProvider.select((s) => s.message), (_, msg) {
       if (msg != null && msg.isNotEmpty) {
@@ -214,7 +223,7 @@ class _CloudSection extends ConsumerWidget {
         if (Platform.isIOS) const _CloudProviderSelector(),
         if (!cloud.signedIn)
           CupertinoListTile(
-            leading: Icon(CupertinoIcons.cloud, color: tint),
+            leading: Icon(providerIcon, color: tint),
             title: Text(providerName),
             subtitle: const Text('Accedi per sincronizzare le tracce'),
             trailing: cloud.busy
@@ -224,7 +233,7 @@ class _CloudSection extends ConsumerWidget {
           )
         else ...[
           CupertinoListTile(
-            leading: Icon(CupertinoIcons.cloud_fill, color: tint),
+            leading: Icon(providerIcon, color: tint),
             title: Text(providerName),
             subtitle: Text(cloud.account ?? 'Connesso'),
           ),

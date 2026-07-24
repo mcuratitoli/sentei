@@ -11,6 +11,19 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 luglio 2026 — Icone provider cloud distinte (in lavorazione, non ancora rilasciato)
+
+In Impostazioni → Sincronizzazione cloud, la riga di accesso/account mostrava sempre
+`CupertinoIcons.cloud`/`cloud_fill` sia per iCloud sia per Google Drive — a colpo d'occhio
+indistinguibili. `_CloudSection` (`lib/features/settings/settings_screen.dart`) ora sceglie
+l'icona in base al `cloudProviderProvider` attivo: **iCloud** resta la nuvola (coerente con
+l'iconografia reale del servizio Apple), **Google Drive** usa `Icons.add_to_drive` (Material,
+triangolo/cartella — nessun asset o dipendenza aggiuntiva, `uses-material-design: true` già
+presente). Il selettore segmentato (`_CloudProviderSelector`) resta solo testuale, non
+toccato: il problema segnalato era specificamente l'icona della riga account.
+
+---
+
 ## 24 luglio 2026 — Roadmap sintetica in-app (in lavorazione, non ancora rilasciato)
 
 Impostazioni → Informazioni → Sentèi mostrava solo il changelog (`kReleaseNotes`,

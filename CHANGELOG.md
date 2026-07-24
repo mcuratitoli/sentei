@@ -11,6 +11,8 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 - 🗺️ Impostazioni → Informazioni → Sentèi ora si apre con due schede: **Novità** (come
   prima) e **Roadmap**, un'anteprima sintetica delle prossime priorità di sviluppo.
+- ☁️ Icona distinta per **iCloud** e **Google Drive** in Impostazioni → Sincronizzazione
+  cloud (prima era la stessa nuvola generica per entrambi).
 
 ## 1.0.0 (5) — 24 luglio 2026
 
