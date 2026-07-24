@@ -3,12 +3,18 @@
 > Roadmap P6 ("Accesso & analitiche"). Analisi 24 lug 2026, **nessuna implementazione** —
 > richiesta esplicitamente solo l'analisi, per decidere come procedere.
 >
-> **Aggiornamento 24 lug 2026:** la privacy policy **non è un vincolo** in questa fase (due
-> soli tester, entrambi consapevoli) — vedi nota in fondo alla sezione "Vincoli". Le metriche
-> elencate dall'utente nella richiesta iniziale (tracce salvate, aperture app, accessi
-> Mapbox, utenti che sincronizzano) erano **proposte indicative**, non requisiti: questa
-> versione ragiona a tutto campo su cosa sarebbe davvero utile sapere per Sentèi, oltre alla
-> lista di partenza, e chiude con due proposte di implementazione concrete.
+> **Aggiornamento 24 lug 2026 (1):** la privacy policy **non è un vincolo** in questa fase
+> (due soli tester, entrambi consapevoli) — vedi nota in fondo alla sezione "Vincoli". Le
+> metriche elencate dall'utente nella richiesta iniziale (tracce salvate, aperture app,
+> accessi Mapbox, utenti che sincronizzano) erano **proposte indicative**, non requisiti:
+> questa versione ragiona a tutto campo su cosa sarebbe davvero utile sapere per Sentèi.
+>
+> **Aggiornamento 24 lug 2026 (2):** l'utente ha una **VM DigitalOcean già pagata e
+> disponibile** — nessun costo aggiuntivo accettabile oltre quello già in conto, ma massimo
+> controllo granulare desiderato. Questo sposta la scelta verso il **self-hosting** invece
+> delle proposte cloud SaaS della versione precedente (§5, ora riclassificate come
+> alternative). Login **confermato non necessario** (vedi §4/§6) — decisione già presa
+> dall'utente, resta fuori scope.
 
 ---
 
@@ -108,6 +114,13 @@ sole, la ragione per costruire qualcosa.
 Vale sempre la pena guardarle per prime — coprono due voci della richiesta iniziale senza
 scrivere nulla.
 
+**Per l'obiettivo "non superare il tier gratuito Mapbox" specificamente**, c'è un'opzione
+ancora più diretta della dashboard: Mapbox permette di **impostare soglie di allerta** su
+account/token (Account → Usage & billing → alert a es. 75%/90% del tier gratuito) con
+notifica via email automatica **prima** di sforare — zero codice, zero infrastruttura,
+configurazione una tantum. Per l'obiettivo specifico "evitare costi", questa è la risposta
+più diretta che esista, indipendentemente da qualunque altra scelta di questo documento.
+
 ---
 
 ## 4. Perché "login" non risolve, da solo, "chi sincronizza"
@@ -124,55 +137,84 @@ prerequisito per le analitiche.
 
 ---
 
-## 5. Due proposte di implementazione
+## 5. Con una VM propria: le opzioni self-hosted
 
-Entrambe strumentano gli stessi tre livelli (§1): errori/affidabilità, adozione feature,
-conteggi grezzi. Cambia lo strumento, non cosa si misura.
+Avere una VM DigitalOcean già pagata cambia il calcolo: il costo marginale di self-hostare
+diventa **zero** (paghi comunque la VM, a prescindere), e si ottiene esattamente ciò che
+l'utente ha chiesto — **una dashboard operativa centralizzata**, sotto controllo diretto,
+senza dipendere da un vendor terzo per i dati. La domanda diventa: *quanto self-hosting*, e
+*quanto della VM ci si può permettere di dedicarci* — dipende dalle specifiche del droplet
+(RAM soprattutto: gli stack "full" di alcuni tool open-source sono pensati per VM robuste,
+non per il droplet più economico). Le opzioni sotto sono ordinate per impronta di risorse,
+dalla più leggera alla più pesante.
 
-### Proposta 1 — Firebase (Crashlytics + Analytics): la più rapida e completa
+### Layer 1 — Errori/affidabilità (il più prezioso, §1)
 
-Ora che la privacy policy non è un vincolo, questa è probabilmente la scelta con il miglior
-rapporto valore/sforzo.
+| Opzione | Cos'è | Impronta risorse | Note |
+|---|---|---|---|
+| **GlitchTip** (self-hosted) | Riscrittura open-source di Sentry, **compatibile con il protocollo/SDK Sentry** (`sentry_flutter` lato app, punti solo il DSN al tuo GlitchTip) | Leggera: app + Postgres + Redis, confortevole anche su droplet piccoli (1-2 GB RAM) | **Consigliata.** Ottieni gratis ciò che è difficile rifare bene da soli: raggruppamento errori, stack trace, breadcrumb, symbolication — con l'SDK ufficiale Flutter, zero reinvenzioni. |
+| **Sentry self-hosted (stack completo)** | Il progetto originale, self-hostabile | Pesante: la doc ufficiale consiglia **16+ GB RAM** (Kafka, ClickHouse, Snuba, Symbolicator…) | Sconsigliata a questa scala — quasi certamente sovradimensionato per un droplet hobby. |
+| **Fatto in casa** (endpoint + tabella) | Un piccolo endpoint che riceve `{errore, stacktrace, tag}` e scrive su Postgres/SQLite | Minima | Massimo controllo, ma **si perde gratis** ciò che Sentry/GlitchTip danno: raggruppamento/deduplica errori (algoritmo non banale da rifare bene), sessioni, breadcrumb automatici. Va bene se l'obiettivo è anche *imparare/costruire tutto*, non solo avere il segnale. |
 
-- **`firebase_crashlytics`**: crash automatici + `recordError()` per errori non fatali. Si
-  aggancia **esattamente** ai punti già esistenti nel codice: i blocchi `catch` di
-  `TrailLookupException` (`data/trails/`), `CloudSyncException` (`data/cloud/`), i fallback
-  BRouter a linea retta (`brouter_routing_service.dart`), e via via gli altri dei 41
-  `catch (_)` che oggi non riportano nulla. Avrebbe **intercettato prima** il bug "ricerca
-  fallita ≠ vuota" invece di aspettare che un tester notasse il sintomo.
-- **`firebase_analytics`**: eventi custom (`logEvent`) per il livello 2/3 — schema eventi
-  proposto sotto. Sessioni/retention/DAU-WAU arrivano automatiche, senza codice aggiuntivo.
-- **Setup**: file di configurazione (`google-services.json` / `GoogleService-Info.plist`) —
-  stesso trattamento di `configs/` già in uso per i client OAuth Google (gitignorato, mai nel
-  repo pubblico).
-- **Costo**: tier gratuito ampiamente sufficiente a questa scala; nessun costo di
-  manutenzione infrastrutturale (Google ospita tutto); dashboard pronte, zero query da
-  scrivere a mano.
-- **Contro onesto**: dipendenza da Google anche per chi non usa Google Drive; un file
-  `PrivacyInfo.xcprivacy` (privacy manifest Apple) da mantenere ad ogni aggiornamento SDK —
-  un costo piccolo, non bloccante.
+### Layer 2/3 — Adozione feature + conteggi (§1)
 
-### Proposta 2 — Sentry (errori) — eventualmente + PostHog (prodotto): più mirata, meno Google
+| Opzione | Cos'è | Impronta risorse | Note |
+|---|---|---|---|
+| **Umami** (self-hosted) | Analytics privacy-friendly, leggero, con API per eventi custom + UI pronta | Molto leggera: un container Node + Postgres/MySQL | **Consigliata.** Il più leggero dei tool "con UI pronta"; eventi custom (`track_saved`, `sync_connected`, ecc.) supportati nativamente. |
+| **Plausible** (self-hosted) | Simile a Umami, nato per siti web | Da leggera a media (alcune versioni usano ClickHouse) | Alternativa valida, verificare la versione/requisiti al momento dell'installazione. |
+| **PostHog** (self-hosted, "hobby deploy") | Più ricco (funnel, session replay, feature flag) | Pesante: basato su ClickHouse, la doc consiglia **4+ GB RAM** solo per l'hobby deploy | Probabilmente overkill per adottare solo 5-8 eventi custom — la ricchezza in più non serve a questa scala. |
+| **Fatto in casa** (endpoint + tabella + Grafana/Metabase) | Stesso endpoint del Layer 1 (o uno gemello), righe in Postgres, dashboard costruita a mano | Minima | **Massimo controllo possibile**: ogni pannello è una query SQL tua, nessun tool con la sua opinione su come mostrare i dati. Costo: costruisci tu i pannelli invece di trovarli già pronti. |
 
-Se preferisci non portare Google dentro l'app per questo, o vuoi uno strumento pensato
-apposta per gli errori (più ricco di Crashlytics su stack trace/breadcrumb/contesto):
+### La dashboard unificata (quello che hai chiesto esplicitamente)
 
-- **Sentry** (`sentry_flutter`): cattura crash + errori non fatali con contesto ricco
-  (breadcrumb delle azioni precedenti, stack trace completo, tag per servizio: `brouter`,
-  `osm2cai`, `overpass`, `icloud`, `google_drive`). Tier gratuito generoso (5k errori/mese),
-  open-source (self-hostabile in futuro se mai volessi uscirne). Copre bene tutto il
-  **Livello 1** (§1), il più prezioso.
-- **PostHog** (`posthog_flutter`), opzionale, per il **Livello 2/3**: alternativa a Firebase
-  Analytics con tier gratuito (1M eventi/mese), posizionata come più privacy-conscious,
-  open-source e self-hostabile se in futuro si volesse riportare tutto "in casa" senza
-  riscrivere il client. Funnel/retention inclusi.
-- **Costo**: due strumenti invece di uno (due dashboard, due SDK) — leggermente più lavoro
-  di setup rispetto alla Proposta 1, ma ciascuno più specializzato nel suo compito.
-- **Vantaggio**: nessuna dipendenza Google; se un domani si volesse davvero "zero terze
-  parti", PostHog è l'unico dei quattro (Firebase/Crashlytics/Sentry/PostHog) auto-ospitabile
-  senza cambiare SDK lato client.
+Sia GlitchTip sia Umami (e Plausible) parlano **Postgres** — questo rende naturale
+aggiungere **Grafana** (leggero, un solo container, gira bene anche su droplet piccoli) come
+livello di visualizzazione **sopra entrambi**: un'unica dashboard con pannelli che
+interrogano sia gli errori (GlitchTip) sia gli eventi prodotto (Umami), invece di avere due
+schermate separate. Grafana supporta anche alert (es. "avvisami se gli errori `brouter`
+superano N in un'ora") — utile proprio per il Livello 1.
 
-### Schema eventi proposto (valido per entrambe le proposte)
+Per Mapbox: gli **alert nativi Mapbox (§3)** restano la fonte autorevole per "sto per
+sforare il tier gratuito" (solo Mapbox conosce i numeri esatti di fatturazione). Se vuoi
+comunque un segnale *tuo*, correlato nel tempo con gli altri eventi nello stesso Grafana, puoi
+loggare un evento leggero (`map_session_start`) come **proxy** — non sostituisce il dato di
+billing reale di Mapbox, ma ti dà un trend visibile accanto al resto senza uscire dalla tua
+dashboard.
+
+### Architettura consigliata (concreta)
+
+```
+App Flutter
+  ├─ sentry_flutter → GlitchTip (Docker: app + Postgres + Redis)
+  └─ evento HTTP custom → Umami (Docker: app + Postgres)
+                                        ↓
+                              Grafana (Docker: 1 container)
+                              legge entrambi i Postgres → dashboard unica
+```
+
+- **Tutto su Docker Compose sulla VM esistente**, nessun servizio a pagamento oltre la VM
+  già in conto.
+- Stima impronta totale: 4-5 container leggeri (GlitchTip app+worker, Postgres, Redis,
+  Umami, Grafana) — confortevole su un droplet da **2 GB RAM**, probabilmente fattibile
+  anche su 1 GB con qualche accorgimento (limitare memoria di Postgres/Redis), ma dipende
+  da cos'altro gira già sulla VM.
+- Se preferisci **massimo controllo invece di velocità**: sostituisci Umami con
+  l'"endpoint fatto in casa + Grafana" del Layer 2/3 — perdi la UI pronta di Umami ma guadagni
+  controllo totale su schema dati e pannelli, restando comunque leggerissimo. GlitchTip
+  per gli errori lo terrei comunque: è l'unico pezzo dove "farlo in casa" costa più di
+  quanto rende (raggruppamento errori non banale).
+
+### Alternative cloud SaaS (versione precedente dell'analisi, ora secondarie)
+
+Restano valide come opzioni se in futuro non volessi più gestire nulla sulla VM (es. la VM
+cambia, si spegne, ecc.): **Firebase (Crashlytics + Analytics)** — più rapido da avviare,
+ma introduce una dipendenza Google e un costo (seppur nel tier gratuito) fuori dal tuo
+controllo diretto; oppure **Sentry cloud + PostHog cloud** — stessi SDK di GlitchTip/Umami
+(compatibili), quindi è anche possibile **cambiare idea in seguito senza riscrivere il
+client**: puntare lo stesso `sentry_flutter` da GlitchTip a Sentry cloud (o viceversa) è
+solo un cambio di DSN.
+
+### Schema eventi proposto (valido per qualunque opzione sopra)
 
 | Evento | Quando | Payload minimo |
 |---|---|---|
@@ -191,30 +233,36 @@ mai il contenuto di cosa l'utente ha creato.
 
 ---
 
-## 6. Login (Google/Apple) — resta una decisione separata
+## 6. Login (Google/Apple) — confermato fuori scope
 
-Non cambia rispetto alla versione precedente dell'analisi: introdurre un vero login
-applicativo (oggi Google Sign-In è solo autorizzazione OAuth per Drive, iCloud usa
-l'account di sistema) comporta un gate in-app, **Sign in with Apple obbligatorio su iOS**
-(Guideline 4.8) se offri login social, gestione/cancellazione account (Guideline 5.1.1(v)),
-e — soprattutto — non aggiunge nulla che la Proposta 1 o 2 non diano già per rispondere alle
-domande di analitica. Vale la pena valutarlo **solo** se emerge un motivo diverso (es.
-continuità multi-dispositivo legata all'identità, supporto utenti diretto), non per avere
-"analitiche migliori".
+Non cambia rispetto alla versione precedente dell'analisi, e l'utente ha nel frattempo
+confermato la direzione: introdurre un vero login applicativo (oggi Google Sign-In è solo
+autorizzazione OAuth per Drive, iCloud usa l'account di sistema) comporta un gate in-app,
+**Sign in with Apple obbligatorio su iOS** (Guideline 4.8) se offri login social,
+gestione/cancellazione account (Guideline 5.1.1(v)), e — soprattutto — non aggiunge nulla
+che l'architettura self-hosted di §5 non dia già per rispondere alle domande di analitica.
+Evitarlo "slega da problematiche" (parole dell'utente) senza perdere nulla sul fronte
+analitiche. Resta un quesito a sé in `docs/ROADMAP.md` (P6), da riaprire solo per un motivo
+diverso (continuità multi-dispositivo, supporto utenti diretto).
 
 ---
 
 ## 7. Raccomandazione
 
-1. **Subito, gratis:** guarda Mapbox Dashboard e App Store Connect Analytics (§3).
-2. **Se si vuole strumentare per davvero:** priorità al **Livello 1** (errori/affidabilità)
-   — è quello con il rapporto valore/sforzo più alto, ed è lo stesso indipendentemente dalla
-   proposta scelta.
-   - **Proposta 1 (Firebase)** se conta la velocità e non preoccupa la dipendenza Google.
-   - **Proposta 2 (Sentry [+ PostHog])** se preferisci restare fuori dall'ecosistema Google
-     o vuoi un'opzione auto-ospitabile in futuro.
-3. **Il login resta una domanda a parte** (§6) — non necessaria per nessuna delle due
-   proposte.
+1. **Subito, gratis, indipendentemente da tutto il resto:** Mapbox Dashboard + **alert di
+   soglia** (§3) e App Store Connect Analytics. Copre "accessi Mapbox" (compreso l'obiettivo
+   esplicito "non sforare il tier gratuito") e un primo polso su "app aperta", a costo zero.
+2. **Per il resto, self-hosting sulla VM già disponibile (§5)**, non SaaS: **GlitchTip**
+   (errori, Livello 1 — il valore più alto) + **Umami o endpoint fatto in casa** (adozione
+   feature, Livello 2/3) + **Grafana** sopra entrambi per la dashboard unica centralizzata
+   richiesta. Costo marginale zero (la VM è già pagata), nessuna dipendenza da vendor
+   esterni per i dati, massimo controllo — esattamente i tre criteri posti dall'utente.
+3. **Non reinventare il raggruppamento errori**: usare `sentry_flutter` verso GlitchTip
+   invece di costruire da zero anche il Layer 1, dove il "fatto in casa" costa più di quanto
+   rende.
+4. **Login confermato fuori scope** (§6) — nessuna delle opzioni sopra lo richiede.
 
-Nessuna implementazione fatta: in attesa di una decisione su quale proposta (o nessuna)
-procedere.
+Nessuna implementazione fatta: in attesa di conferma sull'architettura (GlitchTip+Umami+
+Grafana vs tutto "fatto in casa" vs mix) prima di procedere. La scelta esatta tra Umami e
+"fatto in casa" per il Layer 2/3, e le specifiche della VM (RAM/CPU, cosa gira già), sono i
+due dettagli che restano da chiarire per dimensionare lo stack definitivo.

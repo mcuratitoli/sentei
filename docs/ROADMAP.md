@@ -159,21 +159,22 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 - [ ] Android: creare Play Console, generare upload keystore, build `.aab` (non più APK),
   track closed testing + Google Group come lista tester.
 - [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`).
-- [ ] **Analitiche d'uso** — analisi completa fatta (24 luglio 2026,
-  `docs/eval-usage-analytics.md`, aggiornata: privacy policy non è più un vincolo, solo 2
-  tester consapevoli). Mapbox Dashboard + App Store Connect Analytics coprono già "accessi
-  Mapbox" e "app aperta" a costo zero. Priorità raccomandata: **affidabilità dei servizi
-  terzi** (BRouter/OSM2CAI/Overpass/sync, oggi invisibile — causa già di bug reali passati
-  sotto silenzio) più che i conteggi grezzi. **Due proposte pronte**: (1) Firebase
-  Crashlytics + Analytics, più rapida; (2) Sentry (+ eventualmente PostHog), niente
-  dipendenza Google, auto-ospitabile in futuro. Il login **non serve** per nessuna delle
-  due. Decisione da prendere: quale proposta (o nessuna).
-- [ ] **Login autenticato (Google e/o Apple)** per identificare gli utenti — **decisione
-  indipendente dalle analitiche** (vedi `docs/eval-usage-analytics.md`): introdurrebbe
-  un'identità server-side + un vero backend utenti che oggi l'app non ha (privacy-first,
-  zero backend), oltre a Sign in with Apple obbligatorio su iOS (guideline 4.8) e
-  eliminazione account in-app (guideline 5.1.1(v)). Da valutare solo se emerge un motivo
-  concreto diverso dalle analitiche (es. continuità multi-dispositivo, supporto utenti).
+- [ ] **Analitiche d'uso** — analisi completa fatta e aggiornata (24 luglio 2026,
+  `docs/eval-usage-analytics.md`): privacy policy non è un vincolo (2 tester consapevoli),
+  login **escluso** (decisione presa dall'utente). Mapbox Dashboard + **alert di soglia**
+  Mapbox (zero costo, avvisa prima di sforare il tier gratuito) + App Store Connect
+  Analytics coprono già "accessi Mapbox"/"app aperta" senza scrivere nulla. Priorità
+  raccomandata: **affidabilità dei servizi terzi** (BRouter/OSM2CAI/Overpass/sync, oggi
+  invisibile — causa già di bug reali passati sotto silenzio) più che i conteggi grezzi.
+  **Sfruttando la VM DigitalOcean già disponibile** (nessun costo aggiuntivo, massimo
+  controllo): stack self-hosted proposto **GlitchTip** (errori, compatibile SDK Sentry) +
+  **Umami o endpoint fatto in casa** (adozione feature) + **Grafana** sopra entrambi per
+  la dashboard unica. Decisione da prendere: Umami vs fatto-in-casa per il Layer 2/3, e
+  specifiche della VM per dimensionare lo stack.
+- [x] **Login autenticato (Google/Apple):** escluso — l'utente ha deciso di restarne fuori
+  per non "slegarsi da problematiche" non necessarie; nessuna delle analitiche sopra lo
+  richiede. Vedi `docs/eval-usage-analytics.md` §6. Riaprire solo per un motivo diverso
+  dalle analitiche (continuità multi-dispositivo, supporto utenti).
 
 ## P7 — Backlog tecnico (bassa priorità)
 
