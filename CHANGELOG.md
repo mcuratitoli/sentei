@@ -1,7 +1,8 @@
 # Changelog — Sentèi
 
 Novità per versione. Le voci sono scritte per chi usa l'app, non un log tecnico —
-per i dettagli di sviluppo vedi `git log` / `docs/ROADMAP.md`.
+per i dettagli di sviluppo vedi **[`docs/CHANGELOG-DEV.md`](docs/CHANGELOG-DEV.md)**;
+per cosa resta da fare vedi **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 
 Il numero fra parentesi è il **build** (`CFBundleVersion`/`versionCode`); la app in
 Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.

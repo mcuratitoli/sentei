@@ -1,485 +1,221 @@
-# Roadmap di implementazione — Sentèi
+# Roadmap — Sentèi
 
-> Documento operativo che traduce il `CLAUDE.md` (visione/decisioni) in **passi concreti**,
-> **informazioni da recuperare** e **quesiti aperti** da sciogliere durante lo sviluppo.
-> Aggiornare man mano che le decisioni vengono prese.
+> Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
+> stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
+
+**Aggiornato:** 24 luglio 2026 · **Stato:** beta `1.0.0+5` rilasciata ai tester.
+
+## Come leggere questo documento
+
+- Le sezioni sono numerate **P1 → P8** in ordine di priorità (P1 = da affrontare per primo).
+- Ogni punto è etichettato **[FIX]** (comportamento rotto/incoerente di una feature già
+  rilasciata), **[FEATURE]** (funzionalità nuova) o **[TASK]** (lavoro tecnico, non visibile
+  all'utente).
+- **SP** = story point, peso di complessità in scala Fibonacci 1-2-3-5-8-13: 1-2 banale
+  (minuti), 3 qualche ora, 5 mezza giornata, 8 giornata piena su più file, 13 epica da
+  spezzare in sotto-task prima di iniziare.
+- `[ ]` = da fare, `[~]` = iniziato/parziale.
 
 ---
 
-## 🚀 Ripartenza rapida (leggere per primo)
+## P1 — Feedback test su device (24 luglio 2026) — priorità massima
 
-### 🎯 TODO prioritizzati — quadro sintetico (agg. 24 lug 2026)
+> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Precedono
+> tutto il resto della roadmap.
 
-> Legenda peso: *story point* in scala 1-2-3-5-8-13 (Fibonacci) — 1-2 = banale/pochi minuti,
-> 3 = qualche ora, 5 = mezza giornata, 8 = un giorno con più file coinvolti, 13 = epica da
-> spezzare in sotto-task prima di iniziare.
-
-**P1 — 🆕 Feedback test su device (24 lug 2026) — PRIORITÀ MASSIMA, precede tutto il resto sotto:**
-
-> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Ogni punto è
-> etichettato **[FIX]** (comportamento rotto/incoerente di una feature già rilasciata) o
-> **[FEATURE]** (funzionalità nuova, non presente oggi). Nessuno di questi è ancora iniziato.
-
-1. [ ] **[FIX] Tema chiaro/scuro non rispettato all'apertura** — *SP 3*. Con il tema impostato
-   manualmente (es. Chiaro) su un telefono col sistema in Dark Mode, all'avvio l'app mostra
-   comunque Scuro: la preferenza salvata (`appThemeModeProvider`) non viene applicata **prima**
-   del primo frame. Verificare l'ordine di caricamento `shared_preferences` vs. `MaterialApp`/
-   override `platformBrightness` in `lib/app/app.dart`.
+1. [ ] **[FIX] Tema chiaro/scuro non rispettato all'apertura** — *SP 3*. Con il tema
+   impostato manualmente (es. Chiaro) su un telefono col sistema in Dark Mode, all'avvio
+   l'app mostra comunque Scuro: la preferenza salvata (`appThemeModeProvider`) non viene
+   applicata prima del primo frame. Verificare l'ordine di caricamento
+   `shared_preferences` vs. `MaterialApp`/override `platformBrightness` in `lib/app/app.dart`.
 2. [ ] **[FIX] Traccia "fantasma" dopo import GPX** — *SP 5*. Nel flusso di import a 2 fasi
-   (grezza tratteggiata → editing → Salva), la traccia grezza originale può restare visibile in
-   mappa senza essere né selezionabile né eliminabile. Garantire che, in ogni uscita dal flusso
-   di import (Salva **o** Annulla), la geometria grezza temporanea venga sempre rimossa dal
-   rendering.
-3. [ ] **[FIX] Testo del pulsante in uscita dall'editing** — *SP 1*. Il messaggio di conferma
-   dice "Annulla percorso": va cambiato in **"Annulla modifiche"**, corretto anche quando si sta
-   modificando una traccia esistente e non solo disegnandone una nuova.
-4. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel pannello
-   di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile come "annulla
-   ricerca". Valutare una X esplicita o un gesto più standard (es. tap fuori dal pannello).
-5. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la mappa
-   deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato importato, invece di
-   restare sulla posizione/inquadratura precedente.
-6. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi l'eliminazione è
-   raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere un tasto elimina (con
-   conferma, coerente con `showIosConfirm`) direttamente nella card che appare selezionando una
-   traccia sulla mappa.
-7. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia è
-   selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce visibili
-   in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce sovrapposte.
-8. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto draggabile
-   a metà segmento (introdotto per l'inserimento di nuovi waypoint, vedi P2 "Editing punti
-   intermedi") è poco discoverable (serve tenere premuto qualche secondo) e posizionato in modo
-   poco sensato (centro della corda retta, non del sentiero). **Da implementare al posto
-   dell'attuale:** rimuovere la maniglia intermedia sempre visibile; al tap su un punto esistente
-   la card cambia contesto — sparisce nome/colore traccia, compaiono i dati del punto (altitudine,
-   ecc.), un suggerimento "tieni premuto per spostare", il tasto elimina punto e un nuovo tasto
-   **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e il
-   precedente. Tocca `route_editor_provider.dart` + rendering/gesture in `map_gl_screen.dart`
-   (rivedere anche `docs/eval-waypoint-editing.md`, l'analisi fatta per l'implementazione attuale).
+   (grezza tratteggiata → editing → Salva, vedi `docs/CHANGELOG-DEV.md`), la traccia grezza
+   originale può restare visibile in mappa senza essere né selezionabile né eliminabile.
+   Garantire che, in ogni uscita dal flusso di import (Salva **o** Annulla), la geometria
+   grezza temporanea venga sempre rimossa dal rendering.
+3. [ ] **[FIX] Testo del pulsante in uscita dall'editing** — *SP 1*. Il messaggio di
+   conferma dice "Annulla percorso": va cambiato in **"Annulla modifiche"**, corretto anche
+   quando si sta modificando una traccia esistente e non solo disegnandone una nuova.
+4. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
+   pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
+   come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
+   pannello).
+5. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
+   mappa deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato
+   importato, invece di restare sull'inquadratura precedente.
+6. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
+   l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
+   un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card
+   che appare selezionando una traccia sulla mappa.
+7. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
+   è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
+   visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
+   sovrapposte.
+8. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
+   draggabile a metà segmento (vedi `docs/CHANGELOG-DEV.md`, 23 luglio) è poco discoverable
+   (serve tenere premuto qualche secondo) e posizionato in modo poco sensato (centro della
+   corda retta, non del sentiero). **Da implementare al posto dell'attuale:** rimuovere la
+   maniglia intermedia sempre visibile; al tap su un punto esistente la card cambia
+   contesto — sparisce nome/colore traccia, compaiono i dati del punto (altitudine, ecc.),
+   un suggerimento "tieni premuto per spostare", il tasto elimina punto e un nuovo tasto
+   **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e
+   il precedente. Tocca `route_editor_provider.dart` + rendering/gesture in
+   `map_gl_screen.dart` (rivedere anche `docs/eval-waypoint-editing.md`).
 9. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
-   scelta colore deve essere collassata di default e espandersi al tocco; ampliare la palette con
-   più tonalità, tutte coerenti con la palette blu dell'app (`lib/ui/tokens.dart`).
-10. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di editing, il
-    toggle on/off della banda ripidità/pendenza e il toggle on/off delle immagini devono avere lo
-    stesso linguaggio visivo (stessa forma, stesso stato attivo/disattivo) — oggi incoerenti.
-11. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** — *SP 13*
-    (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale è già fatta in
-    `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI). Sotto-richieste raccolte
-    dal test:
-    - il tasto immagini nella card deve permettere di **importare nuove foto**, oltre a mostrare/
-      nascondere le anteprime esistenti;
-    - scorrendo il profilo/tracciato, il punto con una foto associata deve **evidenziarsi** (es.
-      bordo giallo) quando il dito lo attraversa;
-    - toccando un punto giallo (con foto) oggi si mostra l'anteprima; **toccando l'anteprima** ci
-      si aspetta la foto a **schermo intero**;
-    - le foto devono poter avere un **titolo** impostabile dall'utente (default: data e ora dello
-      scatto);
+   scelta colore deve essere collassata di default e espandersi al tocco; ampliare la
+   palette con più tonalità, coerenti con la palette blu dell'app (`lib/ui/tokens.dart`).
+10. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
+    editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
+    immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
+    attivo/disattivo) — oggi incoerenti.
+11. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+    *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
+    è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
+    Sotto-richieste raccolte dal test:
+    - il tasto immagini nella card deve permettere di **importare nuove foto**, oltre a
+      mostrare/nascondere le anteprime esistenti;
+    - scorrendo il profilo/tracciato, il punto con una foto associata deve **evidenziarsi**
+      (es. bordo giallo) quando il dito lo attraversa;
+    - toccando un punto giallo (con foto) oggi si mostra l'anteprima; **toccando
+      l'anteprima** ci si aspetta la foto a **schermo intero**;
+    - le foto devono poter avere un **titolo** impostabile dall'utente (default: data e ora
+      dello scatto);
     - un **tasto info** deve mostrare i metadati della foto: coordinate (ed eventualmente
       altitudine) del luogo di scatto, data/ora, titolo;
-    - serve una **vista a griglia** con tutte le foto della traccia, con selezione multipla e
-      azioni bulk (es. eliminazione massiva);
-    - toccando un'anteprima (dalla griglia o dal punto in mappa) ci si aspetta lo **zoom/focus
-      della mappa** sul punto di scatto **e** l'apertura delle info foto;
-    - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
-      in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto altrove con
-      `DefaultTextStyle(decoration:none)`, vedi P2 "Menu/conferma stile Apple Photos").
-12. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti sopra,
-    eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
+    - serve una **vista a griglia** con tutte le foto della traccia, con selezione multipla
+      e azioni bulk (es. eliminazione massiva);
+    - toccando un'anteprima (dalla griglia o dal punto in mappa) ci si aspetta lo
+      **zoom/focus della mappa** sul punto di scatto **e** l'apertura delle info foto;
+    - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
+      sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
+      risolto altrove con `DefaultTextStyle(decoration:none)`).
+12. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+    sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
 *Totale indicativo: ~45 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
-**P2 — attivo:**
-- [x] **Bottoni in alto a destra — accorpati in un unico blocco (analisi *mobile-app-design* + implementazione).** Prima erano due superfici: bussola (cerchio staccato) + pillola `2D/3D · posizione`. Ora **un'unica pillola in vetro** con tre righe 44×44 (bussola · 2D/3D · posizione) separate da hairline (stile Apple Maps): rafforza il raggruppamento (Gestalt), una sola `GlassSurface` = meno rumore; gerarchia colore mantenuta (posizione=accent blu, 2D/3D=neutro, bussola=info). Rif. `_SideControls`/`_PillDivider` in `lib/features/map_gl/map_gl_screen.dart`. *Da tap-testare su device.*
-- [x] **Splash animato — FATTO (verificato a schermo).** Lo splash esteso ora ha uno **sfondo topografico animato**: un campo di **isoipse** (curve di livello) che si muove lentamente (drift ellittico + leggero zoom "Ken Burns") su gradiente azzurrino→bianco, con il logo in una **radura bianca** centrale che sfuma nelle curve. **Scelta:** procedurale via `CustomPaint` (`_TopoSplashPainter`) — **nessun asset extra, offline, tema blu, nessun secondo `MapWidget`** (scartati lottie/video e MapWidget in pan). `AnimationController` 24s in loop, smontato a fine dissolvenza (`_splashMounted`). Rif. `_SplashOverlay`/`_TopoSplashPainter` in `map_gl_screen.dart`. **Anti-"stacco" all'avvio:** (1) il primo frame Flutter è **identico al native splash** (base bianca + logo) e le isoipse **entrano in dissolvenza** (`_intro`, 900ms); (2) il logo è reso alla **stessa dimensione del native** (`LaunchImage` imageset @1x=260 → 260pt) così **non si rimpicciolisce** al passaggio nativo→Flutter; (3) logo a **fondo trasparente** `branding/splash_logo.png` (generato da `splash.png` con flood-fill del bordo bianco → trasparente, script one-shot PIL) così sta pulito sulle isoipse senza riquadro bianco, con un alone morbido per leggibilità. La latenza vera = boot engine Flutter (inevitabile), resta coperta dal native splash. *Nota:* l'asset `branding/splash.png` ha il fondo **bianco quadrato** — nascosto dalla radura; se un domani si vuole il logo direttamente sulle curve, servirebbe un PNG a **fondo trasparente**.
-- [x] **Info Mapbox ("i")** — spostata **più in alto e a sinistra** (logo `marginLeft 6/marginTop 30`, "i" `6/56`), coerente con la richiesta "meno al centro". ⚠️ **Dimensione non riducibile**: `AttributionSettings` dell'SDK Mapbox non espone `size` (solo posizione/margini/colore/clickable) → l'icona resta della grandezza nativa. Per rimpicciolirla servirebbe nasconderla e ridisegnare un "i" custom in Flutter che apra l'attribuzione (fattibile ma da valutare vs. i termini Mapbox).
-- [x] **Gap di avvio (traccia → posizione)** — eliminato con **splash esteso**: la mappa resta coperta dallo splash (bianco + logo, in continuità col native splash) finché la camera iniziale non è già sulla **posizione GPS** (o sul fallback traccia salvata), piazzata **istantaneamente** (`setCamera`, niente `flyTo`); poi lo splash **dissolve** (450ms). Timeout di sicurezza 12s. Rif. `_splashVisible`/`_locateSilently`/`_SplashOverlay`.
-- [x] Login **Google Drive su Android** — testato e funzionante.
-- [x] **Apertura su posizione GPS corrente** — verificato sul simulatore (fix 21 lug).
-- [x] **Menu/conferme iOS** (Apple Photos) — testati.
-- [x] Gesto/toggle **2D↔3D** — ok.
-- [x] **Design system — tokenizzazione (audit 22 lug 2026; FATTO, fondamenta + punti caldi + residuo).** *Verdetto:* la UI è **moderna e coerente in superficie** (vetro iOS/Apple Maps, Cupertino inset-grouped, palette blu, toast/menu/conferme native) ma il **sistema sottostante non è codificato** → deriva dei token. Evidenze (grep su `lib/`): **66** `Color(0x…)` hardcoded (vs. solo **10** usi di `colorScheme`), **25** `fontSize` hardcoded (vs. **6** `textTheme`; nessuna type scale, es. `13.5`), **7 grigi** quasi identici senza ruolo (`6E6E73/9A9AA0/8E8E93/B0B0B5/3A3A3C/3C3C43/616161`), **4 rossi** senza ruolo (`C62828/FF3B30/E53935/D73027`), **9 raggi** (4→30), `_kGroupedBg` **duplicato in 3 file**, spaziature fuori-griglia (9/14/10), commento stale (SnackBar→toast in settings). **Rischio:** ogni ritocco globale (blu, futuro dark mode, restyle) è costoso e la coerenza erode nel tempo. **Fix proposto:** introdurre `AppColors`/`AppSpacing`/`AppRadii`/`AppTextStyles` + `TextTheme` nel tema, poi migrare i punti caldi (settings, tracks_list, controlli mappa). *Buon esempio già presente:* `lib/ui/cai_difficulty.dart` (palette semantica centralizzata).
-  - **✅ FATTO (fondamenta + punti caldi):** creato `lib/ui/tokens.dart` (`AppColors`/`AppSpacing`/`AppRadii`/`AppText`); tema con `colorScheme.primary` **forzato** al blu brand esatto (così `Color(0xFF1565C0)`→`AppColors.primary`/`colorScheme.primary` è a parità) + `error` = destructive + `TextTheme` base. Migrati: **settings**, **tracks_list**, **offline_maps** (rimosso `_kGroupedBg` triplicato → `AppColors.groupedBg`), **controlli mappa** (`map_gl`: hairline/raggi/grigi), **glass.dart** (fill via token). **Unica variazione visiva intenzionale:** azione *distruttiva* unificata a iOS `systemRed` (`FF3B30`) — prima convivevano `C62828` (settings/offline) e `FF3B30` (menu). analyze pulito, 68 test verdi.
-  - **✅ RESIDUO (type scale + grigi/raggi):** estesa `AppText` a una **type scale iOS** completa (`menuItem 17` · `value 16/600` · `pillLabel 15` · `toast 14.5` · `body 14` · `bodyDetail 13.5` · `footnote 13` · `caption 13/500` · `captionEmphasis 13/600` · `captionSmall 12` · `badge 12/700` · `chartLabel 11`) + `TextTheme` nel tema; aggiunti grigi semantici (`iconGrey 8E8E93` · `iconGreyLight 9A9AA0`) e `overlayDark`. Migrati **draw_route_controls**, **_PointInfoCard/needle** (map_gl), **elevation_profile_chart**, **ios_toast**, **ios_menu** (dedup `_kLabel`/`_kDestructive`→token, checkmark→`primary`). **Risultato:** `fontSize` inline sparsi 25→~7 one-off (solo off-scala 12.5/13.5 o peso dinamico); `Color(0x…)` 66→45 (residui = ombre/scrim con alpha + colori di dominio CAI/elevazione/bussola); usi token ~70. analyze pulito, 68 test verdi, **parità visiva** (nessun cambio in questa passata).
+## P2 — In-app: changelog + roadmap sintetica (proposta, nuovo)
 
-**P3 — nuove feature + aperti:**
-- [~] **Editing punti intermedi** di una traccia — **implementato (Step 1–5, 23 lug 2026, da validare su device).** Waypoint più afferrabili (raggio 7→11); **undo a stack**; tap = **seleziona** + **elimina con conferma** (no più tap-delete accidentale); **inserimento intermedio** con **maniglie di metà-segmento** (`insertPoint`+split); **ri-instradamento incrementale** (`segmentRouteProvider` family con cache per-chiave → sposta/inserisci ricalcola solo i segmenti adiacenti). Analisi/piano: `docs/eval-waypoint-editing.md`. *Limite noto:* maniglie al centro-chord (rifinibili con la geometria per-segmento).
-- [ ] **Versione Web** (browser desktop): PoC necessario (`mapbox_maps_flutter` non gira su web → GL JS/MapLibre; `path_provider`/`drift` da adattare). Decidere MVP: sola-visualizzazione vs editing completo.
-- [~] **Sync album fotografico — analisi + decisione FATTE (23 lug 2026, `docs/eval-photo-sync.md`), implementazione su branch dedicato.** Scoperta chiave: **non esiste un asse temporale** sulla traccia (il parsing GPX scarta `<time>`; `DrawnTrack.createdAt` è la data di creazione in Sentèi, non della escursione) → matching **spaziale** (EXIF GPS della foto sul `routedPath`, estendendo `PathGeometry` con la distanza-cumulata — il profilo è già in distanza, non serve il tempo) + filtro data come segnale secondario. **Decisione "sync" senza server:** i metadati (GPS+timestamp+distanza-lungo-percorso+**thumbnail piccolo**) viaggiano nel JSON della traccia (già sync via iCloud/Google Drive); l'**originale resta solo in galleria**, mai caricato — al bisogno ogni device rifà un **re-match locale** GPS+timestamp nella propria libreria (funziona se la foto è arrivata lì via iCloud Photos/Google Photos nativi; altrimenti si mostra il thumbnail con badge "non disponibile qui"). **Permesso pieno** alla libreria foto + **griglia in-app** ("Trovate N foto vicino al percorso", ordinate per vicinanza) invece del picker di sistema (scelta esplicita per poter suggerire per posizione). Nessun login/backend. Package candidato: `photo_manager` (da verificare versione). Lavoro su **branch dedicato** (non su `main`).
-- [~] **Riallineamento tracce importate** — **implementato in 2 fasi (23 lug 2026, da validare su device).** L'import GPX: (1) parsa la grezza; (2) la **semplifica** (Douglas-Peucker adattivo, ≤40 waypoint); (3) **Fase 1 — caricamento annullabile**: instrada segmento-per-segmento con snap-to-trail e sceglie **ibrido** — snap dove coincide con la grezza (lunghezza ≤1.6× e scarto ≤60m), altrimenti tiene il **tratto grezzo** (fuori sentiero); card di caricamento con **Annulla** (`_ImportLoadingCard`/`cancelImport`, concorrenza 6, riusa cache `segmentRouteProvider`); (4) calcola metriche + segnavia/difficoltà CAI (ora **calcolabili**); (5) **Fase 2 — revisione/editing**: NON auto-importa; entra in **editing** sulla traccia ricalcolata con la grezza **tratteggiata dimmed** come riferimento immutabile; **persiste solo al Salva** (`finishDrawing` preserva il routedPath ibrido se non modificato) → allora sparisce la grezza e riappaiono le altre tracce. Rif. `Tracks.importGpx`/`_runImport`/`_hybridRoute`, `PolylineSimplifier`, `importPreviewProvider`, `importLoadingProvider`, `_importRawLine`. **Caveat noto:** se l'utente **modifica** un waypoint, i segmenti si re-instradano con snap puro (l'ibrido raw si preserva solo finché non si edita).
-- [x] **Dark mode — FATTO (23 lug 2026, Step 1-3), da validare a fondo su device.** *Decisioni utente:* **3 varianti scure** selezionabili in Impostazioni — **Standard** (dark iOS elegante, default), **Notturno** (uso in montagna, basso abbagliamento: toni caldi/smorzati, niente bianco puro né blu freddo), **Risparmio energetico** (nero OLED puro); **attivazione manuale** in Impostazioni (Automatico/Chiaro/Scuro + scelta variante quando l'effettivo è scuro), **persistita** (`shared_preferences`). **Solo app per ora** (mappa invariata, vedi step sotto).
-  - **Step 1 (fondamenta):** `AppPalette` (`ThemeExtension`, `lib/ui/tokens.dart`) coi colori **strutturali** (sfondi/testo/grigi/vetro/hairline) risolti da `context.palette`; i colori **brand/semantici** (`primary`/`destructive`/difficoltà CAI/palette tracce) restano costanti in ogni variante. Migrati tutti gli usi strutturali (settings, tracks_list, offline_maps, map_gl inclusi i `CustomPainter` — bussola/glifo sentiero, che non hanno `context` e ricevono il colore via costruttore — glass.dart, ios_menu.dart, legends.dart). Nessun cambio visivo (palette light = valori storici).
-  - **Step 2 (temi + toggle):** 3 palette dark (`AppPalette.darkStandard/darkNight/darkOled`) + `AppTheme.dark(AppDarkVariant)` (ColorScheme.dark + textTheme parametrico); `theme_provider.dart` (`appThemeModeProvider`/`appDarkVariantProvider`, persistiti, pattern uguale a `tracks_sort_provider`); `app.dart` → `SenteiApp` diventato `ConsumerWidget`, **rimosso il force-light**: il `builder` forza `platformBrightness` solo se l'utente ha scelto esplicitamente Chiaro/Scuro, in **Automatico** lascia passare quella reale di sistema (anche per i widget Cupertino). Sezione **"Aspetto"** in Impostazioni (`_AppearanceSection`): riga "Tema" (menu Automatico/Chiaro/Scuro) + riga "Variante scura" (mostrata solo se il tema è effettivamente scuro).
-  - **Step 3 (verifica):** confermato **a schermo** che l'"Automatico" segue il sistema (`xcrun simctl ui ... appearance dark` → bottom bar/controlli mappa passano a vetro scuro, mappa resta chiara come da decisione) e che il light resta **pixel-identico** a prima. Il flusso Impostazioni (Tema→Scuro→appare "Variante scura"→Notturno→si aggiorna) verificato con **widget test** (`test/features/settings_appearance_test.dart`, niente tool di tap sul simulatore). + `test/app/theme_provider_test.dart` (persistenza, palette distinte). analyze pulito, **89 test verdi**.
-  - [x] **Mappa scura — FATTO (23 lug 2026, Opzione A, verificato a schermo).** Decisioni utente: **automatica** (coordinata col tema app, non un terzo tasto "vista"); **Satellite invariata** anche a tema scuro. Implementato: `MapboxStyles.DARK` come stile "Outdoors scuro", risolto da `_resolveStyleUri` (Satellite sempre `_satelliteStyleUri`, indipendente dal tema); `_mapIsDark` calcolato all'avvio (`initState`, tema + `platformBrightness`) e tenuto sincro da `ref.listen(appThemeModeProvider)` (cambio Tema in Impostazioni) e da `didChangePlatformBrightness` (`WidgetsBindingObserver`, cambio del sistema mentre l'app è in Automatico) → `_syncMapTheme` ricarica lo stile solo se la vista corrente è Outdoors. **Dettagli colore** per la leggibilità sul basamento scuro: label sentieri CAI (verde chiaro su alone scuro, invece di verde scuro su alone bianco), hillshade (ombra/luce attenuate), cielo/atmosfera (sole meno intenso), icona attribuzione "i" (chiara invece di antracite, con posizione/margini sempre riapplicati insieme — verificato che l'SDK nativo li resetta se omessi). Le 3 varianti dark (Standard/Notturno/OLED) condividono la stessa mappa scura (nessun equivalente nativo Mapbox per le 3 sfumature). Verificato a schermo (`xcrun simctl ui ... appearance dark`): mappa passa a `dark-v11` automaticamente, bottom bar/controlli coerenti, "i" chiara; **light rimasto pixel-identico**. Analisi: `docs/eval-dark-map.md`. analyze pulito, 89 test verdi.
+13. [ ] **[FEATURE] Mostrare anche una roadmap sintetica in-app** — *SP 3*. Oggi
+    Impostazioni → Informazioni → Sentèi mostra solo il changelog (`kReleaseNotes` in
+    `lib/ui/release_notes.dart`, sheet `showReleaseNotes`). L'utente ha chiesto di
+    esporre in-app anche un'anteprima, molto sintetica, di **cosa sta arrivando**.
 
-**P4 — build & toolchain:**
+    **Proposta:** riusare esattamente lo stesso pattern del changelog, non una nuova
+    infrastruttura:
+    - nuova lista costante `kUpcomingHighlights` (3-6 voci, linguaggio utente, zero nomi
+      di file/provider/jargon tecnico) accanto a `kReleaseNotes`;
+    - una seconda sezione "In arrivo" nello stesso bottom sheet (o una voce separata
+      "Roadmap" nella stessa area Impostazioni → Informazioni), stesso stile visivo
+      (`_VersionBlock`-like, vetro, `AppText`);
+    - **convenzione di manutenzione** identica a quella già in uso per il changelog
+      (commento in testa al file `release_notes.dart`): quando si aggiornano le priorità
+      in `ROADMAP.md` (sezione P1), riportare a mano le 3-6 voci più rilevanti per
+      l'utente in `kUpcomingHighlights`, riscritte in linguaggio semplice.
+    - **Scartate:** (a) parsing di `ROADMAP.md` a runtime/build-time — il documento è
+      per gli sviluppatori, pieno di nomi file e dettagli implementativi non adatti a un
+      utente finale, e aggiungerebbe una dipendenza fragile (formato markdown → parser);
+      (b) pagina web esterna linkata da Impostazioni — funzionerebbe ma richiede hosting
+      dedicato (oltre alla privacy policy già su GitHub Pages) per un beneficio marginale
+      alla scala "beta tra amici"; via `url_launcher` resta un'opzione se in futuro la
+      lista in-app diventasse insufficiente.
+    - Nessuna dipendenza nuova, nessun backend: stesso costo di manutenzione del
+      changelog attuale (una lista Dart aggiornata a mano ad ogni cambio di priorità).
+
+---
+
+## P3 — Editing tracce & UX mappa (aperti)
+
+- [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
+  (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
+  requisiti dettagliati in **P1, punto 11**.
+- [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
+  su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
+  già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non
+  disponibile su web), sync cloud lato browser. Prima decisione da prendere: MVP
+  sola-visualizzazione vs editing completo.
+- [ ] **Linee sentieri visibili sul layer mappa** — costo quasi zero: la geometria dei
+  sentieri (`sentei-trails`) è già scaricata per posizionare le etichette, manca solo una
+  `LineLayer` che la disegni.
+- [ ] **Migrazione layer sentieri a OSM2CAI** — stessa idea sopra ma con `ref`/
+  `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
+  gestire con zoom minimo/fallback).
+- [ ] **Separazione strade/sentieri su Mapbox** — nascondere i layer strada-sterrata dello
+  stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
+  sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
+
+## P4 — Validazione pendente su device
+
+Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
+su un telefono fisico:
+
+- [ ] Import GPX riallineato (flusso a 2 fasi: caricamento annullabile → editing →
+  Salva) — comportamento atteso descritto in `docs/CHANGELOG-DEV.md`.
+- [ ] Dark mode, le 3 varianti (Standard/Notturno/Risparmio energetico) su schermate
+  reali — leggibilità testo/vetro/hairline; **Automatico** deve seguire il cambio di Dark
+  Mode di sistema mentre l'app è aperta.
+- [ ] Mappa scura automatica — coerenza col tema, leggibilità label sentieri CAI e
+  attribuzione "i" su un'area con sentieri/rilievo reali (non solo zona urbana).
+- [ ] Legende aggiornate (difficoltà T/E/EE/EEA + F/PD + Welzenbach, Abbreviazioni).
+- [ ] Download mappe + elevazione offline in modalità aereo.
+- [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
+- [ ] Difficoltà CAI su tracce reali.
+- [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
+  dell'ambiente di sviluppo, va provato su rete reale.
+
+## P5 — Build & toolchain
+
 - [ ] **APK `--split-per-abi`** → ~40-50 MB invece di 122 MB.
-- [ ] **Aggiornamento Flutter** (spostato da P4): `flutter upgrade` + `pub upgrade --major-versions`, sessione dedicata (rischio regressioni mapbox/drift/riverpod).
+- [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
+  sessione dedicata dopo la beta, rischio regressioni mapbox/drift/riverpod.
+- [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — non ancora
+  configurata.
 
-**P5 — rimandati:**
-- [ ] **Bundling font** offline (ora runtime).
-- [ ] **Registrazione traccia live** (background location, Fase 2).
+## P6 — Rimandati
 
-**🔍 Feature mappa aperte (analisi pronta, TODO):** linee sentieri visibili sul layer (opzione A ~costo zero) · migrazione layer sentieri a OSM2CAI · separazione strade/sentieri su Mapbox.
+- [ ] Bundling font offline (ora scaricati a runtime via `google_fonts`... nota: su iOS si
+  usa già il font di sistema, verificare se il bundling serve ancora su Android).
+- [ ] Registrazione traccia live (background location, Fase 2 del CLAUDE.md).
 
-**📌 Validazione (TODO):** download **mappe+elevazione offline** in modalità aereo su device · smoothing dislivello su tracce reali · difficoltà CAI su tracce reali · smoke test OSM2CAI on-device.
+## P7 — Distribuzione & accesso
 
-**✅ Da testare su device — editing punti intermedi + legende (23 lug 2026, implementati, non ancora provati a schermo):**
-- [ ] **Grab dei punti**: in modalità disegno, trascinare un waypoint intermedio deve prendere il punto (prima si spostava la mappa).
-- [ ] **Maniglie di metà-segmento**: tra due punti c'è un pallino bianco/anello-blu → trascinarlo inserisce un waypoint lì e splitta il segmento.
-- [ ] **Selezione + elimina**: tap su un punto lo evidenzia (più grande + anello) e apre la barra "Punto N · Elimina" (con conferma); niente più cancellazioni al tap.
-- [ ] **Undo a stack**: dopo più operazioni (add/move/insert/remove), "Annulla" le ripercorre a ritroso; disabilitato quando non c'è nulla da annullare.
-- [ ] **Incrementale**: spostando un punto su una traccia lunga, il ricalcolo è rapido (solo i segmenti adiacenti).
-- [ ] **Altre tracce nascoste in editing**: entrando in creazione/modifica, le altre tracce spariscono; riappaiono all'uscita.
-- [ ] **Legende aggiornate**: Impostazioni → Legenda difficoltà mostra escursionistiche (T/E/EE/EEA) + **alpinistiche F/PD** + **scala Welzenbach I/II/III** + nota condizioni; la voce **Abbreviazioni** (ANA/ASF/CAF/CAI/GTA/IGM/IGN/UGET) apre lo sheet; entrambe le sheet **si chiudono** (fix altezza).
-- [ ] **Import GPX riallineato (flusso 2 fasi)**: importando un GPX "sconnesso": (a) **caricamento** con grezza **tratteggiata** e tasto **Annulla** (interrompe l'import); (b) a fine caricamento la traccia **NON** è salvata: si è in **editing** sulla ricalcolata, con la grezza **tratteggiata dimmed** immutabile come riferimento; (c) il percorso segue i **sentieri** con **segnavia/difficoltà CAI calcolati** e sui tratti fuori sentiero resta fedele alla grezza; (d) è **modificabile** con gli strumenti di editing; (e) **solo al Salva** viene persistita, sparisce la grezza e riappaiono le altre tracce; (f) **Annulla** in editing la scarta del tutto.
-- [ ] **Dark mode**: Impostazioni → **Aspetto** → "Tema" (Automatico/Chiaro/Scuro) + "Variante scura" (Standard/Notturno/Risparmio energetico, visibile solo se il tema è scuro); verificare le **3 varianti** su schermate reali (mappa/impostazioni/tracciati/mappe offline/legende/card traccia/toast/menu) — leggibilità testo, vetro, hairline; **Automatico** deve seguire il cambio di Dark Mode di sistema **mentre l'app è aperta**; la scelta **persiste** riaprendo l'app.
-- [ ] **Mappa scura (automatica)**: con tema **Scuro** (o Automatico + sistema scuro) la mappa passa da sola a `dark-v11`, senza toccare il tasto "vista"; **Satellite resta invariata** anche a tema scuro; cambiando il **Tema** dalle Impostazioni mentre la mappa è aperta (o tornandoci sopra), lo stile si aggiorna coerente; verificare leggibilità **label sentieri CAI** (verde chiaro su alone scuro) e **icona attribuzione "i"** (chiara) su un'area con sentieri/rilievo reali (non solo zona urbana).
+**Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
+closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
+Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 
-**⭐ Distribuzione agli amici — DECISO (22 lug 2026): iOS Unlisted + Android Play closed testing (Google Group).**
-- Obiettivo utente: uso privato/gratuito tra amici, senza vetrina pubblica e senza gestione costi. Scartata l'idea "store pubblici + codice alfanumerico" (esposizione massima + il codice lato client **non** protegge il token Mapbox → controllo costi debole). Alla scala "amici" si resta comunque nel **free tier Mapbox**.
-- **iOS → Unlisted App Distribution:** app in review normale ma **non ricercabile** (solo via **link diretto**, `apps.apple.com/...` **stabile e permanente**). Aggiornamenti = flusso App Store normale (**stesso link**, auto-update). **Revocabile**: "Remove from Sale" spegne i nuovi download (reversibile; chi l'ha già non la perde). Modello **link-gated, non per-utente**: chiunque abbia il link installa → non diffonderlo troppo. Vicino allo stato attuale (già su App Store Connect, team `W8XCSNY6V3`).
-- **Android → Play closed testing con Google Group:** modello **speculare a iOS** → **identity-gated**, solo **account Google dichiarati** installano. Si usa un **Google Group**: aggiungi/togli amici come membri del gruppo, senza toccare la Play Console. **Setup nuovo:** account Play Console (25$ una tantum), **upload keystore** di release (oggi l'APK è debug-signed), build **AAB** (non APK). Vedi analisi in coda.
-- *Asimmetria da ricordare:* iOS = chiunque col link (revochi spegnendo il link); Android = solo email nel gruppo (controllo per-utente più forte, ma serve la lista).
-
-**🔐 Accesso & analitiche (nuovo, 22 lug 2026) — roadmap:**
-- [ ] **Login autenticato (Google e/o Apple)** per **identificare gli utenti** che usano l'app. Delegato agli identity provider (Google Sign-In — già presente per Drive; **Sign in with Apple** — obbligatorio su iOS se si offre login social, guideline Apple 4.8). Da progettare: gate all'avvio (schermata login prima della mappa), persistenza sessione, dove tenere l'identità (solo locale? backend leggero?). Nota: introduce **identità server-side** che oggi l'app non ha (privacy-first, zero backend) → decisione architetturale da discutere.
-- [ ] **Analitiche d'uso** (step successivo al login): tempi di utilizzo, **richieste di accesso alle mappe** (map loads Mapbox), n° tracce salvate, feature usate, ecc. Serve per capire l'uso reale e **tenere d'occhio i costi mappe**. Da scegliere: strumento (Firebase Analytics? soluzione self-hosted/privacy-friendly?) e cosa raccogliere nel rispetto della privacy (l'app oggi non raccoglie dati su server propri — vedi README "Natura del progetto", da rivedere).
-
----
-
-**Dove siamo (5 lug 2026):** **beta 1.0.0+4 rilasciata ai tester** — iOS su TestFlight (gruppo interno "Amici") + APK Android (Drive-ready). Rispetto a giugno: revisione estetica **iOS-native** (vetro, Cupertino, tipografia di sistema, **forzato light mode**), **vista satellite**, **info punto** (quota/coordinate/luogo), **menu contestuale + conferme** stile Apple Photos, **conferma eliminazione** traccia, **ordinamento tracce persistito** (default alfabetico; +Dislivello/+Quota più alta), **legenda difficoltà CAI**, **Google Drive su Android** configurato (client OAuth Android+Web, SHA-1). Toolchain Android reinstallata (JDK17+SDK36+NDK). *Da validare sui device: Drive su Android, dark mode, nuovi menu.* Storico giugno ↓. Implementato:
-mappa multi-sorgente (OpenTopoMap/SwissTopo/IGN/OSM) + overlay sentieri; **GPS**; **disegno multi-traccia**
-con **snap-to-trail** (BRouter, catena profili `hiking-mountain → trekking`, routing per-segmento con retry);
-**dislivelli + profilo altimetrico interattivo** (scrubbing → punto evidenziato in mappa); **numeri sentieri
-CAI** (Overpass) sia come chip sia come **banda sotto il grafico**; **persistenza locale** (drift/SQLite);
-lista tracciati ordinabile/ricercabile; **export/import GPX**; UI con palette blu, font **Lato**, **barra
-flottante in basso** (bussola-nord / mia posizione / **+** / lista / impostazioni), logo+splash.
-
-> 🆕 **Legende ampliate (22 lug 2026):** la **Legenda difficoltà** (Impostazioni → Informazioni) ora copre — oltre alle escursionistiche **T/E/EE/EEA** — anche le **alpinistiche F/PD** e la **scala Welzenbach I/II/III** (con nota −/+ e nota "condizioni ottimali"), testo allineato alla «Guida dei Monti d'Italia» (CAI). Aggiunta la legenda **Abbreviazioni** (ANA, ASF, CAF, CAI, GTA, IGM, IGN, UGET). Contenuti in `lib/ui/legends.dart`; descrizioni CAI in `lib/ui/cai_difficulty.dart`. Test widget `test/ui/legends_test.dart`. Fonte: guida cartacea del Monviso.
-
-> ⏳ **DA TESTARE SUL TELEFONO FISICO (promemoria):** download **mappe offline** (area + per-traccia) con uso in **modalità aereo** (mappa **e** D+/profilo); resa della **card** di dettaglio traccia (in fondo, nasconde la toolbar); gesto **2D↔3D** a due dita. Tutto verificato su simulatore/analyze/test ma non ancora sul device.
-
-> 🆕 **Fix 21 lug 2026:** **all'apertura la mappa si posiziona sempre sulla posizione GPS corrente** dell'utente. Prima centrava sulla prima traccia salvata (`_maybeCenter`) e il GPS partiva solo in assenza di tracce → chi aveva tracce salvate non veniva mai portato sulla propria posizione. Ora `_locateSilently` è chiamato sempre al primo setup; la traccia salvata resta solo **fallback** se il GPS manca/permessi negati (`_fallbackCenterOnSavedTrack`). Flag `_centeredOnSaved`→`_initialCameraDone`. analyze pulito, 68 test verdi. *Da tap-testare su device.*
-
-> 🆕 **Fix sessione giu 2026 (da tap-testare su device):** (1) **focus traccia dalla lista** ora attende il pop della lista prima di muovere la camera (`_scheduleFocusTrack`); (2) routing BRouter con **profili in parallelo** (più veloce); (3) **ricerca POI/rifugi** via Nominatim OSM (`CombinedGeocodingService`, primario su Mapbox); (4) **flickering della linea** al typing del nome traccia eliminato (`TracksState.geometryNonce` + listener `.select()`); (5) **auto-localizzazione** GPS alla prima apertura senza tracce salvate; (6) **spinner segnavia CAI** più evidente; (7) **segnavia CAI da OSM2CAI** (vedi sotto).
-
-> 🆕 **Card traccia ridisegnata + difficoltà CAI + backfill lazy (1 lug 2026, da tap-testare su device):** **Creazione** = vista essenziale (nome, colore, `annulla/undo/Salva`; via km live e tasto Percorso). **Al Salva** la card **resta aperta** sulla traccia con spinner "Calcolo percorso, dislivello e segnavia…" finché i dati non ci sono (`finishDrawing` ora **seleziona** invece di deselezionare). **Selezione** = distanza, D+/D-, segnavia + nuovo **chip grado di difficoltà CAI** (tratto più impegnativo T/E/EE/EEA colorato, `overallCaiScale`, helper condiviso `lib/ui/cai_difficulty.dart`); profilo altimetrico **on-demand** (chiuso di default, tasto "Percorso"). **Backfill lazy segnavia/difficoltà:** le tracce salvate **prima** della funzionalità (flag `DrawnTrack.trailsResolved=false`) le cercano **una sola volta** alla selezione (spinner "Ricerca segnavia CAI…"), distinguendo "cercati e non trovati" da "mai cercati" → niente ricalcolo a ogni riselezione. Nuova colonna drift `trailsResolved` (**migrazione `schemaVersion` 2**) + persistita in `TrackCodec`.
-
-> 🆕 **Fix ricerca segnavia "fallita ≠ vuota" (1 lug 2026):** i servizi segnavia inghiottivano gli errori (rete/timeout/HTTP non-200) e tornavano lista vuota → un fallimento transitorio veniva scambiato per "nessun segnavia" e la traccia restava marcata `trailsResolved=true` senza numeri/difficoltà e senza retry (caso *Bivacco Ravelli*, bbox identica a tracce vicine che invece li trovavano). Ora `Osm2Cai`/`Overpass` **lanciano `TrailLookupException`** su errore e ritornano `[]` solo su risposta valida senza sentieri; `CombinedTrailService` ripiega su Overpass se il primario fallisce/è vuoto ma **propaga** il fallimento del fallback → chi risolve marca `trailsResolved` solo su esito genuino (throw → `false` → retry). **Migrazione `schemaVersion` 3**: azzera `trails_resolved` dove `trail_refs` è vuoto, così le tracce bloccate si ri-cercano una volta. analyze pulito, 68 test verdi.
-
-> 🆕 **Toggle "Segui i sentieri" (snap ON/OFF) nella card di disegno (1 lug 2026, da tap-testare):** fuori sentiero (**ghiacciai**, creste senza tracce OSM) lo snap produce percorsi sbagliati — `hiking-mountain` fallisce (BRouter uccide la ricerca: *"operation killed by thread-priority-watchdog"*) e l'unico profilo che "riesce", `trekking`, devia su way non pertinenti (~1.7× la linea d'aria sul ghiacciaio del Rosa; diagnosi via cattura log routing in tempo reale + riproduzione BRouter). L'interruttore disattiva lo snap → **linee dritte tra i waypoint** (rappresentazione corretta lì). `Tracks.setSnap(bool)` azzera la geometria calcolata + aggiorna l'anteprima; il campo `snapToTrail` era già rispettato da anteprima/salvataggio.
-
-> 🎨 **Menu/conferma stile Apple Photos + rifiniture lista (5 lug 2026).** Sostituiti action sheet/alert con **`lib/ui/ios_menu.dart`**: **`showIosMenu`** = menu contestuale **ancorato** al bottone (unico riquadro in vetro, righe icona+testo, divisori, distruttiva rossa, ✓ sulla voce attiva) — usato in Tracciati per **Ordina** e **azioni riga (⋯)**; **`showIosConfirm`** = conferma centrata (testo + azione rossa, tap-fuori annulla) — usata per **"Annullare?"** (annulla disegno) e per la **conferma di eliminazione** traccia (prima cancellava diretto). Aggiunto `DefaultTextStyle(decoration:none)` per togliere la doppia sottolineatura di debug dentro `showGeneralDialog`. **Lista tracce:** ordinamento in **provider persistito** (`tracks_sort_provider.dart`, `shared_preferences`) **default alfabetico**, con 4 criteri: Alfabetico · Per data · **Dislivello (D+)** · **Quota più alta** (`profile.maxElevation`). Rimosso `lib/ui/action_sheet.dart` (versione "capsule separate" scartata).
-
-> 🐞 **FIX Dark Mode (5 lug 2026) — testi invisibili + sfondi incoerenti.** Su device in **Dark Mode** (segnalato da tester via TestFlight su iPhone reale) i testi risultavano **chiari su sfondi chiari hardcodati → quasi invisibili**, e le liste **Cupertino** (Tracciati/Impostazioni) renderizzavano **scure** in mezzo a sezioni chiare (blocco nero). Causa: l'app dichiarava `theme` + `darkTheme` ma ha **sfondi chiari hardcodati** (`_kGroupedBg`, vetro bianco) e testo che seguiva la brightness di sistema. Sentèi è disegnata **solo light** → **forzato il light mode** in `lib/app/app.dart`: `themeMode: ThemeMode.light` (Material) **+** `builder` che override `MediaQuery.platformBrightness = light` (così anche i widget **Cupertino** restano chiari, dato che leggono la platformBrightness e non il themeMode). Rimosso `AppTheme.dark()`. analyze pulito. *Da verificare a schermo (sim in dark) e su device.*
-
-> 🎨 **Revisione estetica iOS (capitolo aperto, 1 lug 2026) — passo 1: controlli mappa.** Obiettivo utente: look **più iPhone/Apple, meno Material/Android** (rif. bottoni Apple Maps). Nuovo primitivo condiviso **`lib/ui/glass.dart`** (`GlassSurface` + `GlassCircleButton`): superfici "vetro smerigliato" translucide con blur del contenuto retrostante, bordo chiaro sottile, ombra morbida, **press-dim Cupertino** (niente elevazione/ripple Material). Applicato ai controlli mappa: bottoni laterali (bussola/posizione/2D-3D) come cerchi in vetro 44px con icone **Cupertino**; barra in basso come **pillola in vetro** (search/eye/square_list/gear) col **"+"** come cerchio pieno tinta primaria. ⚠️ Il blur sopra la platform view Mapbox potrebbe non applicarsi su iOS (da valutare a schermo).
-
-> 🎨 **Passo 2 (1 lug 2026, verificato a schermo via screenshot simulatore):** più trasparenza (glass opacity 0.66); **posizione + 2D/3D raggruppati** in un'unica pillola in vetro con **separatore hairline** (stile Apple Maps → ridà distinzione ai tasti in alto a destra); **bussola** con ago a due tinte (rosso nord/grigio sud) visibile **solo a mappa ruotata**; icone barra Cupertino "pieni". **Card traccia de-materializzata:** contenitore `GlassSurface` (quasi opaco, leggibile) al posto della `Card`; bottoni Cupertino (`_PillAction` filled/tinted per Salva/Percorso, `_CardIconButton` per edit/undo/chiudi/ripidezza/download); `CupertinoSwitch`/`CupertinoActivityIndicator`/`CupertinoTextField`. **Confermato:** il blur non attraversa la mappa Mapbox (platform view) → si compensa con trasparenza; il blur "vero" resterà per menu/liste/impostazioni (pagine Flutter). *Prossimi passi:* impostazioni, lista tracciati, dialoghi/sheet → Cupertino; tipografia.
-
-> 🎨 **Passo 3 (1 lug 2026):** **bussola** sempre visibile e **staccata sotto** la pillola posizione/3D (non più solo a mappa ruotata); icone barra a outline. **Impostazioni** e **Tracciati** de-materializzate: liste **inset-grouped Cupertino** su sfondo `systemGroupedBackground`, barre centrate; provider cloud con `CupertinoSlidingSegmentedControl`; lista con `CupertinoSearchTextField` e **action sheet** iOS per ordina + azioni riga (esporta/offline/elimina). Qui il blur/stile iOS è pieno (pagine Flutter, niente platform view). *Aperto:* scelta icone barra ancora da affinare col feedback utente; tipografia; eventuali dialoghi residui.
-
-> 🎨 **Passo 9 (2 lug 2026):** barra + mini-card punto + ornamenti. (1) **Nuovo tasto "livelli"** nella barra tra ricerca e "+" (`CupertinoIcons.square_stack_3d_up`): per ora placeholder (toast "in arrivo") — vedi feature *tipo mappa* qui sotto. (2) **Mini-card info punto** ora **sopra la barra** (come la ricerca, stessa posizione + margine 12px) invece di sostituirla; **aggiunte località/provincia/nazione** via **reverse geocoding Nominatim** (`ReversePlace` + `NominatimGeocodingService.reverse` + `CombinedGeocodingService.reverse`; risolta in parallelo alla quota in `InspectedPointNotifier`, spinner "Individuazione luogo…" finché pronta). (3) **Ornamenti Mapbox** spostati **in alto a sinistra**, appena sotto la scale bar (`OrnamentPosition.TOP_LEFT`, margini da affinare a vista).
-
-> 🆕 **[x] Vista Mappa ⇄ Satellite (2 lug 2026, da tap-testare su device):** il tasto "vista" in barra **alterna direttamente** (solo 2 viste, niente menu): in **Mappa** mostra l'icona **mondo** (`CupertinoIcons.globe`, → satellite), in **Satellite** l'icona **a strati** (→ mappa). Satellite = `satellite-streets-v12`. Cambio vista **imperativo** (`map.loadStyleURI`, prop del MapWidget fisso → niente ricariche doppie) con **re-setup a ogni `onStyleLoaded`** (`_runSetup`/`_settingUp` al posto del latch `_didSetup`): terreno 3D, sky, layer sentieri CAI e manager annotation ricreati; **hillshade extra saltato in satellite** (l'ortofoto ha già il rilievo); **cache bbox numeri sentiero azzerata** (etichette si ripopolano senza pan); **centratura GPS solo alla prima apertura** (`_postSetupOnce`). **Fix "3D piatto dopo lo switch":** il terreno viene **ri-applicato al primo idle** dopo il cambio vista (`_needTerrainReassert`/`_onMapIdle`), perché il mesh del DEM può non essere pronto subito dopo il load e la prima inclinazione risulterebbe piatta. *Follow-up:* vista "ibrida", persistenza dell'ultima vista.
-
-> 🆕 **[x] Marker del punto ispezionato (2 lug 2026):** aprendo l'info-point, il punto toccato è evidenziato in mappa da un **pallino tinta primaria con anello antracite** (`_inspectedDot` CircleAnnotationManager, `_renderInspectedPoint`, aggiornato via `ref.listen(inspectedPointProvider)`); si azzera alla chiusura della card / selezione traccia / disegno.
-
-> 🎨 **Passo 8 (2 lug 2026):** rifiniture card + ornamenti Mapbox. (1) **Mini-card info punto**: più trasparente (stesso vetro di ricerca/menubar, tolto l'override opacity) e **sollevata** dal bordo (`marginBottom 30`) così galleggia più in alto. (2) **Card traccia selezionata**: aggiunto il **tasto X** in alto a destra (chiude/deseleziona, stessa `clear_circled_solid` grigia della mini-card punto) e **matita di modifica spostata in basso** nella riga azioni (accanto a "salva offline"). (3) **Ornamenti Mapbox riposizionati**: logo (basso-sx) e attribuzione "i" (basso-dx) **non rimovibili** per ToS Mapbox, ma **sollevati** sopra la barra flottante (`marginBottom ~108`, `iconColor` antracite) via `logo.updateSettings`/`attribution.updateSettings` in `_configureOrnaments`.
-
-> 🎨 **Passo 7 (1 lug 2026):** **pannello di ricerca in vetro** — campo e lista risultati passati da `Material`/`elevation` opaco a **`GlassSurface`** (stesso vetro della menubar): niente più sfondo che stonava, icone antracite, separatori hairline, `CupertinoIcons` (placemark/back/clear). **Chiusura ricerca al tap sulla mappa**: `_onTap` ora chiude sempre la ricerca aperta (sia che si selezioni una traccia, aprendo la sua card, sia che si ispezioni un punto). Vedi anche la **mini-card info punto** qui sotto.
-
-> 🎨 **Passo 6 (1 lug 2026):** **tipografia iOS** + **pulizia Material residuo** + **riordino barra**. (1) **Font di sistema**: rimosso l'override `google_fonts` Lato in `app/theme.dart` → su iOS l'app usa **San Francisco** (Typography Cupertino automatica), su Android Roboto — look nativo coerente coi widget Cupertino. (2) **Barra in basso** ora a **4 icone**: `ricerca · + · lista tracce · impostazioni` (rimosso il toggle mostra/nascondi tracce dalla barra; il suo **glifo sentiero** è diventato l'icona della **lista tracciati** al posto di `square_list_fill`). ⚠️ *La funzione nascondi-tracce non ha più un pulsante* (`tracksHiddenProvider` resta nel codice, sempre `false`): da ricollocare se servisse. (3) **Dialoghi/feedback de-materializzati**: `AlertDialog`→`CupertinoAlertDialog` (annulla-percorso in `draw_route_controls`, progress download offline in `track_offline_download`); nuovo **toast iOS** condiviso `lib/ui/ios_toast.dart` (pillola scura arrotondata, slide+fade dal basso, auto-dismiss) al posto di **tutte le `SnackBar`** (import GPX, cloud, download offline, GPS error); `CircularProgressIndicator`→`CupertinoActivityIndicator`; **schermata Mappe offline** riscritta in stile inset-grouped Cupertino (come Impostazioni/Tracciati). analyze pulito, 68 test verdi.
-
-> 🎨 **Passo 5 (1 lug 2026):** **legenda difficoltà CAI** in **Impostazioni** (nuova sezione "Informazioni", voce "Legenda difficoltà" sopra l'info app). Tap → **card in overlay** (bottom sheet arrotondata con drag handle) che spiega i gradi **T/E/EE/EEA** in ordine crescente: badge colorato con la sigla + etichetta (`caiScaleLabel`) + **descrizione dettagliata** (nuovo `caiScaleDescription` in `lib/ui/cai_difficulty.dart`, più `caiScalesInOrder`). Colori condivisi con chip card e banda grafico (`caiScaleColor`). analyze pulito.
-
-> 🎨 **Passo 4 (1 lug 2026):** barra in basso **antracite neutra** (solo il "+" blu accento, scelta utente); **lente** `Icons.search_rounded`; **glifo sentiero** custom (linea curva a S con pallini agli estremi, barra diagonale se tracce nascoste) al posto dell'occhio; matita card `Icons.edit_rounded` (meno sottile). **Tooltip difficoltà CAI**: nel grafico espanso, toccando un tratto della **banda difficoltà** compare una bolla che spiega il grado (es. "EE — Escursionisti Esperti", `caiScaleLabel`); il chart è ora `StatefulWidget` con hit-test sulla striscia inferiore. **Versione app** in Impostazioni (info "Sentèi", `additionalInfo` stile iOS) via **`package_info_plus`** — fonte unica `pubspec.yaml` `version:` (cresce uguale su Android e iOS).
-
-**UI mappa — riordino controlli + ricerca luoghi (giu 2026, da tap-testare su device):** barra in basso ora **lente · occhio · + · lista · impostazioni**; i bottoni **posizione** e **2D/3D** spostati **in alto a destra** (`_SideControls`/`_RoundMapButton`, ~44px, stile coordinato). La **bussola nativa Mapbox è disabilitata** (`_configureOrnaments`) perché si sovrapponeva ai bottoni; sostituita da una **bussola custom** in cima alla colonna (compare solo a mappa ruotata, l'ago segue `cameraState.bearing` via `onCameraChangeListener`, tap → `_resetNorth` nord in alto). La **scale bar** (km) resta ai default in alto a sinistra. Spazio extra tra ricerca e menubar. Nuova **ricerca luoghi** dalla lente: `GeocodingService` (Mapbox Geocoding v6, riusa il token `pk`) + `geocodingServiceProvider`; pannello `_SearchPanel` ancorato **in basso sopra la menubar**, risultati che crescono verso l'alto, angoli arrotondati (debounce 350ms, proximity = centro mappa) → al tap/invio la mappa vola sul luogo. **Focus traccia dalla lista:** selezionando una traccia in "Tracciati" la mappa la inquadra (`mapFocusProvider` + `_focusTrack` con `cameraForCoordinates`). Verificato: analyze pulito, 59 test verdi, layout ok sul simulatore (scale bar e bottoni a posto); **da provare con tap** la ricerca e il focus.
-
-**Cosa resta (in ordine di priorità):**
-- **Migrazione Mapbox GL — FATTA, VALIDATA su iPhone e MERGIATA in `main` (5 fasi).** L'app è passata da `flutter_map` a **Mapbox GL** (`mapbox_maps_flutter`): un solo motore, stile **Outdoors**, **terreno 3D** (gesto nativo a due dita), numeri CAI come etichette lungo i sentieri, disegno/editing (tap/drag/seleziona) wired a `Tracks`. `flutter_map` rimosso, 45 test verdi, **provata sul telefono fisico: funziona**. Piano/dettagli: `docs/plan-mapbox-gl-migration.md`, `docs/eval-3d-map.md`. Rifiniture post-test: bottone **3D/2D unico** (toggle con etichetta della modalità target); fix **"Calcolo percorso…"** che lampeggiava a ogni carattere del nome (`livePathProvider` ora dipende solo da waypoint+snap). Il branch `feat/mapbox-gl` è stato integrato in `main` ed eliminato.
-- **Step 6a — download aree offline (MAPPA) — FATTO (da provare il download reale su device):** via **Mapbox OfflineManager + TileStore** (`data/offline/offline_maps_service.dart`): `loadStylePack(Outdoors)` + `loadTileRegion` (bbox dell'**area visualizzata**, zoom 8–15) con **progress**; lista/elimina/dimensione in `features/offline_maps/` (schermata raggiungibile da Impostazioni → "Mappe offline"). La mappa memorizza l'ultima area inquadrata (`lastMapBoundsProvider`, aggiornato on idle). Init OfflineManager/TileStore verificato sul simulatore; **resta da provare un download reale** (rete) sul device.
-- **Step 6b — download aree offline (ELEVAZIONE) — FATTO (da provare il download reale su device):** `TerrariumTileCache` (cache su disco) + `cachingTerrariumFetcher` (legge cache→HTTP→salva, usato da `elevationServiceProvider`) + `downloadTerrariumArea` (tile z13 del bbox). Integrato nel download offline: dopo la mappa, fase "Elevazione" con progress → **D+/profilo funzionano offline** per le aree scaricate. analyze pulito, 45 test verdi. Resta da provare un download reale sul device.
-- **Sync cloud — Google Drive FATTO (da testare col setup OAuth dell'utente):** interfaccia comune `CloudSyncService` (`lib/data/cloud/`) + serializzazione condivisa `TrackCodec` + motore last-write-wins (`computeSyncPlan`, testato) + backend **Google Drive** (`google_sign_in` v7 + `googleapis` Drive v3, scope `drive.file`, cartella "Sentèi", `<id>.json` fonte di verità + `<id>.gpx` interop). UI in Impostazioni (accedi/sincronizza/disconnetti). Credenziali via `--dart-define=GOOGLE_CLIENT_ID`. **Setup obbligatorio:** `docs/cloud-google-drive-setup.md`. *Prossimo cloud:* impl **iCloud** (richiede Apple Developer Program a pagamento); limiti v1: delete non propagati, sync manuale.
-- **Toggle "Segui sentieri" rimosso:** lo snap-to-trail è sempre attivo per le tracce disegnate (il campo `snapToTrail` resta solo per le tracce importate da GPX, già dettagliate).
-- **Export GPX:** già esporta il percorso **instradato e densificato con quota** (`profile.samples`), non i waypoint del disegno → traccia fedele passo-passo (resta da provare l'import in app di terzi).
-- **Estetica mappa (Mapbox GL) — FATTA (giu 2026, da iterare a vista):** hillshade extra sotto le etichette + `SkyLayer` atmosferico + esagerazione terreno 1.5 (rilievo alpino); **traccia selezionata** più spessa/bordata; numeri CAI con alone più leggibile. Stile sostituibile con uno Studio custom via `--dart-define=MAP_STYLE_URI=mapbox://styles/...` (`_mapStyleUri` in `map_gl_screen.dart`). Knob: `hillshadeExaggeration`/colori, larghezze linea in `_renderAll`.
-- **"Fix IGN" — OBSOLETO:** dopo la migrazione a Mapbox GL non esistono più i layer multi-sorgente (IGN/SwissTopo/OpenTopoMap); la mappa è un singolo stile Mapbox. Gli step 5–5d più sotto sono **storici** (era `flutter_map`).
-- **Sync cloud — iCloud + Drive COMPLETI e TESTATI su device (giu 2026).** Entrambi i backend (`google_drive_sync_service.dart`, `icloud_sync_service.dart`) dietro `CloudSyncService`; selettore Drive/iCloud (iOS-only) persistito in `shared_preferences`. Capability iCloud Documents in Xcode (entitlements committati, team `W8XCSNY6V3`). **Auto-sync** su salvataggio/import (upload) ed eliminazione (delete propagato). "Sincronizza ora" resta per il merge completo. Guide: `docs/cloud-*-setup.md`.
-- **Nascondi tracce dalla mappa (pulsante RIMOSSO in passo 6, 1 lug 2026):** era un toggle nella barra; il provider `tracksHiddenProvider` e la logica di rendering restano nel codice ma senza UI (sempre visibili). Da ricollocare (es. lista tracce / gesto) se la funzione tornerà utile.
-- **[x] Info punto in esplorazione (mini-card altitudine + coordinate) — FATTO (1 lug 2026, da tap-testare su device):** fuori dal disegno, toccando un punto della mappa **senza tracce vicine** compare una **mini-card** in vetro (`_PointInfoCard`, `map_gl_screen.dart`) con **quota** (grande, tinta primaria) e **coordinate** (gradi decimali + emisfero). Stato in `features/map_gl/inspected_point_provider.dart` (`InspectedPoint`{point, elevation, loading} + `InspectedPointNotifier` con token anti-race): `inspect(point)` mostra subito coordinate + spinner, poi la quota via `elevationServiceProvider.elevationAt` (Terrarium con cache → **anche offline** sulle aree scaricate; `null` → "non disponibile"). *Aggancio:* `_selectNearest` — se nessuna traccia entro ~22px, `inspect(point)` invece del solo `deselect()`; se una traccia è vicina o parte il disegno o compare la card-traccia (`showCard` listener), `clear()`. *Priorità in basso:* card-traccia > mini-card punto > barra. *Extra:* tap sulle coordinate → **copia negli appunti** (toast). *Possibili follow-up:* pin temporaneo "dropped pin" sul punto; bottone "crea traccia da qui".
-- **Distribuzione beta — TestFlight/Android.** Build **`1.0.0+2`** approvata in Beta Review ed esterna. Build `1.0.0+3` caricata su TestFlight (segnalato Dark Mode → fixato). **🆕 Build `1.0.0+4` (5 lug 2026): RILASCIATA AI TESTER** — iOS su **TestFlight** (IPA caricata via **Xcode Organizer**; la CLI `flutter build ipa` fallisce l'export perché *Xcode → Settings → Accounts* è vuoto, "No Accounts", e non rigenera il profilo App Store — l'Organizer GUI sì) + **APK** Android (`build/app/outputs/flutter-apk/app-release.apk`, 122 MB, Drive-ready) distribuito ai tester Android. Contiene: fix **Dark Mode**, menu/conferma iOS (Apple Photos), conferma eliminazione traccia, ordinamento persistito, **Google Drive su Android** attivo. Warning innocuo all'upload iOS: dSYM mancanti per `MapboxCommon`/`MapboxCoreMaps` (Mapbox li distribuisce senza → solo simbolicazione crash). Gruppo **"Amici" = INTERNAL testing** (ricevono le build dopo il processing, no Beta Review). *Per buildare l'IPA da CLI in futuro: aggiungere una volta l'Apple ID in Xcode → Settings → Accounts.* Android: `flutter build apk --release --dart-define=MAPBOX_TOKEN=pk... --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>` (toolchain JDK17+SDK36+NDK reinstallata 4 lug; SHA-1 debug nel client OAuth Android). (storico: build `1.0.0+3` = `build/ios/ipa/sentei.ipa`, 41 MB, firmata team `W8XCSNY6V3`, deployment target 14.0, estetica iOS + vista satellite + info punto). Comando IPA: `flutter build ipa --release --dart-define=MAPBOX_TOKEN=pk... --dart-define=GOOGLE_CLIENT_ID=...`. Guide: `docs/testflight-setup.md` (setup) + `docs/testflight-amici.md` (passo passo: upload + gruppo esterno + invito amici). Privacy policy pubblicata su **GitHub Pages** (`https://mcuratitoli.github.io/sentei/privacy-policy.html`, sorgente `docs/privacy-policy.html`); repo reso **pubblico**. Nota build iOS: progetto su **SPM** (non CocoaPods); se `flutter build ipa` fallisce con `...xcframework.zip already exists` → `rm -rf ~/Library/Caches/org.swift.swiftpm` + `SourcePackages`. Upload futuri: incrementare `version: 1.0.0+N` in `pubspec.yaml`, ribuildare, caricare via Transporter, assegnare al gruppo "Amici".
-- **Distribuzione test — APK Android FATTO (25 giu 2026):** `build/app/outputs/flutter-apk/app-release.apk` (~127 MB, firmato con **debug key** → ok sideload, non Play Store). Guida `docs/android-apk-setup.md`. Per produrlo è stata **migrata la toolchain Android** (era Gradle 7.6.3/AGP 7.3.0): ora **Gradle 9.1.0 / AGP 9.0.1 / Kotlin 2.3.20 / Java 17**, `compileSdk=36` forzato su tutti i moduli (mapbox_maps_flutter compilava a 35, `flutter_plugin_android_lifecycle` richiede 36). Setup su questo Mac: **JDK 17** (`brew install openjdk@17`, `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`), **Android SDK 36 + build-tools 36 + NDK 28.2.13676358 + CMake 3.22.1** (via sdkmanager, licenze accettate), token `MAPBOX_DOWNLOADS_TOKEN=sk...` in `~/.gradle/gradle.properties`. *Limite Android:* **Drive non ancora attivo** (manca client OAuth + SHA-1).
-- **Setup su nuovo Mac:** `docs/dev-setup.md` (Flutter 3.44.2, Xcode, CocoaPods/SPM, segreti Mapbox `sk` in `~/.netrc`, firma iOS). Per Android vedi `docs/android-apk-setup.md` (JDK 17 + SDK 36 + NDK).
-- **[x] Drive su Android — FATTO (5 lug 2026, da validare il login sul device):** provider cloud **per-piattaforma** — su **Android** solo **Google Drive** (iCloud nascosto, `cloudProviderProvider` forza `googleDrive`), su **iOS** selettore **iCloud (default, a sinistra) · Google Drive**. In Google Cloud creati **client OAuth Android** (package `com.mattiacuratitoli.sentei` + SHA-1 debug `75:06:44:62:1B:0E:47:2E:4A:24:CC:A9:51:71:CF:17:E3:0A:84:19`) e **Web** (`GOOGLE_SERVER_CLIENT_ID` = `150992964606-6qg0hbj5...`). APK buildato con `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. **Toolchain Android reinstallata** su questo Mac: JDK17 (`brew install openjdk@17`) + Android cmdline-tools (`brew install --cask android-commandlinetools`, in `/opt/homebrew/share/android-commandlinetools`) + SDK 36/build-tools 36/platform-tools/NDK 28.2.13676358/CMake 3.22.1 via `sdkmanager`; `flutter config --android-sdk`. Env build: `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`, `ANDROID_HOME=/opt/homebrew/share/android-commandlinetools`. Checklist OAuth: **`docs/cloud-google-drive-setup.md` §5**. *Resta: **smoke test del login Drive** sul telefono Android; i JSON dei client stanno in `configs/` (gitignorato, contengono secret — repo pubblico).*
-- **[ ] Aggiornare Flutter (rimandato):** durante i build compare *"A new version of Flutter is available"* + *"24 packages have newer versions"*. **Non aggiornare in fase di rilascio** (rischio regressioni su mapbox/drift/riverpod). Da fare **dopo** la beta, in una sessione dedicata: `flutter upgrade` + `flutter pub upgrade --major-versions` con test/analyze e verifica su device (occhio a breaking change: KGP/Built-in Kotlin lato Android, mapbox_maps_flutter, package_info_plus).
-- **Rimandati:** **APK `--split-per-abi`** per file più piccoli (~40-50 MB vs 127); **bundling font** come asset (ora `google_fonts` runtime); **registrazione traccia live** (background location, Fase 2).
-- **[~] Segnavia CAI da OSM2CAI (FATTO, smoke test live da fare on-device):** integrazione del catasto ufficiale **REI/INFOMONT** (CAI + Wikimedia Italia, open ODbL) per i numeri sentiero, affiancato a Overpass. Indagine API completa in **`docs/osm2cai-investigation.md`** (endpoint, formato bbox, parametro `sda`=accatastamento, campi risposta `ref`/`ref_REI`/`osmc_symbol`/`cai_scale`). **Implementato** (`data/trails/`): interfaccia `TrailService` (template method, segmentazione condivisa) + `Osm2CaiTrailService` (primario, Italia, `POST /api/geojson/hiking_routes/bounding_box`, preferenza `ref`→`ref_REI`→`ref_osm`) + `OverpassTrailService` (fallback, confine FR/CH) + `CombinedTrailService` (strategia, cablato in `trailServiceProvider`). Stesso pattern del geocoding Nominatim+Mapbox. Test in `test/data/trail_service_test.dart` (parsing, preferenza ref, fallback). Risolve i segnavia mancanti dove il tag `ref` OSM grezzo è assente ma il sentiero è accatastato CAI (es. Valle d'Aosta). **Da verificare on-device:** `osm2cai.cai.it` è bloccato dalla network policy dell'ambiente di sviluppo → smoke test reale sul telefono (host parametrizzabile nel costruttore se differisse). Bonus futuri: `osmc_symbol` → segnavia colorati, `cai_scale` → chip difficoltà.
-- **[ ] Layer sentieri OSM/OSM2CAI con linee + numeri sul layer mappa (aperto, analisi fatta):** *Stato attuale:* esiste già la source `sentei-trails` + SymbolLayer `sentei-trails-labels` che disegna i **numeri segnavia** ripetuti lungo i sentieri (alimentata da `TrailNetworkService.hikingRefLinesInBounds` = Overpass, relazioni `route=hiking` **con** `ref`, z≥13, cache bbox, on-idle). **Le linee dei sentieri NON le disegniamo noi** (`map_gl_screen.dart` commenta "Outdoors disegna già le linee"): la geometria è scaricata ma usata solo per posizionare le etichette. *Cosa manca / si può fare:* (A) **linee visibili** = aggiungere una `LineLayer` sulla source `sentei-trails` esistente → costo quasi nullo (geometria già scaricata), fonte invariata Overpass; (B) **migrazione fonte a OSM2CAI** = nuovo metodo bbox→reflines su `Osm2CaiTrailService` (geometria + `ref`/`osmc_symbol`/`cai_scale`), più ricco e con `ref` validati (risolve i numeri mancanti tipo Valle d'Aosta anche sul layer ambientale). *Vincoli:* OSM2CAI ha un **limite area bbox** (HTTP 500 se troppo grande) → gestire con bbox ridotto / z≥14 / fallback Overpass; **online-only** (offline il layer è vuoto, come oggi); **doppio disegno** delle linee se sovrapposte a quelle di Outdoors → si collega all'item "separazione strade/sentieri" qui sotto. *Stile possibile con OSM2CAI:* `osmc_symbol` → colore segnavia reale, `cai_scale` → colore per difficoltà, label a "scudo" (icon-image). **Consiglio:** partire da (A) a costo ~zero, poi valutare (B). Analisi dettagliata nella conversazione di sviluppo.
-- **[~] Grado di difficoltà CAI (`cai_scale`) nella card della traccia disegnata (FATTO, da validare con tracce reali):** seconda banda nel grafico altimetrico, **sotto i numeri segnavia**, che indica la scala CAI (T/E/EE/EEA) **negli stessi tratti** dei numeri sentiero. **Implementato:** (1) `TrailSegment.caiScale` + `TrailRelation.caiScale` (nullable); (2) `_nearestRef`→`_nearest` ritorna la relazione abbinata (ref + scale), il segmenting propaga la scale; (3) lettura `cai_scale` in entrambe le fonti (`Osm2CaiTrailService` da `properties`, `OverpassTrailService` da `tags`); (4) `track_codec.dart` campo `'sc'` retro-compatibile (tracce vecchie → `null`, scale ricompare al prossimo ricalcolo percorso); (5) `_ProfilePainter` seconda banda colorata per difficoltà (T verde/E blu/EE arancio/EEA rosso, sigla in bianco) **additiva in altezza** (`scaleBandHeight=16`, non comprime il grafico); mostrata solo se almeno un tratto ha scale nota. Test: propagazione scale (OSM2CAI+Overpass) + round-trip codec. *Note residue:* copertura parziale del tag `cai_scale` (tratti senza → neutri); manca una **mini-legenda T/E/EE/EEA** (criptica per i non-CAI) → eventuale follow-up. Bonus collegato all'item OSM2CAI.
-- **[ ] Separazione strade/sentieri su Mapbox (aperto, analisi fatta):** obiettivo = mostrare solo strade percorribili in auto dai layer Mapbox Outdoors + usare esclusivamente OSM/CAI/SAC per i sentieri escursionistici. Tre opzioni analizzate: (A) **Runtime layer hiding** — nascondere a runtime i layer sentiero/percorso/pista dello stile Outdoors (road-path, road-track, road-pedestrian…) e sovrapporre i trail OSM vectoriali (Overpass); fattibile, ma i layer Mapbox Outdoors non hanno bordi netti tra "strada" e "sentiero". (B) **Mapbox Studio custom style** — clonare Outdoors e rimuovere/modificare i layer desiderati; richiede account Studio e non è aggiornato automaticamente. (C) **Stile custom completo** — costruire uno stile da zero senza layer sentieri Mapbox; massima flessibilità, molto lavoro. Decisione: **da rivalutare quando la qualità dei sentieri CAI in mappa diventa priorità utente**; per ora Overpass/trail network layer già aggiunto come overlay.
-- **[~] Sync album fotografico + foto lungo il percorso (nuovo, 12 lug 2026)** — analisi approfondita fatta il 23 lug 2026, vedi voce in cima al file (P2) e `docs/eval-photo-sync.md`. Bozza originale sotto, superata dall'analisi nuova.
-- **[x] Riallineamento tracce importate ai sentieri rilevati (12 lug 2026)** — **implementato il 23 lug 2026** (flusso a 2 fasi, ibrido snap/grezzo), vedi voce in cima al file (P2).
-- **[ ] Editing dei punti intermedi di una traccia (nuovo, 15 lug 2026):** oggi in modifica si possono spostare/eliminare i waypoint esistenti ma di fatto si lavora bene solo sugli **estremi/ultimo punto**; manca il controllo fine sui **punti intermedi**. Obiettivo: poter **selezionare, trascinare, inserire ed eliminare qualsiasi waypoint** lungo la traccia, non solo il primo/ultimo. Da progettare: (1) **inserimento di un punto intermedio** toccando un tratto tra due waypoint (split del segmento → BRouter ri-instrada solo i due sotto-segmenti coinvolti, non l'intera traccia); (2) **hit-test affidabile** del singolo nodo intermedio in mappa (marker/annotation trascinabili sopra la platform view Mapbox — verificare la resa del drag su GL, `map_gl_screen.dart`); (3) **ricalcolo incrementale** di percorso/D+/profilo/segnavia limitato ai segmenti toccati (riuso di `routedPathProvider` per-segmento già esistente); (4) UX per distinguere "sposta nodo" da "aggiungi nodo" da "elimina nodo" (long-press/menu?). Cuore in `features/draw_route/route_editor_provider.dart` (stato `Tracks`) + rendering/gesture in `features/map_gl/map_gl_screen.dart`.
-- **[ ] Versione Web (webapp browser) di Sentèi (nuovo, 15 lug 2026):** far girare l'app anche in **browser desktop** per vedere meglio mappa e schermate su schermo grande. Flutter supporta il target web, ma va verificata la **compatibilità dei plugin nativi**: ⚠️ `mapbox_maps_flutter` **non supporta Flutter Web** (è una platform view iOS/Android) → per il web servirebbe **Mapbox GL JS** via un layer web dedicato o `flutter_map` (raster/MapLibre) dietro l'astrazione mappa già engine-agnostica del dominio; verificare anche `geolocator` (ha web), `drift` (usa `drift`/WASM + IndexedDB su web), `file_selector`/`share_plus` (web ok), `path_provider` (**non** su web → sostituire lo storage file GPX con IndexedDB/OPFS), sync cloud (Google Drive JS SDK; iCloud non applicabile). Da progettare: (1) **strategia mappa web** (GL JS vs MapLibre) mantenendo separata la logica di dominio; (2) **storage web** (drift WASM); (3) **layout responsive** desktop (pannelli laterali invece di card flottanti mobile); (4) **auth Google** su web (OAuth flow browser). Prima decisione da prendere con l'utente: MVP web = **sola visualizzazione** (mappa + tracce sincronizzate, sola lettura) oppure editing completo. Valutazione/PoC dedicata prima di iniziare (nessuna decisione architetturale presa).
-
-**Come eseguire / testare:** vedi `CLAUDE.md` §8 (avvio simulatore, `flutter run`, drift codegen, rigenerazione icone/splash).
-In breve: `xcrun simctl boot <UDID iPhone> && open -a Simulator` poi `flutter run -d <UDID>`. L'hot reload via
-segnale **non** funziona in sessioni non interattive: dopo una modifica si rilancia `flutter run` (build in cache, ~10-20s).
-
-**Convenzioni di lavoro (preferenze utente):** committare in autonomia a ogni step verificato (`flutter analyze` pulito
-+ `flutter test` verde); tenere aggiornati ROADMAP.md e CLAUDE.md a ogni iterazione.
-
----
-
-## Prossimi step (priorità decisa dall'utente)
-
-1. ✅ **Correzioni grafiche minori — riordino bottoni (FATTO):** rimossa l'AppBar → controlli flottanti identici in fullscreen e non. Bussola top-sx; FAB "Disegna" bottom-dx. Top-dx: riga [scelta mappa][lista tracciati], sotto fullscreen, sotto bottone menu (posizione attuale + mostra/nascondi sentieri). **Lista tracciati**: ordinamento per data/alfabetico + ricerca sul titolo (`createdAt` aggiunto a `DrawnTrack`).
-2. ✅ **Font dell'app (FATTO):** **Lato** (UI, via `google_fonts`) + **Yeseva One** per il nome. Inoltre: **rimosso il fullscreen** (l'app è già a tutto schermo), **bottoni uniformati** a 44px (bussola, mappe, lista, menu), **nome "Sentèi"** in sovrimpressione in alto a sinistra (senza sfondo). *Nota: `google_fonts` scarica i font a runtime (cache); valutare il bundling come asset per l'uso offline.*
-3. ✅ **Logo + splash screen (FATTO):** icone app generate da `branding/appstore.png` (`flutter_launcher_icons`) e splash da `branding/splash.png` (`flutter_native_splash`, sfondo bianco). Sorgenti in `branding/` (cartella `logo/` rimossa). Palette **blu/azzurro** (seed `#1565C0`).
-   - **Layout finale (ridefinito dall'utente):** rimossa la scritta "Sentèi"; **barra flottante in basso** stile dock iOS (rounded), da sx: **bussola** (orienta a nord) · **mia posizione** · **+** centrale (colore primario) · **lista tracce** · **impostazioni** (⚙). **SettingsScreen** con: scelta **sorgente mappa** e sezione **Sentieri** (toggle overlay) — entrambi spostati qui dalla barra.
-4. ✅ **Numeri sentieri CAI sul grafico dislivelli (FATTO):** al "Fine" si scaricano via Overpass (`out geom`) le **geometrie** delle relazioni `route=hiking` vicine; matching locale punto→sentiero (più vicino entro 25 m, a parità il più "locale") → `TrailSegment` per tratto (da..a in metri). Mostrati come **banda con etichette** sotto l'asse X del profilo (`ElevationProfileChart`), memorizzati nelle metriche (JSON, niente migrazione DB). Rimosso Yeseva One (font non più usato).
-5. 🟡 **Fix IGN (layer 404) — DIAGNOSI + FIX (da verificare in-app):** **non era un bug di URL.** L'endpoint Géoplateforme (`GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2`, KVP/PM/PNG) risponde **200**; IGN Plan copre **in dettaglio solo la Francia** → su Torino/Aosta a z14+ dà **404** (a basso zoom z13 copre anche l'Italia). Fix: (a) `evictErrorTileStrategy.notVisibleRespectMargin` in `MapSource.toTileLayer()` (niente tile rotte/retry-loop); (b) **OpenTopoMap come fallback sotto IGN** in `map_screen` → versante italiano leggibile invece del vuoto. **Da verificare sul simulatore** (toolchain Flutter da reinstallare, vedi sotto). Estetica mappe (stile GaiaGPS) → ora step 5b.
-5b. 🟡 **Estetica mappe stile GaiaGPS (in corso, da verificare in-app):** obiettivo dell'utente = lettura più facile, **meno colori e più gradienti dello stesso tono**, **tracce più pulite/semplici**. Fatto senza API key, sulle sorgenti raster esistenti: (a) **filtro "muted"** (`mutedTopoFilter` in `map_source.dart`, saturazione ~60% + leggera schiaritura) applicato alle basi via `tileBuilder` (`toTileLayer(muted: true)`); (b) **tracce ridisegnate**: linea piena con sottile **casing bianco** (`borderColor`/`borderStrokeWidth`) + `StrokeCap.round`/`StrokeJoin.round`, traccia attiva sempre in cima. Verificato sul simulatore (analyze pulito, 45 test verdi, app ok). (c) **Sorgente "Terrain (Gaia-like)"** aggiunta su scelta utente: **Stamen Terrain via Stadia Maps** (`stamenTerrain` in `map_sources.dart`, `muteByDefault:false` perché già tenue). ~~Stadia Terrain~~ **scartata** (l'utente preferisce OpenTopoMap con curve di livello) e **rimossa** dal catalogo.
-5c. 🟡 **Rete sentieri vettoriale stile GaiaGPS (in corso, verificata in-app):** l'utente preferisce **OpenTopoMap** (curve di livello) a Stadia Terrain; le linee dei sentieri dell'overlay raster Waymarked erano troppo "confusionarie" (multicolore, spessori vari). **Sostituito l'overlay raster con una rete vettoriale** da OSM: `TrailNetworkService` (`data/trails/trail_network_service.dart`) interroga Overpass per le relazioni `route=hiking` nel **bbox visibile**; provider `trailNetworkProvider`/`TrailNetwork` (`map_providers.dart`) con **debounce 500ms, cache sull'area scaricata, soglia zoom ≥13**; layer `_TrailNetworkLayer` (`map_screen.dart`) disegna **linee uniformi**: colore unico (rosso mattone), spessore 2.5, **tratteggio** + sottile casing bianco. Attribuzione trail → OSM. Verificato su Alagna (rete visibile e pulita). **Nota UX:** i sentieri compaiono da z≥13 (sotto: vuoto, per non sovraccaricare Overpass). Knob facili: colore/dash/width in `_TrailNetworkLayer`, soglia in `TrailNetwork.minZoom`.
-5d. 🟡 **Mapbox Outdoors + pulizia layer (da verificare con token):** ispirazione **Suunto** (colori mappa migliori). **Catalogo ridotto a OpenTopoMap + Mapbox Outdoors** (rimossi SwissTopo, IGN, OSM-base, Stadia). `mapboxOutdoors` in `map_sources.dart`: tile raster **512** (Styles API `mapbox/outdoors-v12`, `tileDimension:512`+`zoomOffset:-1`), `muteByDefault:false`. **Token via `--dart-define=MAPBOX_TOKEN=pk...`** (mai nel repo, §9), voce visibile solo con token (`hasMapboxToken`); **default = Mapbox quando il token c'è**, altrimenti OpenTopoMap. `osmStandard`→`osmAttribution` (tenuta solo per credito OSM dei sentieri). **Da provare con il token** dell'utente.
-   - **3D (alla Suunto): NON fattibile con flutter_map** (solo 2D raster). Richiede cambio motore (`mapbox_maps_flutter` GL o MapLibre) → **rewrite di tutte le feature mappa** (CLAUDE.md §2 = scelta fissata, da discutere). Rimandato: eventuale piano/valutazione dedicata.
-5e. ✅ **Vista 3D (stile Suunto) — FATTO (verificata sul simulatore):** ibrido (Opzione B, vedi `docs/eval-3d-map.md`): flutter_map resta per l'editing 2D, **aggiunta schermata 3D** `features/map_3d/map_3d_screen.dart` con **`mapbox_maps_flutter` 2.25**: stile **Outdoors** + **terreno 3D** (`mapbox-terrain-dem-v1`, esagerazione 1.4, pitch 70°, zoom min 13) + traccia selezionata (polyline annotation). Pulsante **"3D"** nella barra in basso (visibile solo col token). Token pubblico inizializzato in `main.dart` (riusa `MAPBOX_TOKEN`); **secret download token** SDK in `~/.netrc` + `~/.gradle/gradle.properties` (fuori dal repo). iOS target 13→14. **3D solo visualizzazione** (non editing). Migrazione totale a GL (Opzione A) rivalutabile se il 3D diventa centrale.
-5f. ✅ **Rifiniture mappa/3D (FATTO):** (a) **tutte** le tracce disegnate ora visibili nella **vista 3D** (`Track3D` in `map_3d_screen.dart`, una polyline annotation per traccia); (b) **sentieri CAI** ristilizzati: più sottili (1.8), **verde semi-trasparente** (sfumature naturali sulle sovrapposizioni), **trattini piccoli e fitti** ([3,3]); (c) **marker partenza/arrivo** ridisegnati: pallini piccoli (18px) con lettera **P**/**A** invece delle icone. (d) **Transizione fluida 2D↔3D a due dita**: analizzata (`docs/eval-3d-map.md` §7-bis) → **non fattibile con l'ibrido** (flutter_map non ha pitch); richiede la **migrazione totale a Mapbox GL (Opzione A)**, dove il gesto è nativo. Da decidere.
-6. ⏭️ **Download aree offline** (tile + DEM, FMTC) — §6.1 / Fase 1.F.
-
-> Sync Google Drive: rimandato dall'utente (analisi già pronta in cronologia).
-
----
-
-## Stato attuale
-
-✅ **Fase 0 — scheletro (fatto):**
-- Progetto Flutter inizializzato (`org: com.mattiacuratitoli`, `name: sentei`, piattaforme iOS+Android).
-- Struttura cartelle `lib/` come da §5 del CLAUDE.md.
-- State management deciso: **Riverpod** (API moderna `Notifier`/`NotifierProvider`) + `go_router`. *Reversibile se si preferisce bloc.*
-- Catalogo sorgenti mappa (`data/map_sources/`): OpenTopoMap, SwissTopo, IGN Plan, OSM, overlay Waymarked Trails — con attribuzioni.
-- Schermata mappa funzionante: layer base selezionabile + toggle overlay sentieri + box attribuzione.
-- Modelli di dominio stub (`Track`, `TrackPoint`).
-- **Toolchain aggiornata**: Flutter **3.44.2** (giugno 2026). `flutter analyze` pulito.
-
-✅ **Fase 1.C — logica geo (completa, lato dominio):**
-- `PathGeometry` (`domain/services/path_geometry.dart`): distanza haversine cumulativa + densificazione a passo.
-- `ElevationCalculator` (`domain/services/elevation_calculator.dart`): D+/D- con filtro a soglia (deadband) anti-rumore DEM.
-- `Terrarium.decodeElevation` (`data/offline/terrarium.dart`): decoder pixel→quota.
-- `TileMath` (`core/util/tile_math.dart`): coordinate↔tile/pixel Web Mercator.
-- `ElevationService` (interfaccia) + `TerrariumElevationService` (`data/offline/`): campionamento quota da tile, fetcher iniettabile + cache LRU. Fetcher HTTP di default in `terrarium_http_fetcher.dart`.
-- `ElevationProfile` (`domain/models/`): builder distanze cumulate + min/max.
-- `ElevationProfileChart` (`ui/`): widget grafico profilo (CustomPainter).
-- `TrackMetricsCalculator` (`domain/services/track_metrics.dart`): orchestratore distanza + D+/D- + profilo in una chiamata.
-- **28 test verdi** (`test/domain/`).
-- **Manca per "chiudere" 1.C nell'app**: agganciare il fetcher alla cache offline FMTC (→ 1.F) e mostrare metriche+grafico in `track_detail` (dipende da 1.B/1.D).
-
-✅ **Fase 1.B — disegno tracciato (fatto):** vedi sezione 1.B sotto. Tap-to-add, undo, drag, eliminazione, distanza live, D+/D- + profilo on-demand.
-
-✅ **Snap-to-trail (anticipato da Fase 2 su richiesta utente):** i tap sono **waypoint**; il percorso effettivo segue i sentieri OSM via **BRouter** (servizio web pubblico, profilo `hiking-mountain`, no API key). Fallback a linea retta se il routing non è disponibile; toggle "Segui sentieri" (default ON). File: `domain/services/routing_service.dart`, `data/routing/brouter_routing_service.dart`, `routedPathProvider`. **Testato sul parser**; da provare sul campo.
-
-> **Feedback utente (priorità):** (a) ✅ migliorare la tracciatura → snap-to-trail; (b) ⏭️ posizione GPS utente sulla mappa; (c) ⏭️ valutare rese grafiche mappe più belle/intuitive (stile GaiaGPS) — OpenTopoMap/OSM efficaci ma esteticamente migliorabili.
-
-✅ **Rifiniture disegno (feedback 2° test su device):** percorso multi-waypoint (continua ad aggiungere punti dopo l'ultimo); marker **partenza (verde ▶) / arrivo (rosso 🏁)** distinti; FAB "Disegna" nascosto durante il disegno (toggle nel pannello, non copre più "Dislivello"); **frecce di direzione** lungo la traccia (`DirectionArrows`, ~ogni 350 m).
-
-✅ **Rifiniture disegno (feedback 3° test):** (1) zoom non ruota più la mappa (`enableMultiFingerGestureRace` + `rotationThreshold`); (2) **tap su un nodo lo elimina**; (3) bottone **bussola "nord in alto"** (appare quando ruotata); (4) frecce direzione più grandi/contrastate; (5) **scrubbing del profilo altimetrico** → evidenzia il punto corrispondente in mappa (`profileCursorProvider`, `ProfileSample.position`).
-
-✅ **Fase 1.A — posizione GPS + rifiniture (feedback 4° test):** `geolocator` + `LocationService`; bottone **"La mia posizione"** (centra + marker blu), permessi iOS/Android. **Bussola** ridisegnata (ago rosso/grigio sempre visibile, tap → nord su). **Modalità fullscreen** (`fullscreenProvider`).
-
-✅ **Flusso disegno/selezione (feedback 5° test):** (1) frecce singole (rimosso il doppio layer bianco); (2) **stati percorso**: disegno → "Fine" → deselezionato; **tap sulla traccia = seleziona** (card modifica/elimina/dislivello), tap fuori = deseleziona (`PathGeometry.distanceToPath` per l'hit); FAB "Disegna/Modifica" sempre in basso a destra quando nulla è selezionato; (3) **Dislivello come toggle** (apre/chiude il grafico); (4) rimosso il conteggio punti; (5) **nome del percorso** (`RouteEditorState.name` + campo testo).
-
-✅ **(6) Tag numeri sentieri CAI — FATTO:** `OverpassTrailService` interroga **Overpass API** (POST + User-Agent) per le relazioni `route=hiking` vicine ai punti del percorso e ne estrae il `ref` (es. "203", "203E"). `trailRefsProvider.family` (best-effort, lista vuota su errore); chip mostrati nella card in vista selezionata. Catena profili routing ridotta a `hiking-mountain → trekking`.
-
-✅ **Multi-traccia (feedback 6° test):** stato refattorizzato in `TracksState`/`Tracks` (lista `DrawnTrack`), con `editingId`/`selectedId`. Flusso: **Disegna** crea una nuova traccia → punti → **Fine** (deseleziona, si possono crearne altre) → **tap su una traccia** la seleziona (card). Ogni traccia ha **nome** (editabile solo in crea/modifica), **colore** (selettore in crea/modifica) e snap. Routing per-traccia (`routedPathProvider.family`). Dislivello: icona cambia, testo resta "Dislivello".
-
-✅ **Routing robusto + rifiniture card (feedback 7°/8° test):** routing **per-segmento** (BRouter coppia per coppia) → un punto non instradabile degrada **solo quel segmento** a linea retta. **Causa segmenti retti diagnosticata via log**: il server pubblico brouter.de a volte uccide il calcolo (`operation killed by thread-priority-watchdog after 8s`) sotto carico → aggiunto **retry** (3 tentativi + backoff) oltre a timeout. Card: tasto **Dislivello a sinistra**, Fine/Modifica a destra; alla **selezione** di una traccia distanza + D+/D- compaiono in automatico (grafico profilo come toggle separato).
-
-> **Root cause + fix definitivo:** alcuni segmenti in alta quota mandano in crisi i profili `hiking-*` (la ricerca esplode → il server li uccide), mentre il profilo **`trekking`** li calcola in ~1.5 s. Implementata **catena di profili**: `hiking-mountain` (×2 per i fail transitori) → `trekking`. Linea retta solo se anche trekking fallisce. Se in futuro servisse più controllo: istanza BRouter self-hosted o backend con API key.
-
-⏭️ **Frecce di direzione: RIMOSSE temporaneamente** — "impazzivano" (marker fantasma) dopo aggiunta/rimozione nodi + pan mappa. Da **ristudiare** con un approccio diverso (es. layer dipinto su canvas proiettato con `MapCamera`, anziché `MarkerLayer`), così da non avere problemi di reconciliation dei marker.
-
-📦 **Stack risolto:** `flutter_map ^8.3.0`, `flutter_map_dragmarker ^8.0.3`, `flutter_riverpod ^3.3.2`, `go_router ^17.3.0`, `latlong2 ^0.9.1`, `image ^4.x`, `http ^1.x`, `url_launcher ^6.3.x`.
-
----
-
-## Fase 0 — completamento setup
-
-| # | Task | Note |
-|---|---|---|
-| 0.1 | ✅ Sistemare toolchain Flutter | Fatto: upgrade a 3.44.2, `flutter analyze` pulito |
-| 0.2 | ✅ Bump Flutter + migrazione pacchetti | Fatto: Riverpod 3, flutter_map 8, go_router 17 |
-| 0.3 | Configurare CI base (GitHub Actions: `flutter analyze` + `flutter test`) | §7 Fase 0 |
-| 0.4 | `flutter_lints` + regole extra in `analysis_options.yaml` | §9 |
-| 0.5 | Impostare bundle id definitivo in iOS/Android | `com.mattiacuratitoli.sentei` (§10) |
-| 0.6 | Schermata Impostazioni minima (sorgente mappa, unità) + persistenza `shared_preferences` | |
-
----
-
-## Fase 1 — MVP usabile
-
-Ordine consigliato (ogni feature: modello → repository → servizio → UI, con **test sulla logica geo**).
-
-### 1.A — Posizione GPS ✅
-- ✅ `geolocator` (foreground) + permessi iOS (`Info.plist`) / Android (`AndroidManifest`).
-- ✅ `LocationService` + `userLocationProvider` (stream posizione); marker blu + bottone "La mia posizione" (centra).
-- ⏭️ Background location → Fase 2.
-
-### 1.B — Disegno tracciato manuale ✅
-- ✅ Tap-to-add waypoint, **undo**, drag dei punti (`flutter_map_dragmarker`), long-press per eliminare.
-- ✅ Stato in `RouteEditor` (Riverpod) + distanza live (`routeDistanceProvider`).
-- ✅ Polilinea su `flutter_map` + marker trascinabili; FAB modalità disegno.
-- ✅ Pannello `DrawRouteControls`: distanza, D+/D- on-demand (usa `TrackMetricsCalculator` + DEM online) e profilo altimetrico inline.
-- ⏭️ **Residuo**: salvataggio del tracciato disegnato (→ 1.D).
-
-### 1.C — Calcolo distanza + dislivello + profilo (cuore dell'app, §6.3) ✅ (lato logica)
-- ✅ **Distanza**: haversine cumulativo su punti densificati. `PathGeometry`.
-- ✅ **Elevazione**: decoder Terrarium + campionamento da tile (`TerrariumElevationService`).
-- ✅ **Dislivello D+/D-**: filtro a soglia deadband (default 8 m) anti-rumore DEM. `ElevationCalculator`.
-- ✅ **Widget profilo altimetrico** (`ui/elevation_profile_chart.dart`) + builder `ElevationProfile`.
-- ✅ **Orchestratore** `TrackMetricsCalculator` (un'unica chiamata: distanza + D+/D- + profilo).
-- ✅ **Tutto deterministico e coperto da test** (28 test in `test/domain/`).
-- ⏭️ **Residuo**: fetcher tile → cache offline FMTC (1.F); validare la soglia smoothing con tracce reali; cablare in `track_detail` (1.B/1.D).
-
-### 1.D — Persistenza locale
-- 🟡 **Cache in-memory dei dati calcolati (FATTO):** al "Fine" si calcola **una volta** percorso instradato + metriche (D+/D-/profilo) + numeri sentieri e si **memorizzano su `DrawnTrack`**; selezionare/deselezionare non ricalcola più (prima "frullava" a ogni riselezione, con esiti incoerenti per i kill del server). `livePathProvider` solo per l'anteprima in modifica.
-- ✅ **Persistenza su disco (drift) — FATTO:** `drift` + `drift_flutter` (SQLite). `AppDatabase` con tabella `TrackRows` (dati strutturati in JSON); `TracksRepository` converte ↔ `DrawnTrack`. Le tracce si **caricano all'avvio** e si **salvano al "Fine"** / si eliminano. Schermata **"Tracciati"** popolata (tap → seleziona sulla mappa, elimina).
-- ✅ **Export/import GPX (§6.4) — FATTO:** `GpxService` (pacchetto `gpx`) export `<trk>` con quota + import (trk/rte → traccia, snap off, waypoint sottocampionati). UI in "Tracciati": **Importa** (`file_selector`) e **Esporta GPX** (`share_plus` + file temporaneo). *(Nota: usato `file_selector` invece di `file_picker` per conflitto win32 con geolocator+share_plus.)*
-- ⏭️ **Sync cloud (Google Drive):** rimandato su decisione utente — login Google account + archiviazione ordinata (vedi analisi in cronologia).
-
-### 1.E — GPX import/export (§6.4)
-- Pacchetto `gpx`. Export `<trk>` + waypoint con quota/nome. Import robusto (tag mancanti, multi-segmento).
-- `share_plus` / `file_picker` per condivisione/import via "File".
-
-### 1.F — Download area offline (§6.1)
-- **FMTC** (`flutter_map_tile_caching`): selezione bounding box su mappa, range zoom, stima dimensione, progress, **rate limiting**.
-- Caching tile Terrarium per l'area (dislivello offline).
-- Schermata `offline_maps/` con gestione spazio.
-
----
-
-## Fase 2 — Cloud & routing intelligente
-
-- **Sync cloud** (§6.5): interfaccia `CloudSyncService` → impl. iCloud (`icloud_storage`) + Google Drive (`google_sign_in` + `googleapis`). Modello file `.gpx` + sidecar `.json`, conflitti "last write wins".
-- **Snap-to-trail**: online **GraphHopper** profilo `hike`/`foot`; offline **BRouter** (valutare embedding).
-- **Registrazione traccia live** (background location).
-
-## Fase 3 — Rifiniture
-- Cartelle/cartografia per zona, ricerca località, waypoint con icone, statistiche.
-
----
-
-## Informazioni da recuperare (ricerca/verifica)
-
-| Tema | Cosa verificare | Quando |
-|---|---|---|
-| **IGN** | ✅ URL KVP `PLANIGNV2`/PM/PNG confermato (200). Coprenza **solo Francia** in dettaglio (404 su IT a z14+). Resta: condizioni SCAN 25 | risolto giu-2026 |
-| **SwissTopo** | Conferma fair-use uso non commerciale + eventuale API key / referer richiesto | F0/F1 |
-| **OpenTopoMap** | Limiti fair-use precisi per download offline (rate) | F1.F |
-| **Terrarium** | Disponibilità/zoom della copertura sulle Alpi; precisione DEM per il D+ | F1.C |
-| **GraphHopper** | Free tier, limiti, chiave API; alternativa Valhalla | F2 |
-| **BRouter** | Fattibilità reale embedded in Flutter (segment files, dimensioni) | F2 |
-| **iCloud** | Entitlement + container; richiede **Apple Developer Program (99€/anno)** | F2 |
-| **Google Drive** | Progetto Google Cloud + OAuth consent screen + scope `appDataFolder` | F2 |
-| **Pacchetti** | Ultima versione stabile e compatibilità con la versione Flutter scelta (pub.dev) | ogni `pub add` |
-
----
-
-## Quesiti aperti (decisioni da prendere)
-
-- [x] **Aggiornare Flutter?** Fatto: bump a 3.44.2 in Fase 0 (Riverpod 2→3, flutter_map 7→8, go_router→17 migrati).
-- [x] **State management**: Riverpod ✓ (API `Notifier`/`NotifierProvider`).
-- [~] **Algoritmo smoothing dislivello**: implementato filtro a soglia deadband (default 8 m). Da **validare con tracce GPX reali** ed eventualmente affinare (media mobile / soglia adattiva).
-- [ ] **Densificazione path**: passo fisso 15 m di default — valutare passo adattivo alla pendenza.
-- [ ] **Zoom DEM**: campionamento Terrarium a z13 di default — verificare precisione D+ vs z14/15 sulle Alpi.
-- [ ] **Modello sync cloud**: solo file vs indice; gestione conflitti oltre "last write wins"?
-- [ ] **IGN SCAN 25** topografico utilizzabile o ripiegare su Plan IGN.
-- [ ] **Routing offline BRouter**: confermare fattibilità prima di impegnarsi (F2).
-- [ ] **Distribuzione iOS**: Apple Developer Program necessario per iCloud + TestFlight.
-- [ ] **Unità di misura / localizzazione**: solo metrico? UI in italiano + i18n?
-
----
-
-## Principio guida (dal CLAUDE.md §7)
-
-> Costruire **end-to-end la Fase 1** prima di ottimizzare. La logica geo (distanza, dislivello, GPX)
-> è il cuore dell'app: **separata dalla UI** e **coperta da test deterministici**.
-
----
-
-## Analisi — Pubblicazione sugli store con sblocco tramite codice alfanumerico (22 lug 2026)
-
-**Domanda:** pubblicare Sentèi su App Store e Play Store ma rendere l'app utilizzabile solo dopo l'inserimento di un **codice alfanumerico**. È fattibile o va contro le policy?
-
-**Esito: FATTIBILE su entrambi gli store, non viola le policy.** L'accesso gated dietro codice/redeem è un pattern comune e ammesso (inviti, licenze, beta chiuse). Vincoli da rispettare:
-
-**Apple App Store**
-- **Guideline 2.1 (App Completeness):** il team di review deve poter usare l'app → **fornire un codice valido e funzionante nelle _App Review Notes_** (o un demo account). Senza, rejection perché non possono testare.
-- **Minimum functionality:** dietro il gate deve esserci **funzionalità reale**, non un placeholder. Una schermata-codice con nulla dietro (per il reviewer) = rejection.
-- Nessuna guideline vieta di limitare l'accesso con un codice.
-- Possibile domanda del reviewer: "perché sullo store pubblico e non su TestFlight, se è a inviti?" — non è un blocco, ma valutare l'alternativa (sotto).
-
-**Google Play**
-- Stessa logica: ammesso. Va **dichiarato in Play Console → "App access"** (campo dedicato per app con funzionalità ristretta) fornendo **codice/credenziali valide** per la review.
-- **Minimum functionality policy:** l'app deve funzionare e non risultare rotta/incompleta.
-
-**Trasversali**
-- Il codice deve essere **realmente funzionante durante la review**.
-- Non usare il gate per nascondere contenuti che violano le policy.
-- Impatto licenze mappe/non-commerciale: nessuno, finché l'app resta gratuita.
-
-**Implementazione (bozza):** schermata di sblocco + validazione codice. Due modelli: (a) **offline** — lista di codici hashati nell'app/config (sblocco senza rete, ma codici non revocabili se non con update); (b) **server** — validazione remota (revocabile, richiede connettività al primo sblocco). Persistere lo stato "sbloccato" in `shared_preferences`.
-
-**Alternative più semplici se il fine è "solo persone invitate" (zero codice da scrivere):**
-- **TestFlight** (iOS): fino a **10.000 tester esterni** via link pubblico o email.
-- **Play**: **closed/internal testing** o listing **"unlisted"**.
-
-**Raccomandazione:** l'obiettivo di "app usabile solo da chi ha il codice" è raggiungibile **senza pubblicazione pubblica** via TestFlight/closed-testing (già in uso per la beta). La strada "store pubblico + gate a codice" ha senso **solo se serve davvero la presenza/visibilità sugli store**.
-
-### ✅ Decisione (22 lug 2026): **iOS Unlisted + Play closed testing** — niente codice, niente vetrina pubblica
-
-Motivazione: il codice alfanumerico è lato client → **non protegge il token Mapbox** (estraibile dal binario) né il vero controllo costi; e la pubblicazione pubblica massimizza proprio l'esposizione che l'utente vuole evitare. Alla scala "amici" i costi Mapbox restano nel free tier a prescindere dal gate.
-
-**iOS — Unlisted App Distribution**
-- App sottoposta a review normale, poi **resa "unlisted"**: non compare in ricerca/classifiche, accessibile **solo tramite link diretto** App Store. Install permanente (no scadenza 90 gg come TestFlight).
-- Richiesta via l'apposito form Apple ("Request Unlisted App Distribution") — prima o dopo l'approvazione.
-- **Link stabile e permanente** (`apps.apple.com/...`): non cambia mai, nemmeno tra versioni.
-- **Aggiornamenti** = flusso App Store normale: nuova build → review → gli utenti aggiornano (auto-update o manuale), **stesso link, nessun nuovo link**.
-- **Revocabile:** "Remove from Sale" in App Store Connect blocca i nuovi download (reversibile). Chi l'ha già installata la tiene (nessuna disinstallazione da remoto, vale per ogni store).
-- **Modello link-gated, non per-utente:** chiunque abbia il link può scaricarla, senza controllo sull'identità → non diffondere troppo il link; in caso lo si "spegne".
-- Vicino allo stato attuale: già su App Store Connect (team `W8XCSNY6V3`, upload via Organizer). Il reviewer deve poter usare l'app (funziona già senza gate → nessuna nota speciale).
-
-**Android — Play closed testing con Google Group** *(modello speculare a iOS: identity-gated)*
-- Track **closed testing** con **Google Group** come lista tester: solo gli **account Google membri del gruppo** possono installare/usare l'app. Gestisci gli amici aggiungendoli/rimuovendoli **nel gruppo**, senza ricaricare la Play Console. I tester accettano l'invito via link (ma devono essere nel gruppo). Permanente.
-- **Differenza da iOS:** qui serve **dichiarare gli account** (via il gruppo) → controllo per-utente più forte, ma devi raccogliere le email Google degli amici. L'equivalente Android di "chiunque col link" sarebbe l'**open testing**, ma è più pubblico (compare come beta, iscrizione aperta) → scartato per "solo amici".
-- **Setup nuovo (non ancora fatto):**
-  1. **Play Console** — account sviluppatore (**25$ una tantum**); oggi l'app è distribuita come **APK sideload debug-signed**, mai passata da Play.
-  2. **Firma di release** — generare un **upload keystore** (`keytool`) e configurare `android/app/build.gradle` + `key.properties` (fuori dal repo). Play Signing gestisce poi la chiave di distribuzione.
-  3. **Formato** — Play richiede **Android App Bundle (`.aab`)**, non APK: `flutter build appbundle --release --dart-define=...`.
-  4. Caricare l'AAB sul track closed, aggiungere i tester, inviare per review del track.
-- *Nota Play:* il requisito "20 tester per 14 giorni" riguarda l'accesso alla **produzione** per i nuovi account personali; restando in **closed testing** non si applica.
-
-**Prossimi passi operativi (quando si affronta la distribuzione):**
 - [ ] iOS: submit review della build corrente + richiesta Unlisted.
-- [ ] Android: creare Play Console, upload keystore, build `.aab`, track closed + **Google Group** tester.
-- [ ] Documentare in `docs/` (es. `docs/distribuzione-unlisted.md`) i due flussi.
+- [ ] Android: creare Play Console, generare upload keystore, build `.aab` (non più APK),
+  track closed testing + Google Group come lista tester.
+- [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`).
+- [ ] **Login autenticato (Google e/o Apple)** per identificare gli utenti — decisione
+  architetturale ancora aperta: introdurrebbe un'identità server-side che oggi l'app non
+  ha (privacy-first, zero backend). Da discutere prima di progettare l'implementazione.
+- [ ] **Analitiche d'uso** (dopo login e/o decisione backend) — tool da scegliere
+  (Firebase vs soluzione self-hosted/privacy-friendly) e revisione della privacy policy
+  (oggi dichiara "nessuna raccolta dati su server propri").
 
-### Login autenticato (Google/Apple) — nuovo step (22 lug 2026)
+## P8 — Backlog tecnico (bassa priorità)
 
-**Obiettivo:** richiedere l'**accesso autenticato tramite login** (delegato a **Google** e/o **Apple**) per **identificare gli utenti** che usano l'app. Complementare alla distribuzione: la distribuzione limita *chi installa*, il login identifica *chi usa* (e abilita le analitiche per-utente).
+- [ ] Densificazione del path: passo fisso 15 m di default — valutare passo adattivo alla
+  pendenza.
+- [ ] Precisione D+/D-: campionamento DEM Terrarium a z13 di default — verificare contro
+  z14/15 sulle Alpi.
+- [ ] Modello di sync cloud: oggi solo file + last-write-wins — valutare un indice o una
+  gestione dei conflitti più fine se servisse.
+- [ ] Routing offline (BRouter embedded, Fase 2 del CLAUDE.md) — confermare la fattibilità
+  reale in Flutter (dimensione dei segment file) prima di impegnarsi.
+- [ ] Unità di misura / localizzazione: oggi solo metrico e italiano — valutare se serve
+  i18n.
 
-- **Provider:** Google Sign-In è **già integrato** (per Google Drive, `google_sign_in` v7) → riusabile per l'auth. **Sign in with Apple** va aggiunto su iOS: se si offre un login social di terzi, la **App Review Guideline 4.8** ne rende l'offerta **obbligatoria** come opzione equivalente.
-- **UX:** gate all'avvio (schermata di login prima della mappa) + persistenza sessione (token/stato in `shared_preferences` o secure storage); logout in Impostazioni.
-- **Decisione architetturale aperta:** oggi Sentèi è **privacy-first, zero backend** (README §"Natura del progetto"). Identificare gli utenti implica: (a) solo verifica locale dell'identità (login ma nessun dato server) — semplice, ma poca utilità; oppure (b) un **backend leggero** che registra gli utenti (necessario se si vuole davvero "sapere chi usa" + analitiche server-side). **Da discutere prima di implementare** (impatta anche §"Natura del progetto" e privacy policy).
+---
 
-### Analitiche d'uso — step successivo al login (22 lug 2026)
+## Riferimenti
 
-**Obiettivo:** raccogliere metriche sull'uso reale: **tempi di utilizzo/sessioni**, **richieste di accesso alle mappe** (map loads Mapbox → correlate ai costi), **n° tracce salvate**, feature più usate, ecc. Utile per capire l'uso e **monitorare i costi mappe**.
-
-- **Strumento da scegliere:** Firebase Analytics (integrazione rapida, gratis, ma è Google/telemetria) vs soluzione **self-hosted/privacy-friendly** (coerente con l'anima privacy-first, più lavoro).
-- **Cosa raccogliere:** definire eventi minimi e non invasivi; **rivedere `docs/privacy-policy.html`** e la sezione "Natura del progetto" del README (oggi dichiarano *nessuna raccolta dati su server propri* → andrà aggiornato).
-- **Dipendenza:** ha più senso **dopo** il login (metriche associabili all'utente) e/o dopo la decisione backend sì/no.
+- **[`docs/CHANGELOG-DEV.md`](./CHANGELOG-DEV.md)** — changelog tecnico esteso: tutto ciò
+  che è stato completato, con dettagli implementativi, bug e decisioni.
+- **[`CHANGELOG.md`](../CHANGELOG.md)** — changelog sintetico per chi usa l'app (anche
+  in-app, Impostazioni → Informazioni → Sentèi).
+- **[`CLAUDE.md`](../CLAUDE.md)** — visione di prodotto, decisioni architetturali fisse,
+  stack tecnico, comandi.

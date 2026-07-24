@@ -55,14 +55,18 @@ flutter run \
 
 ## 🗺️ Roadmap
 
-> **Stato attuale (lug 2026):** beta **`1.0.0+4`** rilasciata ai tester — **iOS su TestFlight** + **APK Android**. UI iOS-native (tema chiaro), vista satellite, info punto, sync **iCloud** (iOS) e **Google Drive** (iOS + Android).
+> **Stato attuale (24 lug 2026):** beta **`1.0.0+5`** rilasciata ai tester — **iOS su TestFlight** + **APK Android**. UI iOS-native con **modalità scura**, editing avanzato dei tracciati, import GPX riallineato, sync **iCloud** (iOS) e **Google Drive** (iOS + Android).
 
 - **Fase 0** — Setup + mappa ✅
 - **Fase 1 (MVP)** — Disegno + snap-to-trail, distanza/dislivello, GPX, aree offline ✅ *(download offline implementato, da validare in modalità aereo su device)*
 - **Fase 2** — Sync cloud (Drive + iCloud, auto-sync) ✅ *(iCloud su iOS; **Google Drive su iOS + Android**)* · registrazione traccia live ⏳
 - **Fase 3** — Rifiniture: ricerca località, waypoint, statistiche ⏳
 
-Stato dettagliato e prossimi passi: **[`docs/ROADMAP.md`](./docs/ROADMAP.md)**.
+Stato dettagliato e prossimi passi, in ordine di priorità: **[`docs/ROADMAP.md`](./docs/ROADMAP.md)**.
+
+## 📝 Changelog
+
+Novità per versione, in linguaggio semplice (la stessa lista è in-app, Impostazioni → Informazioni → Sentèi): **[`CHANGELOG.md`](./CHANGELOG.md)**. Versione tecnica estesa, con dettagli di implementazione: **[`docs/CHANGELOG-DEV.md`](./docs/CHANGELOG-DEV.md)**.
 
 ## 📖 Documentazione
 
