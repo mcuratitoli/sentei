@@ -19,6 +19,7 @@ import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
 import 'package:sentei/ui/elevation_profile_chart.dart' show ElevationProfileChart;
 import 'package:sentei/ui/glass.dart' show GlassSurface;
+import 'package:sentei/ui/tokens.dart' show AppPalette;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -598,10 +599,10 @@ void main() {
     expect(find.byIcon(Icons.edit_rounded), findsNothing);
     expect(find.byIcon(CupertinoIcons.pencil), findsOneWidget);
 
-    // Stessa opacità di GlassSurface della card traccia, verificata sotto
-    // (0.92): qui verifichiamo solo che DrawRouteControls la dichiari.
+    // Stessa opacità (token condiviso `contentGlassOpacity`) della card
+    // traccia, verificata sotto per PhotoDetailCard.
     expect(tester.widget<GlassSurface>(find.byType(GlassSurface).first).opacity,
-        0.92);
+        AppPalette.light.contentGlassOpacity);
   });
 
   testWidgets(
@@ -638,6 +639,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<GlassSurface>(find.byType(GlassSurface)).opacity,
-        0.92);
+        AppPalette.light.contentGlassOpacity);
   });
 }

@@ -56,6 +56,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.accent,
     this.glassOpacity = 0.66,
     this.glassBlur = 24,
+    this.contentGlassOpacity = 0.85,
+    this.contentGlassBlur = 30,
   });
 
   final Color scaffoldBg; // sfondo grouped delle schermate
@@ -75,12 +77,22 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// anche l'accento (non solo testo/sfondi) deve restare sui toni caldi.
   final Color accent;
 
-  /// Opacità/blur del riempimento "vetro" (`GlassSurface`). Diversi solo per
-  /// [AppDarkVariant.oled]: pannelli quasi opachi e **senza blur** — oltre a
-  /// leggersi come "flat/minimal", evita il lavoro GPU del `BackdropFilter`
-  /// (coerente col nome "risparmio energetico").
+  /// Opacità/blur del riempimento "vetro" (`GlassSurface`) per la **chrome**
+  /// di navigazione (menubar, controlli laterali, ricerca, punto ispezionato
+  /// in esplorazione): più trasparente, pensata per restare leggera sopra la
+  /// mappa. Diversi solo per [AppDarkVariant.oled]: pannelli quasi opachi e
+  /// **senza blur** — oltre a leggersi come "flat/minimal", evita il lavoro
+  /// GPU del `BackdropFilter` (coerente col nome "risparmio energetico").
   final double glassOpacity;
   final double glassBlur;
+
+  /// Opacità/blur delle card di **contenuto** (traccia/punto selezionato,
+  /// dettaglio foto, import GPX, foto vicine): meno trasparenti della chrome
+  /// per la leggibilità di testo/dati, ma non del tutto opache. Stesso valore
+  /// in ogni variante tranne [AppDarkVariant.oled] (eredita le stesse
+  /// [glassOpacity]/[glassBlur] "flat" della chrome, coerenti col resto).
+  final double contentGlassOpacity;
+  final double contentGlassBlur;
 
   /// Palette **chiara** (= valori storici in [AppColors]).
   static const light = AppPalette(
@@ -151,6 +163,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     accent: AppColors.primary,
     glassOpacity: 0.98,
     glassBlur: 0,
+    // Stessa scelta "flat" della chrome: niente blur nemmeno per le card di
+    // contenuto, coerente col nome "risparmio energetico".
+    contentGlassOpacity: 0.98,
+    contentGlassBlur: 0,
   );
 
   @override
@@ -168,6 +184,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? accent,
     double? glassOpacity,
     double? glassBlur,
+    double? contentGlassOpacity,
+    double? contentGlassBlur,
   }) =>
       AppPalette(
         scaffoldBg: scaffoldBg ?? this.scaffoldBg,
@@ -183,6 +201,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
         accent: accent ?? this.accent,
         glassOpacity: glassOpacity ?? this.glassOpacity,
         glassBlur: glassBlur ?? this.glassBlur,
+        contentGlassOpacity: contentGlassOpacity ?? this.contentGlassOpacity,
+        contentGlassBlur: contentGlassBlur ?? this.contentGlassBlur,
       );
 
   @override
@@ -202,6 +222,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
       accent: Color.lerp(accent, other.accent, t)!,
       glassOpacity: lerpDouble(glassOpacity, other.glassOpacity, t)!,
       glassBlur: lerpDouble(glassBlur, other.glassBlur, t)!,
+      contentGlassOpacity:
+          lerpDouble(contentGlassOpacity, other.contentGlassOpacity, t)!,
+      contentGlassBlur: lerpDouble(contentGlassBlur, other.contentGlassBlur, t)!,
     );
   }
 }

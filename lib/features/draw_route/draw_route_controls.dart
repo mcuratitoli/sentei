@@ -47,10 +47,12 @@ class DrawRouteControls extends ConsumerWidget {
       // Vicino alla toolbar in basso (poco margine sotto).
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
       child: GlassSurface(
-        // Card contenutistica: quasi opaca (leggibilità di testo/grafico) ma con
-        // il linguaggio "vetro" iOS (bordo chiaro, ombra morbida, angoli ampi).
-        opacity: 0.92,
-        blur: 30,
+        // Card di contenuto (leggibilità di testo/grafico) ma un po' più
+        // trasparente della chrome pura, non del tutto opaca — token
+        // condiviso con le altre card di contenuto (import, foto, ricerca
+        // foto vicine): vedi `AppPalette.contentGlassOpacity/Blur`.
+        opacity: context.palette.contentGlassOpacity,
+        blur: context.palette.contentGlassBlur,
         borderRadius: AppRadii.rCard,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -1084,12 +1086,12 @@ class PhotoDetailCard extends ConsumerWidget {
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
       child: GlassSurface(
-        // Stessa opacità/blur di DrawRouteControls e _ImportLoadingCard (le
-        // altre card impilate sopra la mappa): senza, usava il default più
-        // trasparente della "chrome" di navigazione (menubar/controlli),
-        // leggendosi visibilmente più diafana delle card sopra/sotto di lei.
-        opacity: 0.92,
-        blur: 30,
+        // Stesso token di DrawRouteControls/_ImportLoadingCard (le altre card
+        // impilate sopra la mappa): senza, usava il default più trasparente
+        // della "chrome" di navigazione (menubar/controlli), leggendosi
+        // visibilmente più diafana delle card sopra/sotto di lei.
+        opacity: palette.contentGlassOpacity,
+        blur: palette.contentGlassBlur,
         borderRadius: AppRadii.rCard,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),

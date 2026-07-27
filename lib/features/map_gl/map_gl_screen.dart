@@ -1453,8 +1453,10 @@ class _ImportLoadingCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
       child: GlassSurface(
-        opacity: 0.92,
-        blur: 30,
+        // Token condiviso con le altre card di contenuto (traccia, foto,
+        // ricerca foto vicine): vedi `AppPalette.contentGlassOpacity/Blur`.
+        opacity: context.palette.contentGlassOpacity,
+        blur: context.palette.contentGlassBlur,
         borderRadius: AppRadii.rCard,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
@@ -1598,7 +1600,10 @@ class _PointInfoCard extends StatelessWidget {
         maxWidth: MediaQuery.of(context).size.width - 16,
       ),
       child: GlassSurface(
-        // Stessa trasparenza della ricerca/menubar (default).
+        // Un po' più trasparente della chrome di default (menubar/ricerca):
+        // su richiesta esplicita, per vedere meglio la mappa sotto quando si
+        // ispeziona un punto qualsiasi fuori dall'editing.
+        opacity: (palette.glassOpacity - 0.08).clamp(0.0, 1.0),
         borderRadius: AppRadii.rPill,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
