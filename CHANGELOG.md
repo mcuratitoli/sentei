@@ -14,10 +14,11 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
   (invece di occupare sempre spazio nella card), la **distanza totale** si
   vede in tempo reale mentre si disegna (non solo dopo il Salva), ed è
   sparita l'icona poco chiara accanto a "Segui i sentieri".
-- 📍 Selezionando un punto del percorso in modifica ora si vede anche la sua
-  **quota**, un suggerimento per spostarlo e un nuovo tasto **"Aggiungi
-  punto prima"** per inserire un punto intermedio — al posto della maniglia
-  sempre visibile a metà segmento (poco scopribile e mal posizionata).
+- 📍 Selezionando un punto del percorso in modifica la card mostra ora **solo**
+  i dati di quel punto (quota, un suggerimento per spostarlo, i tasti
+  "Aggiungi punto prima" ed Elimina in stile coerente col resto dell'app) —
+  al posto della maniglia sempre visibile a metà segmento (poco scopribile
+  e mal posizionata).
 - ✏️ Il messaggio di conferma per uscire dall'editing di un percorso dice ora
   "Annulla modifiche" invece di "Annulla percorso" — più corretto quando si
   sta modificando una traccia già esistente, non solo disegnandone una nuova.

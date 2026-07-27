@@ -11,6 +11,40 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Rifinitura design su screenshot (skill mobile-app-design-mastery, in lavorazione, non ancora rilasciato)
+
+Terzo giro di feedback diretto sulla stessa card (stesso giorno), questa volta caricando
+la skill `mobile-app-design-mastery` per applicare linee guida UX/UI esplicite invece di
+giudizio estetico non strutturato.
+
+1. **Pallino colore in "Impostazioni avanzate"** — la riga collassata mostrava lo swatch
+   del colore corrente come icona leading: ridondante/fuorviante ora che il colore vive
+   nel foglio dedicato (sembrava un'informazione a sé, non un trigger per aprire altro).
+   Sostituito con un'icona neutra (`CupertinoIcons.slider_horizontal_3`), coerente con le
+   righe "Impostazioni" del resto dell'app (`settings_screen.dart`).
+2. **Punto selezionato: cambio di contesto vero, non una fascia aggiunta** — richiamando
+   la formulazione originale della roadmap ("sparisce nome/colore traccia, compaiono i
+   dati del punto"), superata la scelta di una sessione precedente (stesso giorno) di
+   tenere nome/distanza/impostazioni avanzate sempre visibili sopra i dati del punto.
+   `_DrawingBody` ora nasconde quella sezione quando un punto è selezionato, mostrando
+   **solo** `_SelectedWaypointBar` — "Salva"/Annulla/Undo restano comunque raggiungibili
+   in fondo, quelli riguardano la traccia nel suo complesso, non il singolo punto.
+   Rimosso anche il contenitore con sfondo tinto (`accent.withValues(alpha:0.08)`): con
+   la vista a sé stante non serve più distinguerla visivamente dal resto.
+3. **Coerenza dei pulsanti** — "Aggiungi punto prima"/"Elimina" erano `CupertinoButton`
+   di solo testo, incoerenti con `_PillAction`/`_CardIconButton` già usati nel resto
+   della card. Convertiti in `_PillAction` (pillola chiara, icona + testo); `_PillAction`
+   esteso con un parametro `color` opzionale (default `scheme.primary`) per la variante
+   distruttiva ("Elimina", `AppColors.destructive`) — evita di duplicare il widget solo
+   per il colore.
+
+Guida applicata da `mobile-hierarchy.md` (skill `mobile-app-design-mastery`): pulsanti
+distruttivi in stile terziario/testo su schermate normali sarebbero corretti in
+astratto, ma qui il criterio decisivo era la coerenza *interna* con il linguaggio già
+stabilito nella stessa card, non la linea guida generica isolata.
+
+---
+
 ## 27 luglio 2026 — Impostazioni avanzate, quota sul punto, aggiungi punto prima (feedback utente diretto su screenshot della card, in lavorazione, non ancora rilasciato)
 
 Seguito diretto della voce precedente (stesso giorno): altro giro di feedback puntuale
