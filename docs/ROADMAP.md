@@ -38,21 +38,11 @@
    è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
    visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
    sovrapposte.
-5. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
-   draggabile a metà segmento (vedi `docs/CHANGELOG-DEV.md`, 23 luglio) è poco discoverable
-   (serve tenere premuto qualche secondo) e posizionato in modo poco sensato (centro della
-   corda retta, non del sentiero). **Da implementare al posto dell'attuale:** rimuovere la
-   maniglia intermedia sempre visibile; al tap su un punto esistente la card cambia
-   contesto — sparisce nome/colore traccia, compaiono i dati del punto (altitudine, ecc.),
-   un suggerimento "tieni premuto per spostare", il tasto elimina punto e un nuovo tasto
-   **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e
-   il precedente. Tocca `route_editor_provider.dart` + rendering/gesture in
-   `map_gl_screen.dart` (rivedere anche `docs/eval-waypoint-editing.md`).
-6. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
+5. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
     editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
     immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
     attivo/disattivo) — oggi incoerenti.
-7. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+6. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
     Sotto-richieste raccolte dal test:
@@ -73,10 +63,10 @@
     - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
       sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
       risolto altrove con `DefaultTextStyle(decoration:none)`).
-8. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+7. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~33 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~25 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
@@ -84,7 +74,7 @@
 
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P1, punto 7**.
+  requisiti dettagliati in **P1, punto 6**.
 - [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
   su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
   già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non

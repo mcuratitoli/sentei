@@ -75,3 +75,13 @@ Pallini renderizzati in `map_gl_screen.dart` (`_waypointDots`, `circleRadius: 7`
 
 - Segnavia/difficoltà CAI: restano ricalcolati al "Fine" (nessun impatto durante l'editing).
 - Distinzione gesti sui pallini: `tap=seleziona / drag=sposta / drag-maniglia=inserisci`.
+
+## Aggiornamento (27 luglio 2026)
+
+Lo **Step 4** (maniglie di metà-segmento sempre visibili) è stato **rimosso**: poco
+discoverable (serve tenere premuto qualche secondo) e posizionato in modo poco sensato
+(centro della corda retta, non del sentiero) — feedback diretto dal test su device.
+Sostituito da un tasto **"Aggiungi punto prima"** nella card del punto selezionato
+(`Tracks.insertPointBefore`, assente sul primo punto che non ha un precedente), più
+scopribile perché appare nello stesso punto in cui l'utente già interagisce per
+eliminare il punto. Dettagli: `docs/CHANGELOG-DEV.md`, voce 27 luglio 2026.

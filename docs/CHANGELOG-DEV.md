@@ -11,6 +11,48 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Impostazioni avanzate, quota sul punto, aggiungi punto prima (feedback utente diretto su screenshot della card, in lavorazione, non ancora rilasciato)
+
+Seguito diretto della voce precedente (stesso giorno): altro giro di feedback puntuale
+sulla stessa card di disegno/editing (`lib/features/draw_route/draw_route_controls.dart`),
+questa volta a schermata mostrata.
+
+1. **Colore ancora troppo in vista** → spostato, insieme a "Segui i sentieri", in un
+   foglio **Impostazioni avanzate** (`_showAdvancedSettingsSheet`, stesso linguaggio
+   visivo di `showDifficultyLegend`/`showReleaseNotes`): nella card resta solo una riga
+   riassuntiva (swatch corrente + chevron). Superata la versione "collassa/espande in
+   riga" della voce precedente — non bastava, il colore andava proprio tolto da lì.
+2. **Quota sul punto selezionato** — `waypointElevationProvider`
+   (`FutureProvider.family<double?, LatLng>`, stessa fonte DEM Terrarium di
+   `InspectedPointNotifier`) aggiunta a `_SelectedWaypointBar`, con lo stesso trattamento
+   (spinner mentre carica, "non disponibile" se la tile manca). Aggiunto anche il
+   suggerimento "Tieni premuto per spostare" (il gesto esisteva già — drag sul pallino —
+   ma non era comunicato in UI).
+3. **Elimina senza conferma?** — verificato: `_confirmDeleteWaypoint` passava già da
+   `showIosConfirm` (nessuna regressione trovata leggendo il codice); il test
+   `draw_route_controls_test.dart` "eliminare un punto chiede conferma prima di
+   rimuoverlo" lo conferma esplicitamente (tappare "Elimina" apre il dialog, il punto
+   resta finché non si conferma).
+4. **Maniglia di metà-segmento → "Aggiungi punto prima"** — implementa il punto
+   roadmap P1 "Editing punti intermedi": rimossi `_midpointHandles`,
+   `_drawMidpointHandles`, `_onMidpointDragEnd` e il relativo
+   `CircleAnnotationManager` in `map_gl_screen.dart`. Nuovo
+   `Tracks.insertPointBefore(index)` (route_editor_provider.dart): inserisce un waypoint
+   a metà tra `index` e il precedente, assente sul primo punto (`index == 0`, nessun
+   precedente). **Nota architetturale**: `insertPointBefore` non sposta la selezione
+   (`selectedWaypointProvider`) al suo interno — farlo dal notifier di `tracksProvider`
+   genera `CircularDependencyError` in Riverpod, perché `SelectedWaypoint.build()`
+   osserva `activeTrackIdProvider` che a sua volta osserva `tracksProvider` (ciclo
+   `Tracks → SelectedWaypoint → tracksProvider`). Lo sposta chi chiama, nel widget
+   (`ref` lì non è vincolato al notifier di `tracksProvider`).
+5. **Riordino card**: nome → distanza (se ≥2 waypoint) → Impostazioni avanzate → (se
+   selezionato) dettagli punto → azioni (Annulla/Undo/Salva).
+
+Aggiornati `docs/eval-waypoint-editing.md` (Step 4 superato) e i test
+(`route_editor_test.dart`, `draw_route_controls_test.dart`).
+
+---
+
 ## 27 luglio 2026 — Rifinitura card di disegno (feedback utente diretto, in lavorazione, non ancora rilasciato)
 
 Tre richieste puntuali sulla card di creazione/modifica (`_DrawingBody` in
