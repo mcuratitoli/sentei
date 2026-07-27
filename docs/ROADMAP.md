@@ -23,25 +23,22 @@
 > Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Precedono
 > tutto il resto della roadmap.
 
-1. [ ] **[FIX] Testo del pulsante in uscita dall'editing** — *SP 1*. Il messaggio di
-   conferma dice "Annulla percorso": va cambiato in **"Annulla modifiche"**, corretto anche
-   quando si sta modificando una traccia esistente e non solo disegnandone una nuova.
-2. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
+1. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
    come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
    pannello).
-3. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
+2. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
    mappa deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato
    importato, invece di restare sull'inquadratura precedente.
-4. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
+3. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
    l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
    un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card
    che appare selezionando una traccia sulla mappa.
-5. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
+4. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
    è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
    visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
    sovrapposte.
-6. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
+5. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
    draggabile a metà segmento (vedi `docs/CHANGELOG-DEV.md`, 23 luglio) è poco discoverable
    (serve tenere premuto qualche secondo) e posizionato in modo poco sensato (centro della
    corda retta, non del sentiero). **Da implementare al posto dell'attuale:** rimuovere la
@@ -51,14 +48,14 @@
    **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e
    il precedente. Tocca `route_editor_provider.dart` + rendering/gesture in
    `map_gl_screen.dart` (rivedere anche `docs/eval-waypoint-editing.md`).
-7. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
+6. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
    scelta colore deve essere collassata di default e espandersi al tocco; ampliare la
    palette con più tonalità, coerenti con la palette blu dell'app (`lib/ui/tokens.dart`).
-8. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
+7. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
     editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
     immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
     attivo/disattivo) — oggi incoerenti.
-9. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+8. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
     Sotto-richieste raccolte dal test:
@@ -79,10 +76,10 @@
     - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
       sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
       risolto altrove con `DefaultTextStyle(decoration:none)`).
-10. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+9. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~37 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~36 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
@@ -90,7 +87,7 @@
 
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P1, punto 11**.
+  requisiti dettagliati in **P1, punto 8**.
 - [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
   su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
   già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non

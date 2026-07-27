@@ -11,6 +11,17 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Testo pulsante conferma annulla editing (P1, in lavorazione, non ancora rilasciato)
+
+`_confirmCancel` (`lib/features/draw_route/draw_route_controls.dart`) è condiviso tra la
+creazione di un nuovo percorso e la modifica di una traccia esistente (`cancelEditing`
+gestisce entrambi i casi, vedi `_editSnapshot`). Il `confirmLabel` del dialog era
+"Annulla percorso" in entrambi i casi — fuorviante quando si sta modificando una traccia già
+salvata (non si sta affatto annullando "il percorso", solo le modifiche non salvate). Fix a
+una riga: `confirmLabel: 'Annulla modifiche'`.
+
+---
+
 ## 27 luglio 2026 — Traccia "fantasma" dopo import GPX (P1, in lavorazione, non ancora rilasciato)
 
 **Sintomo segnalato testando `1.0.0+4`:** nel flusso di import a 2 fasi (grezza tratteggiata

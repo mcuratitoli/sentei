@@ -9,6 +9,9 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- ✏️ Il messaggio di conferma per uscire dall'editing di un percorso dice ora
+  "Annulla modifiche" invece di "Annulla percorso" — più corretto quando si
+  sta modificando una traccia già esistente, non solo disegnandone una nuova.
 - 🧹 Se si elimina dalla lista tracciati una traccia appena importata da GPX
   mentre è ancora in caricamento/revisione, non resta più una linea
   tratteggiata "fantasma" bloccata sulla mappa (e le altre tracce salvate non
