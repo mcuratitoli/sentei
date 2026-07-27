@@ -10,30 +10,49 @@ import 'package:flutter/material.dart';
 // token (o `Theme.of(context).colorScheme`/`textTheme`). Eccezione già ok:
 // `lib/ui/cai_difficulty.dart` (palette semantica di dominio).
 
-/// Colori dell'app. Valori 1:1 con quelli storici, salvo `destructive` che è
-/// stato **unificato** a iOS *systemRed* (prima convivevano `C62828` e `FF3B30`).
+/// Colori dell'app — allineati a `new design/DESIGN_GUIDELINES.md` (luglio 2026):
+/// blu di brand aggiornato, `destructive` **unificato** al rosso della scala di
+/// difficoltà CAI `EEA` (stesso significato "attenzione/pericolo/rimozione" —
+/// vedi [AppDifficultyColors.eea]), non più lo *systemRed* iOS storico.
 abstract final class AppColors {
-  /// Blu del brand (= seed del tema; anche `colorScheme.primary`).
-  static const Color primary = Color(0xFF1565C0);
+  /// Blu del brand (= seed del tema; anche `colorScheme.primary`). Unico
+  /// colore di "brand/azione" nell'app — non riusare altrove (badge di
+  /// difficoltà e dati hanno la propria palette, [AppDifficultyColors]).
+  static const Color primary = Color(0xFF0071E0);
 
-  /// Azione distruttiva (elimina/disconnetti). iOS `systemRed`.
-  static const Color destructive = Color(0xFFFF3B30);
+  /// Stato *pressed* del blu di brand (bottoni primari).
+  static const Color primaryPressed = Color(0xFF0058C4);
+
+  /// Azione distruttiva (elimina/disconnetti/scollega) — stesso rosso di
+  /// [AppDifficultyColors.eea], non un rosso indipendente.
+  static const Color destructive = AppDifficultyColors.eea;
 
   /// Sfondo raggruppato stile iOS (`systemGroupedBackground`).
-  static const Color groupedBg = Color(0xFFF2F2F7);
+  static const Color groupedBg = Color(0xFFF5F3EF);
 
   // Testo / icone (grigi di sistema iOS, dal più scuro al più chiaro)
-  static const Color label = Color(0xFF1C1C1E); // testo primario
+  static const Color label = Color(0xFF11161F); // testo primario
   static const Color bodyText = Color(0xFF3A3A3C); // corpo descrittivo
-  static const Color secondaryLabel = Color(0xFF6E6E73); // sottotitoli/caption
+  static const Color secondaryLabel = Color(0xFF5E646C); // sottotitoli/caption
   static const Color iconGrey = Color(0xFF8E8E93); // icone/valori inattivi (systemGray)
   static const Color iconGreyLight = Color(0xFF9A9AA0); // icone tenui (copia, hint)
-  static const Color tertiaryIcon = Color(0xFFB0B0B5); // placeholder/chiudi
+  static const Color tertiaryIcon = Color(0xFF94999F); // placeholder/chiudi
 
   // Vetro / linee / overlay
   static const Color glassFill = Color(0xFFFFFFFF); // riempimento superfici vetro
   static const Color hairline = Color(0xFF3C3C43); // separatori (usare con alpha)
   static const Color overlayDark = Color(0xF01C1C1E); // tooltip/toast scuri
+}
+
+/// Palette **semantica** della scala di difficoltà escursionistica CAI
+/// (T/E/EE/EEA) — condivisa da `cai_difficulty.dart` (badge/grafico) e da
+/// [AppColors.destructive] (l'EEA rosso è anche il rosso "distruttivo").
+/// Non riusare il blu qui: è riservato al brand ([AppColors.primary]).
+abstract final class AppDifficultyColors {
+  static const Color t = Color(0xFF348F4F);
+  static const Color e = Color(0xFF009192);
+  static const Color ee = Color(0xFFDD7B2B);
+  static const Color eea = Color(0xFFCC3336);
 }
 
 /// Palette **strutturale** dipendente dal tema (chiaro/scuro): sfondi, testo,
@@ -54,6 +73,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.tertiaryIcon,
     required this.hairline,
     required this.accent,
+    required this.borderDivider,
+    required this.iconBgNeutral,
     this.glassOpacity = 0.66,
     this.glassBlur = 24,
     this.contentGlassOpacity = 0.85,
@@ -76,6 +97,16 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// caldo: il senso della variante notturna è **azzerare la luce blu**, quindi
   /// anche l'accento (non solo testo/sfondi) deve restare sui toni caldi.
   final Color accent;
+
+  /// Bordo dei separatori/contorni pill "opachi" (badge tag sentiero, righe
+  /// impostazioni) — distinto da [hairline] (usato con alpha sul vetro):
+  /// qui il colore è già alla tinta finale, nessun alpha da applicare.
+  final Color borderDivider;
+
+  /// Sfondo di default degli icon-button "opachi" (card ridisegnate secondo
+  /// `new design/DESIGN_GUIDELINES.md`): cerchio neutro, non tinto d'accento —
+  /// quello è riservato allo stato attivo/selezionato (vedi `AppIconButton`).
+  final Color iconBgNeutral;
 
   /// Opacità/blur del riempimento "vetro" (`GlassSurface`) per la **chrome**
   /// di navigazione (menubar, controlli laterali, ricerca, punto ispezionato
@@ -107,6 +138,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     tertiaryIcon: AppColors.tertiaryIcon,
     hairline: AppColors.hairline,
     accent: AppColors.primary,
+    borderDivider: Color(0xFFE2E1DD),
+    iconBgNeutral: Color(0xFFF1F0EC),
   );
 
   /// **Standard** — dark elegante in stile iOS (superfici elevate #1C1C1E su
@@ -123,6 +156,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     tertiaryIcon: Color(0xFF636366),
     hairline: Color(0xFF545458),
     accent: AppColors.primary,
+    borderDivider: Color(0xFF545458),
+    iconBgNeutral: Color(0xFF2C2C2E),
   );
 
   /// **Notturno** — uso in montagna: toni caldi/smorzati (niente bianco puro né
@@ -142,6 +177,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     // quindi anche l'accento interattivo (bottoni, selezioni) deve restare
     // caldo — contrasto col bianco verificato (~5.6:1, alla pari del blu).
     accent: Color(0xFF9C551A),
+    borderDivider: Color(0xFF4A3B2E),
+    iconBgNeutral: Color(0xFF2A1D12),
   );
 
   /// **Risparmio energetico** — nero puro (OLED) ovunque possibile, per
@@ -161,6 +198,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     tertiaryIcon: Color(0xFF59595C),
     hairline: Color(0xFF1A1A1A),
     accent: AppColors.primary,
+    borderDivider: Color(0xFF1A1A1A),
+    iconBgNeutral: Color(0xFF141414),
     glassOpacity: 0.98,
     glassBlur: 0,
     // Stessa scelta "flat" della chrome: niente blur nemmeno per le card di
@@ -182,6 +221,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? tertiaryIcon,
     Color? hairline,
     Color? accent,
+    Color? borderDivider,
+    Color? iconBgNeutral,
     double? glassOpacity,
     double? glassBlur,
     double? contentGlassOpacity,
@@ -199,6 +240,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
         tertiaryIcon: tertiaryIcon ?? this.tertiaryIcon,
         hairline: hairline ?? this.hairline,
         accent: accent ?? this.accent,
+        borderDivider: borderDivider ?? this.borderDivider,
+        iconBgNeutral: iconBgNeutral ?? this.iconBgNeutral,
         glassOpacity: glassOpacity ?? this.glassOpacity,
         glassBlur: glassBlur ?? this.glassBlur,
         contentGlassOpacity: contentGlassOpacity ?? this.contentGlassOpacity,
@@ -220,6 +263,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       tertiaryIcon: Color.lerp(tertiaryIcon, other.tertiaryIcon, t)!,
       hairline: Color.lerp(hairline, other.hairline, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      borderDivider: Color.lerp(borderDivider, other.borderDivider, t)!,
+      iconBgNeutral: Color.lerp(iconBgNeutral, other.iconBgNeutral, t)!,
       glassOpacity: lerpDouble(glassOpacity, other.glassOpacity, t)!,
       glassBlur: lerpDouble(glassBlur, other.glassBlur, t)!,
       contentGlassOpacity:

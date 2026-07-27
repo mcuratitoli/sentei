@@ -15,9 +15,11 @@ import 'package:photo_manager/photo_manager.dart' show AssetEntity;
 import '../../core/util/format.dart';
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/track_metrics.dart';
+import '../../ui/app_bottom_sheet.dart';
+import '../../ui/app_buttons.dart';
+import '../../ui/badges.dart';
 import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
-import '../../ui/glass.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/track_offline_download.dart';
@@ -46,16 +48,14 @@ class DrawRouteControls extends ConsumerWidget {
     return Padding(
       // Vicino alla toolbar in basso (poco margine sotto).
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
-      child: GlassSurface(
-        // Card di contenuto (leggibilità di testo/grafico) ma un po' più
-        // trasparente della chrome pura, non del tutto opaca — token
-        // condiviso con le altre card di contenuto (import, foto, ricerca
-        // foto vicine): vedi `AppPalette.contentGlassOpacity/Blur`.
-        opacity: context.palette.contentGlassOpacity,
-        blur: context.palette.contentGlassBlur,
-        borderRadius: AppRadii.rCard,
+      // Superficie **opaca** (`new design/DESIGN_GUIDELINES.md` §7), non più
+      // "vetro": card di contenuto, non chrome di navigazione — leggibilità
+      // di testo/grafico prima di tutto. La chrome (menubar/ricerca/punto
+      // ispezionato in esplorazione) non è coperta da questo redesign e
+      // resta col vecchio linguaggio `GlassSurface`.
+      child: AppSheetSurface(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: drawing ? const _DrawingBody() : const _SelectedBody(),
         ),
       ),
@@ -136,26 +136,29 @@ class _DrawingBody extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodySmall),
               ],
               const Spacer(),
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Annulla e chiudi',
                 onPressed: () => _confirmCancel(context, ref),
                 icon: CupertinoIcons.xmark,
               ),
-              _CardIconButton(
+              const SizedBox(width: 6),
+              AppIconButton(
                 tooltip: 'Annulla',
                 onPressed: canUndo
                     ? () => ref.read(tracksProvider.notifier).undo()
                     : null,
                 icon: CupertinoIcons.arrow_uturn_left,
               ),
-              const SizedBox(width: 8),
-              _PillAction(
-                label: 'Salva',
-                icon: CupertinoIcons.check_mark,
-                filled: true,
-                onPressed: (!canSave || pathLoading)
-                    ? null
-                    : () => ref.read(tracksProvider.notifier).finishDrawing(),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AppButton(
+                  label: 'Salva',
+                  icon: CupertinoIcons.check_mark,
+                  variant: AppButtonVariant.primary,
+                  onPressed: (!canSave || pathLoading)
+                      ? null
+                      : () => ref.read(tracksProvider.notifier).finishDrawing(),
+                ),
               ),
             ],
           ),
@@ -221,45 +224,17 @@ class _SelectedBody extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                (track?.name.isNotEmpty ?? false) ? track!.name : 'Senza nome',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-            // Riduci/espandi: solo nome + chiudi, per vedere più mappa. Stessa
-            // dimensione/colore/tap-area della X accanto (stesso peso visivo
-            // per due azioni di pari importanza nella stessa riga — non
-            // `_CardIconButton`, che è tarato per la riga di azioni sotto).
-            Tooltip(
-              message: expanded ? 'Riduci' : 'Espandi',
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(40, 40),
-                onPressed: () =>
-                    ref.read(trackCardExpandedProvider.notifier).toggle(),
-                child: Icon(
-                    expanded
-                        ? CupertinoIcons.chevron_down
-                        : CupertinoIcons.chevron_up,
-                    size: 24,
-                    color: context.palette.tertiaryIcon),
-              ),
-            ),
-            // Chiudi la card (deseleziona) — stessa X della mini-card punto.
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(40, 40),
-              onPressed: () => ref.read(tracksProvider.notifier).deselect(),
-              child: Icon(CupertinoIcons.clear_circled_solid,
-                  size: 24, color: context.palette.tertiaryIcon),
-            ),
-          ],
+        AppSheetHeader(
+          title: (track?.name.isNotEmpty ?? false) ? track!.name : 'Senza nome',
+          // Riduci/espandi: il pannello "dettaglio tracciato" ha il chevron
+          // prima della × (§7 delle linee guida).
+          collapseIcon: expanded
+              ? CupertinoIcons.chevron_down
+              : CupertinoIcons.chevron_up,
+          collapseTooltip: expanded ? 'Riduci' : 'Espandi',
+          onCollapseToggle: () =>
+              ref.read(trackCardExpandedProvider.notifier).toggle(),
+          onClose: () => ref.read(tracksProvider.notifier).deselect(),
         ),
         if (expanded) ...[
           if (saving)
@@ -287,7 +262,7 @@ class _SelectedBody extends ConsumerWidget {
                   Container(
                     width: 1,
                     height: 18,
-                    color: Theme.of(context).dividerColor,
+                    color: context.palette.borderDivider,
                   ),
                   const SizedBox(width: 14),
                   _GainLoss(metrics: metrics),
@@ -317,7 +292,7 @@ class _SelectedBody extends ConsumerWidget {
           // dislivelli" accanto.
           Row(
             children: [
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Profilo altimetrico',
                 active: showingChart,
                 onPressed: (!hasMetrics || saving)
@@ -326,7 +301,7 @@ class _SelectedBody extends ConsumerWidget {
                 icon: CupertinoIcons.waveform_path,
               ),
               const SizedBox(width: 6),
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Colori dislivelli',
                 active: steepnessOn,
                 onPressed: (!hasMetrics || saving)
@@ -336,24 +311,21 @@ class _SelectedBody extends ConsumerWidget {
                 icon: CupertinoIcons.graph_square,
               ),
               const Spacer(),
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Trova foto vicine',
                 onPressed: (!hasMetrics || saving || track == null)
                     ? null
                     : () => findNearbyPhotos(context, ref, track),
                 icon: CupertinoIcons.photo,
               ),
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Modifica',
                 onPressed: saving
                     ? null
                     : () => ref.read(tracksProvider.notifier).editSelected(),
-                // Cupertino, non Material (era `Icons.edit_rounded`, stonava
-                // con le altre icone Cupertino della stessa riga e con la
-                // matita usata altrove nell'app — nome traccia, titolo foto).
                 icon: CupertinoIcons.pencil,
               ),
-              _CardIconButton(
+              AppIconButton(
                 tooltip: 'Salva offline',
                 onPressed: saving || track == null
                     ? null
@@ -466,24 +438,12 @@ class _SelectedWaypointBar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(40, 40),
-              onPressed: onClose,
-              child: Icon(CupertinoIcons.clear_circled_solid,
-                  size: 24, color: palette.tertiaryIcon),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text('Punto ${index + 1} di $total',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-            ),
-            elevation.when(
+        AppSheetHeader(
+          title: 'Punto ${index + 1} di $total',
+          onClose: onClose,
+          trailing: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: elevation.when(
               data: (m) => Text(
                 m != null ? Format.meters(m) : 'quota non disponibile',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -493,10 +453,10 @@ class _SelectedWaypointBar extends ConsumerWidget {
               loading: () => const CupertinoActivityIndicator(radius: 8),
               error: (_, __) => const SizedBox.shrink(),
             ),
-          ],
+          ),
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 44),
+          padding: const EdgeInsets.only(top: 2),
           child: Text('Tieni premuto per spostare',
               style:
                   AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
@@ -505,18 +465,23 @@ class _SelectedWaypointBar extends ConsumerWidget {
         Row(
           children: [
             if (onInsertBefore != null) ...[
-              _PillAction(
-                label: 'Aggiungi punto prima',
-                icon: CupertinoIcons.add,
-                onPressed: onInsertBefore,
+              Expanded(
+                child: AppButton(
+                  label: 'Aggiungi punto prima',
+                  icon: CupertinoIcons.add,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: onInsertBefore,
+                ),
               ),
               const SizedBox(width: 8),
             ],
-            _PillAction(
-              label: 'Elimina',
-              icon: CupertinoIcons.delete,
-              color: AppColors.destructive,
-              onPressed: onDelete,
+            Expanded(
+              child: AppButton(
+                label: 'Elimina',
+                icon: CupertinoIcons.delete,
+                variant: AppButtonVariant.destructive,
+                onPressed: onDelete,
+              ),
             ),
           ],
         ),
@@ -542,16 +507,8 @@ class _TrailInfo extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (refs.isNotEmpty) const Icon(Icons.signpost_outlined, size: 16),
-          for (final r in refs)
-            Chip(
-              label: Text(r),
-              labelStyle: AppText.captionSmall,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-            ),
-          if (s != null) _DifficultyChip(scale: s),
+          for (final r in refs) AppTrailTag(label: r),
+          if (s != null) AppDifficultyBadge(scale: s),
         ],
       ),
     );
@@ -685,32 +642,6 @@ Future<void> _confirmRemovePhoto(
   );
 }
 
-/// Chip colorato col grado di difficoltà CAI complessivo del percorso.
-class _DifficultyChip extends StatelessWidget {
-  const _DifficultyChip({required this.scale});
-
-  final String scale;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = caiScaleColor(scale);
-    return Tooltip(
-      message: 'Difficoltà CAI: ${caiScaleLabel(scale)}',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: AppRadii.rMd,
-        ),
-        child: Text(
-          scale,
-          style: AppText.badge.copyWith(color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
 /// Riga collassata: **colore** e **segui i sentieri** vivono in un foglio
 /// separato (aperto al tocco) invece di occupare sempre spazio nella card.
 class _AdvancedSettingsRow extends StatelessWidget {
@@ -727,21 +658,26 @@ class _AdvancedSettingsRow extends StatelessWidget {
       padding: EdgeInsets.zero,
       minimumSize: const Size(0, 0),
       onPressed: () => _showAdvancedSettingsSheet(context, track?.color, snap),
-      child: Row(
-        children: [
-          Icon(CupertinoIcons.slider_horizontal_3,
-              size: 18, color: palette.secondaryLabel),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text('Impostazioni avanzate',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: palette.secondaryLabel)),
-          ),
-          Icon(CupertinoIcons.chevron_right,
-              size: 16, color: palette.tertiaryIcon),
-        ],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: palette.hairline.withValues(alpha: 0.1),
+          borderRadius: AppRadii.rMd,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text('Impostazioni avanzate',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: palette.label)),
+            ),
+            Icon(CupertinoIcons.chevron_right,
+                size: 16, color: palette.tertiaryIcon),
+          ],
+        ),
       ),
     );
   }
@@ -751,13 +687,8 @@ class _AdvancedSettingsRow extends StatelessWidget {
 /// dalla card principale (troppo spazio per due impostazioni secondarie).
 Future<void> _showAdvancedSettingsSheet(
     BuildContext context, Color? selected, bool snap) {
-  return showModalBottomSheet<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    backgroundColor: context.palette.glassFill,
-    showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
-    ),
     builder: (_) => _AdvancedSettingsSheet(selected: selected, snap: snap),
   );
 }
@@ -770,7 +701,6 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     final palette = context.palette;
     final selected =
         ref.watch(tracksProvider.select((s) => s.editing?.color)) ??
@@ -779,79 +709,93 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
     final snap =
         ref.watch(tracksProvider.select((s) => s.editing?.snapToTrail)) ??
             this.snap;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSheetHeader(
+          title: 'Impostazioni avanzate',
+          onClose: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(height: 16),
+        Text('COLORE',
+            style: AppText.caption.copyWith(
+                color: palette.secondaryLabel,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4)),
+        const SizedBox(height: 10),
+        Row(
           children: [
-            Text('Impostazioni avanzate', style: AppText.sheetTitle),
-            const SizedBox(height: 16),
-            Text('Colore',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: palette.secondaryLabel)),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                for (final c in kTrackPalette)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: GestureDetector(
-                      onTap: () =>
-                          ref.read(tracksProvider.notifier).setColor(c),
-                      child: _ColorSwatch(
-                        color: c,
-                        ringColor:
-                            c == selected ? scheme.onSurface : scheme.outline,
-                        ringWidth: c == selected ? 2.5 : 1,
-                      ),
-                    ),
-                  ),
-              ],
+            for (final c in kTrackPalette)
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () => ref.read(tracksProvider.notifier).setColor(c),
+                  child: _ColorSwatch(color: c, selected: c == selected),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Divider(color: palette.borderDivider, height: 25),
+        Row(
+          children: [
+            Expanded(
+              child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
+                  style: Theme.of(context).textTheme.bodyMedium),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
-                      style: Theme.of(context).textTheme.bodyMedium),
-                ),
-                CupertinoSwitch(
-                  value: snap,
-                  onChanged: (v) =>
-                      ref.read(tracksProvider.notifier).setSnap(v),
-                ),
-              ],
+            // Stato ON = blu di brand, non il verde di sistema di default:
+            // un solo colore per gli stati "attivo" in tutta l'app (`new
+            // design/DESIGN_GUIDELINES.md` §8).
+            CupertinoSwitch(
+              value: snap,
+              activeTrackColor: palette.accent,
+              onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
 
+/// Pallino colore tracciato (`new design/DESIGN_GUIDELINES.md` §6): il
+/// **selezionato** ha un anello d'accento e una spunta bianca sopra la
+/// tinta; gli altri sono cerchi pieni senza contorno — non più "tutti con un
+/// anello, quello attivo più spesso", che rendeva ambigua la selezione.
 class _ColorSwatch extends StatelessWidget {
-  const _ColorSwatch(
-      {required this.color, required this.ringColor, this.ringWidth = 1});
+  const _ColorSwatch({required this.color, required this.selected});
 
   final Color color;
-  final Color ringColor;
-  final double ringWidth;
+  final bool selected;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    if (!selected) {
+      return Container(
         width: 26,
         height: 26,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: ringColor, width: ringWidth),
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       );
+    }
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: context.palette.accent, width: 2),
+      ),
+      child: Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: const Icon(CupertinoIcons.checkmark,
+            size: 14, color: Color(0xFFFFFFFF)),
+      ),
+    );
+  }
 }
 
 /// Campo per dare un nome alla traccia in modifica. Sincronizzato col provider.
@@ -908,10 +852,14 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Icona/testo in grigio scuro neutro, non l'accento blu: nei mockup del
+    // redesign il blu è riservato ad azioni/stati attivi, non a dati (vedi
+    // `new design/DESIGN_GUIDELINES.md` §2 — "il blu è l'unico colore di
+    // brand/azione").
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, size: 18, color: context.palette.secondaryLabel),
         const SizedBox(width: 5),
         Text(value,
             style: Theme.of(context)
@@ -934,132 +882,22 @@ class _GainLoss extends StatelessWidget {
         .textTheme
         .titleSmall
         ?.copyWith(fontWeight: FontWeight.bold);
-    const up = Color(0xFF2E7D32);
-    const down = Color(0xFFC62828);
+    // Stessi colori della scala di difficoltà CAI (T verde = dislivello
+    // positivo, EEA rosso = negativo): un solo significato per tinta in
+    // tutta l'app, non un verde/rosso indipendente.
+    const up = AppDifficultyColors.t;
+    const down = AppDifficultyColors.eea;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.trending_up, size: 18, color: up),
+        const Icon(CupertinoIcons.arrow_up_right, size: 18, color: up),
         const SizedBox(width: 3),
         Text(Format.meters(metrics.elevation.gain), style: style),
         const SizedBox(width: 10),
-        const Icon(Icons.trending_down, size: 18, color: down),
+        const Icon(CupertinoIcons.arrow_down_right, size: 18, color: down),
         const SizedBox(width: 3),
         Text(Format.meters(metrics.elevation.loss), style: style),
       ],
-    );
-  }
-}
-
-/// Bottone-icona compatto stile iOS per la card (press-dim, niente ripple).
-/// `active` = stato acceso (pastiglia tinta), `onPressed` null = disabilitato.
-///
-/// **Regola a due livelli** (formalizzata dopo un'incoerenza segnalata
-/// dall'utente — vedi `_PillAction` per il secondo livello): righe con
-/// **3+ azioni** (es. la riga della card traccia: profilo, colori dislivelli,
-/// foto vicine, modifica, salva offline) usano solo icone nude — con testo e
-/// sfondo per ciascuna andrebbe fuori schermo o su due righe. Righe con
-/// **1-2 azioni** (barra del punto selezionato, card dettaglio foto, foglio
-/// foto vicine) usano invece `_PillAction`, più leggibile quando c'è spazio.
-/// Non mescolare i due stili nella stessa riga.
-class _CardIconButton extends StatelessWidget {
-  const _CardIconButton({
-    required this.icon,
-    required this.onPressed,
-    this.tooltip,
-    this.active = false,
-  });
-
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final String? tooltip;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    // Token della palette dell'app (non `colorScheme.onSurface`/`.primary`
-    // grezzi): quelli sono generati dall'algoritmo tonale M3 a partire dal
-    // seed e non garantiscono di combaciare con i grigi delle altre icone/
-    // testi dell'app nelle varianti scure — con `context.palette` restano
-    // sempre coerenti con il resto della card (es. la X di chiusura, che usa
-    // `tertiaryIcon`). Icona a 24px, stessa dimensione della X di chiusura.
-    final palette = context.palette;
-    final enabled = onPressed != null;
-    final color = !enabled
-        ? palette.tertiaryIcon
-        : active
-            ? palette.accent
-            : palette.iconGrey;
-    Widget button = CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: const Size(40, 40),
-      onPressed: onPressed,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: active
-            ? BoxDecoration(
-                color: palette.accent.withValues(alpha: 0.12),
-                shape: BoxShape.circle)
-            : null,
-        child: Icon(icon, size: 24, color: color),
-      ),
-    );
-    if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
-    return button;
-  }
-}
-
-/// Pillola d'azione stile iOS. `filled` = tinta primaria piena (azione
-/// primaria); altrimenti tinta leggera (azione secondaria).
-///
-/// Secondo livello della regola descritta su `_CardIconButton`: usare qui
-/// solo dove la riga ha **1-2 azioni** (c'è spazio per testo leggibile),
-/// mai in righe dense da 3+ azioni.
-class _PillAction extends StatelessWidget {
-  const _PillAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    this.filled = false,
-    this.color,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-  final bool filled;
-
-  /// Tinta della pillola, `scheme.primary` se non specificata — es.
-  /// `AppColors.destructive` per un'azione distruttiva (es. "Elimina") con lo
-  /// stesso linguaggio "chiaro + icona" delle altre azioni, non testo puro.
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final tint = color ?? scheme.primary;
-    final enabled = onPressed != null;
-    final bg = filled
-        ? tint.withValues(alpha: enabled ? 1 : 0.4)
-        : tint.withValues(alpha: enabled ? 0.14 : 0.06);
-    final fg = filled
-        ? const Color(0xFFFFFFFF)
-        : tint.withValues(alpha: enabled ? 1 : 0.4);
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      color: bg,
-      borderRadius: AppRadii.rPill,
-      minimumSize: const Size(0, 0),
-      onPressed: onPressed,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: fg),
-          const SizedBox(width: 6),
-          Text(label, style: AppText.pillLabel.copyWith(color: fg)),
-        ],
-      ),
     );
   }
 }
@@ -1101,23 +939,23 @@ class PhotoDetailCard extends ConsumerWidget {
             ? Format.dateTime(current.takenAt!)
             : 'Foto collegata');
 
+    // Riga data/ora **aggiuntiva** solo se esiste un titolo personalizzato:
+    // altrimenti `title` è già la data formattata (fallback) e mostrarla di
+    // nuovo sotto sarebbe una duplicazione.
+    final showExtraDateRow = hasTitle && current.takenAt != null;
+
     return ConstrainedBox(
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
-      child: GlassSurface(
-        // Stesso token di DrawRouteControls/_ImportLoadingCard (le altre card
-        // impilate sopra la mappa): senza, usava il default più trasparente
-        // della "chrome" di navigazione (menubar/controlli), leggendosi
-        // visibilmente più diafana delle card sopra/sotto di lei.
-        opacity: palette.contentGlassOpacity,
-        blur: palette.contentGlassBlur,
-        borderRadius: AppRadii.rCard,
+      child: AppSheetSurface(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AppSheetHeader(title: 'Dettaglio foto', onClose: onClose),
+              const SizedBox(height: 14),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1126,8 +964,8 @@ class PhotoDetailCard extends ConsumerWidget {
                     child: ClipRRect(
                       borderRadius: AppRadii.rMd,
                       child: SizedBox(
-                        width: 64,
-                        height: 64,
+                        width: 88,
+                        height: 88,
                         child: current.thumbnail != null
                             ? Image.memory(current.thumbnail!,
                                 fit: BoxFit.cover)
@@ -1139,14 +977,15 @@ class PhotoDetailCard extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 3 righe: titolo; quota (solo i metri, senza
-                        // l'etichetta "Quota") + coordinate; data e ora.
+                        // 3 righe: titolo (o data, se non impostato); quota
+                        // (solo i metri) + coordinate; data e ora (solo se il
+                        // titolo è personalizzato, altrimenti è già la riga 1).
                         Text(title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -1186,7 +1025,7 @@ class PhotoDetailCard extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        if (current.takenAt != null)
+                        if (showExtraDateRow)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(Format.dateTime(current.takenAt!),
@@ -1196,38 +1035,33 @@ class PhotoDetailCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // Stessa dimensione/tap-area della X di _SelectedBody,
-                  // _SelectedWaypointBar e _PointInfoCard (era 22px/32×32,
-                  // percepibilmente più piccola delle altre).
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(40, 40),
-                    onPressed: onClose,
-                    child: Icon(CupertinoIcons.clear_circled_solid,
-                        size: 24, color: palette.tertiaryIcon),
-                  ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  _PillAction(
-                    label: 'Modifica titolo',
-                    icon: CupertinoIcons.pencil,
-                    onPressed: trackId == null
-                        ? null
-                        : () => _promptEditPhotoTitle(
-                            context, ref, trackId, current),
+                  Expanded(
+                    child: AppButton(
+                      label: 'Modifica titolo',
+                      icon: CupertinoIcons.pencil,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: trackId == null
+                          ? null
+                          : () => _promptEditPhotoTitle(
+                              context, ref, trackId, current),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _PillAction(
-                    label: 'Scollega',
-                    icon: CupertinoIcons.delete,
-                    color: AppColors.destructive,
-                    onPressed: trackId == null
-                        ? null
-                        : () => _confirmRemovePhoto(
-                            context, ref, trackId, current.id),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AppButton(
+                      label: 'Scollega',
+                      icon: CupertinoIcons.delete,
+                      variant: AppButtonVariant.destructive,
+                      onPressed: trackId == null
+                          ? null
+                          : () => _confirmRemovePhoto(
+                              context, ref, trackId, current.id),
+                    ),
                   ),
                 ],
               ),
@@ -1245,92 +1079,52 @@ class PhotoDetailCard extends ConsumerWidget {
 Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
     String trackId, TrackPhoto photo) async {
   final controller = TextEditingController(text: photo.title ?? '');
-  final result = await showGeneralDialog<bool>(
+  // Bottom sheet, non più dialog centrato (`new design/DESIGN_GUIDELINES.md`
+  // §7/§10: "Modifica titolo" era l'esempio esplicito da convertire).
+  final result = await showAppBottomSheet<bool>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'modifica titolo',
-    barrierColor: const Color(0x14000000),
-    transitionDuration: const Duration(milliseconds: 160),
-    pageBuilder: (dialogContext, __, ___) {
-      final palette = dialogContext.palette;
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 300),
-          child: GlassSurface(
-            opacity: 0.96,
-            borderRadius: AppRadii.rMd,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: DefaultTextStyle(
-                style: AppText.footnote.copyWith(
-                    decoration: TextDecoration.none, color: palette.label),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Modifica titolo',
-                        style: AppText.value.copyWith(
-                            color: palette.label,
-                            decoration: TextDecoration.none)),
-                    const SizedBox(height: 14),
-                    CupertinoTextField(
-                      controller: controller,
-                      autofocus: true,
-                      placeholder: 'Titolo della foto',
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: palette.hairline.withValues(alpha: 0.1),
-                        borderRadius: AppRadii.rMd,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CupertinoButton(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            color: palette.glassFill.withValues(alpha: 0.5),
-                            borderRadius: AppRadii.rPill,
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(false),
-                            child: Text('Annulla',
-                                style: AppText.pillLabel
-                                    .copyWith(color: palette.label)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: CupertinoButton(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            color: AppColors.primary,
-                            borderRadius: AppRadii.rPill,
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(true),
-                            child: Text('Salva',
-                                style: AppText.pillLabel
-                                    .copyWith(color: const Color(0xFFFFFFFF))),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+    builder: (sheetContext) {
+      final palette = sheetContext.palette;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSheetHeader(
+            title: 'Modifica titolo',
+            onClose: () => Navigator.of(sheetContext).pop(false),
+          ),
+          const SizedBox(height: 14),
+          CupertinoTextField(
+            controller: controller,
+            autofocus: true,
+            placeholder: 'Titolo della foto',
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => Navigator.of(sheetContext).pop(true),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: palette.hairline.withValues(alpha: 0.1),
+              borderRadius: AppRadii.rMd,
             ),
           ),
-        ),
-      );
-    },
-    transitionBuilder: (_, anim, __, child) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
-            child: child),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              AppButton(
+                label: 'Annulla',
+                variant: AppButtonVariant.tertiary,
+                onPressed: () => Navigator.of(sheetContext).pop(false),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AppButton(
+                  label: 'Salva',
+                  variant: AppButtonVariant.primary,
+                  onPressed: () => Navigator.of(sheetContext).pop(true),
+                ),
+              ),
+            ],
+          ),
+        ],
       );
     },
   );

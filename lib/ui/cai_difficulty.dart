@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../domain/models/elevation_profile.dart';
+import 'tokens.dart' show AppDifficultyColors;
 
 /// Difficoltà escursionistica CAI: helper condivisi (ordine, colore, etichetta)
 /// usati sia dal grafico del profilo (banda per tratto) sia dalla card della
@@ -32,18 +33,20 @@ String? overallCaiScale(Iterable<TrailSegment> segments) {
   return best;
 }
 
-/// Colore per il grado di difficoltà CAI: T verde, E blu, EE arancio,
-/// EEA rosso; grigio per valori non standard.
+/// Colore per il grado di difficoltà CAI: T verde, E teal, EE arancio,
+/// EEA rosso; grigio per valori non standard. **Il blu è escluso** (riservato
+/// al brand/azione, `AppColors.primary` — vedi `new design/DESIGN_GUIDELINES.md`
+/// §2): prima "E" usava lo stesso blu del brand, ambiguo con lo stato attivo.
 Color caiScaleColor(String scale) {
   switch (normalizeCaiScale(scale)) {
     case 'T':
-      return const Color(0xFF2E7D32);
+      return AppDifficultyColors.t;
     case 'E':
-      return const Color(0xFF1565C0);
+      return AppDifficultyColors.e;
     case 'EE':
-      return const Color(0xFFEF6C00);
+      return AppDifficultyColors.ee;
     case 'EEA':
-      return const Color(0xFFC62828);
+      return AppDifficultyColors.eea;
     default:
       return const Color(0xFF616161);
   }

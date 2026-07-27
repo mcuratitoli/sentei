@@ -17,9 +17,8 @@ import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
+import 'package:sentei/ui/app_bottom_sheet.dart' show AppSheetSurface;
 import 'package:sentei/ui/elevation_profile_chart.dart' show ElevationProfileChart;
-import 'package:sentei/ui/glass.dart' show GlassSurface;
-import 'package:sentei/ui/tokens.dart' show AppPalette;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -117,18 +116,19 @@ void main() {
     await tester.pump();
 
     // Collassato: nella card non ci sono né "Colore" né "Segui i sentieri",
-    // solo la voce riassuntiva con un'icona neutra (non uno swatch del
-    // colore corrente: era fuorviante, sembrava un'informazione a sé).
+    // solo la voce riassuntiva su una barra (nessuno swatch del colore
+    // corrente: era fuorviante, sembrava un'informazione a sé; niente icona
+    // a sinistra — coerente col mockup, solo testo + chevron).
     expect(find.text('Impostazioni avanzate'), findsOneWidget);
     expect(find.text('Colore'), findsNothing);
     expect(find.text('Segui i sentieri'), findsNothing);
-    expect(find.byIcon(CupertinoIcons.slider_horizontal_3), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.chevron_right), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('advancedSettingsRow')));
     await tester.pumpAndSettle();
 
     // Il foglio mostra entrambe le impostazioni.
-    expect(find.text('Colore'), findsOneWidget);
+    expect(find.text('COLORE'), findsOneWidget);
     expect(find.text('Segui i sentieri'), findsOneWidget);
   });
 
@@ -234,7 +234,7 @@ void main() {
     expect(find.text('Punto 2 di 2'), findsOneWidget);
 
     // Chiudendo si torna alla card normale.
-    await tester.tap(find.byIcon(CupertinoIcons.clear_circled_solid));
+    await tester.tap(find.byIcon(CupertinoIcons.xmark));
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoTextField), findsOneWidget);
     expect(find.text('Impostazioni avanzate'), findsOneWidget);
@@ -471,10 +471,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 3 righe: titolo (nessuno impostato: la data/ora fa da default, quindi
-    // compare due volte — anche come riga data/ora, sempre mostrata); quota
-    // in soli metri (senza l'etichetta "Quota") + coordinate; data/ora.
-    expect(find.text(Format.dateTime(takenAt)), findsNWidgets(2));
+    // 3 righe: titolo (nessuno impostato: la data/ora fa da default e basta —
+    // ripeterla anche in una riga a sé sarebbe una duplicazione); quota in
+    // soli metri (senza l'etichetta "Quota") + coordinate; data/ora.
+    expect(find.text(Format.dateTime(takenAt)), findsOneWidget);
     expect(find.text(Format.coordinates(45.005, 7)), findsOneWidget);
     expect(find.text(Format.meters(_FakeElevation.fixedElevation)),
         findsOneWidget);
@@ -600,15 +600,14 @@ void main() {
     expect(find.byIcon(Icons.edit_rounded), findsNothing);
     expect(find.byIcon(CupertinoIcons.pencil), findsOneWidget);
 
-    // Stessa opacità (token condiviso `contentGlassOpacity`) della card
-    // traccia, verificata sotto per PhotoDetailCard.
-    expect(tester.widget<GlassSurface>(find.byType(GlassSurface).first).opacity,
-        AppPalette.light.contentGlassOpacity);
+    // Superficie opaca (`new design/DESIGN_GUIDELINES.md` §7), non più
+    // "vetro" semitrasparente — verificato anche per PhotoDetailCard sotto.
+    expect(find.byType(AppSheetSurface), findsOneWidget);
   });
 
   testWidgets(
-      'coerenza grafica: PhotoDetailCard ha la stessa opacità di GlassSurface '
-      'della card traccia (era il default, più trasparente)', (tester) async {
+      'coerenza grafica: PhotoDetailCard usa una superficie opaca come la '
+      'card traccia (non più il "vetro" semitrasparente)', (tester) async {
     final container = ProviderContainer(overrides: [
       routingServiceProvider.overrideWithValue(_FakeRouting()),
       elevationServiceProvider.overrideWithValue(_FakeElevation()),
@@ -639,7 +638,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(tester.widget<GlassSurface>(find.byType(GlassSurface)).opacity,
-        AppPalette.light.contentGlassOpacity);
+    expect(find.byType(AppSheetSurface), findsOneWidget);
   });
 }
