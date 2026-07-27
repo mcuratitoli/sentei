@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 24 luglio 2026 · **Stato:** beta `1.0.0+5` rilasciata ai tester.
+**Aggiornato:** 27 luglio 2026 · **Stato:** beta `1.0.0+5` rilasciata ai tester.
 
 ## Come leggere questo documento
 

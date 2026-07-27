@@ -11,6 +11,22 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Altezza fissa per la card Novità/Roadmap (in lavorazione, non ancora rilasciato)
+
+Il bottom sheet di Impostazioni → Informazioni → Sentèi (`showReleaseNotes`,
+`lib/ui/release_notes.dart`) si dimensionava sul contenuto: `constraints` impostava solo un
+`maxHeight` (tetto massimo, non un vincolo fisso) e la `Column` interna usava
+`mainAxisSize: MainAxisSize.min` con l'area scrollabile in `Flexible` — la tab "Novità"
+(lunga, più versioni) e "Roadmap" (corta, poche righe) producevano quindi altezze diverse
+della card, con un cambio dimensione vistoso ad ogni tocco del segmented control. Fix:
+`BoxConstraints(minHeight: h, maxHeight: h)` con lo stesso valore (0.88 dell'altezza
+schermo, invariato) forza il bottom sheet a un'altezza sempre fissa; `Flexible` →
+`Expanded` sull'area scrollabile perché ora riempie sempre lo spazio disponibile (contenuto
+corto = spazio bianco sotto, non più un contenitore più piccolo). Verificato a occhio sul
+simulatore (screenshot + tap automatizzati, vedi anche `CLAUDE.md`/memoria di sessione).
+
+---
+
 ## 24 luglio 2026 — Icone provider cloud distinte (in lavorazione, non ancora rilasciato)
 
 In Impostazioni → Sincronizzazione cloud, la riga di accesso/account mostrava sempre

@@ -10,7 +10,9 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 ## In lavorazione (non ancora rilasciato)
 
 - 🗺️ Impostazioni → Informazioni → Sentèi ora si apre con due schede: **Novità** (come
-  prima) e **Roadmap**, un'anteprima sintetica delle prossime priorità di sviluppo.
+  prima) e **Roadmap**, un'anteprima sintetica delle prossime priorità di sviluppo. La
+  card ha sempre la stessa dimensione passando da una scheda all'altra (prima si
+  restringeva/allargava in modo scomodo).
 - ☁️ Icona distinta per **iCloud** e **Google Drive** in Impostazioni → Sincronizzazione
   cloud (prima era la stessa nuvola generica per entrambi).
 
