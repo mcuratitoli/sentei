@@ -24,12 +24,16 @@ class _FakeRouting implements RoutingService {
       RouteResult(geometry: waypoints);
 }
 
+/// Elevazione finta con un valore fisso (verificabile nei test), invece del
+/// `null` sempre restituito in `route_editor_test.dart` — qui serve mostrare
+/// la quota nella barra del punto selezionato.
 class _FakeElevation implements ElevationService {
+  static const fixedElevation = 1842.0;
   @override
-  Future<double?> elevationAt(LatLng point) async => null;
+  Future<double?> elevationAt(LatLng point) async => fixedElevation;
   @override
   Future<List<double?>> elevationsAlong(List<LatLng> points) async =>
-      List.filled(points.length, null);
+      List.filled(points.length, fixedElevation);
 }
 
 class _FakeCloud implements CloudSyncService {
@@ -99,33 +103,38 @@ Future<ProviderContainer> pumpCard(WidgetTester tester) async {
 
 void main() {
   testWidgets(
-      'colore collassato di default: un solo swatch, espande al tocco',
+      '"Impostazioni avanzate" collassa colore e segui i sentieri in un foglio',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     container.read(tracksProvider.notifier).startNewDrawing();
     await tester.pump();
 
-    // Collassato: la label "Colore" è visibile, la palette no.
-    expect(find.text('Colore'), findsOneWidget);
-    expect(find.byKey(const Key('colorPickerSelectedSwatch')), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('colorPickerSelectedSwatch')));
-    await tester.pump();
-
-    // Espanso: la label collassata sparisce, compare la palette da scegliere.
+    // Collassato: nella card non ci sono né "Colore" né "Segui i sentieri",
+    // solo la voce riassuntiva.
+    expect(find.text('Impostazioni avanzate'), findsOneWidget);
     expect(find.text('Colore'), findsNothing);
+    expect(find.text('Segui i sentieri'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('advancedSettingsRow')));
+    await tester.pumpAndSettle();
+
+    // Il foglio mostra entrambe le impostazioni.
+    expect(find.text('Colore'), findsOneWidget);
+    expect(find.text('Segui i sentieri'), findsOneWidget);
   });
 
   testWidgets(
-      'nessuna icona accanto a "Segui i sentieri" (switch e testo bastano)',
+      'nessuna icona ridondante accanto a "Segui i sentieri" nel foglio',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     container.read(tracksProvider.notifier).startNewDrawing();
     await tester.pump();
 
-    expect(find.text('Segui i sentieri'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('advancedSettingsRow')));
+    await tester.pumpAndSettle();
+
     expect(find.byIcon(CupertinoIcons.arrow_turn_up_right), findsNothing);
     expect(find.byIcon(CupertinoIcons.minus), findsNothing);
   });
@@ -156,5 +165,88 @@ void main() {
     expect(find.text(Format.distance(distance)), findsOneWidget);
     // Nessun D+/D- live: richiederebbe il calcolo completo delle quote.
     expect(find.byIcon(Icons.trending_up), findsNothing);
+  });
+
+  testWidgets(
+      'punto selezionato: quota, suggerimento e "Aggiungi punto prima" (assente sul primo punto)',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0));
+    notifier.addPoint(const LatLng(45.01, 7.0));
+    notifier.addPoint(const LatLng(45.02, 7.0));
+    await tester.pumpAndSettle();
+
+    // Seleziona il punto di mezzo (indice 1, "Punto 2 di 3"): ha un
+    // precedente, quindi "Aggiungi punto prima" è disponibile.
+    container.read(selectedWaypointProvider.notifier).toggle(1);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Punto 2 di 3'), findsOneWidget);
+    expect(find.text('Tieni premuto per spostare'), findsOneWidget);
+    expect(
+        find.text(Format.meters(_FakeElevation.fixedElevation)), findsOneWidget);
+    expect(find.text('Aggiungi punto prima'), findsOneWidget);
+
+    // Il primo punto non ha un precedente: l'azione sparisce.
+    container.read(selectedWaypointProvider.notifier).toggle(1); // deseleziona
+    container.read(selectedWaypointProvider.notifier).toggle(0);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Punto 1 di 3'), findsOneWidget);
+    expect(find.text('Aggiungi punto prima'), findsNothing);
+  });
+
+  testWidgets(
+      '"Aggiungi punto prima" inserisce il punto e la selezione segue quello originale',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0)); // indice 0
+    notifier.addPoint(const LatLng(45.02, 7.0)); // indice 1
+    await tester.pumpAndSettle();
+
+    container.read(selectedWaypointProvider.notifier).toggle(1);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Aggiungi punto prima'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(tracksProvider).editing!.waypoints.length, 3);
+    // Il punto originale (indice 1) è slittato a 2: la selezione lo segue,
+    // non il nuovo punto appena inserito.
+    expect(container.read(selectedWaypointProvider), 2);
+    expect(find.text('Punto 3 di 3'), findsOneWidget);
+  });
+
+  testWidgets('eliminare un punto chiede conferma prima di rimuoverlo',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0));
+    notifier.addPoint(const LatLng(45.01, 7.0));
+    await tester.pumpAndSettle();
+
+    container.read(selectedWaypointProvider.notifier).toggle(1);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Elimina'));
+    await tester.pumpAndSettle();
+
+    // Il dialog di conferma è apparso: il punto non è ancora stato rimosso.
+    expect(find.text('Eliminare il punto?'), findsOneWidget);
+    expect(container.read(tracksProvider).editing!.waypoints.length, 2);
+
+    // Conferma (l'azione distruttiva nel dialog, l'ultima "Elimina" nell'albero).
+    await tester.tap(find.text('Elimina').last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(tracksProvider).editing!.waypoints.length, 1);
   });
 }

@@ -793,14 +793,33 @@ class Tracks extends Notifier<TracksState> {
         tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..removeAt(index)));
   }
 
-  /// Inserisce un waypoint a [index] (split di un segmento con le maniglie di
-  /// metà-segmento). [index] in `[0, lunghezza]`.
+  /// Inserisce un waypoint a [index], `index` in `[0, lunghezza]`.
   void insertPoint(int index, LatLng p) {
     final t = state.editing;
     if (t == null || index < 0 || index > t.waypoints.length) return;
     _pushUndo();
     _updateEditing((tt) =>
         tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..insert(index, p)));
+  }
+
+  /// Inserisce un nuovo waypoint **a metà strada** tra il punto [index] e il
+  /// precedente ([index] > 0). Azione "Aggiungi punto prima" nella card del
+  /// punto selezionato — alternativa scopribile alla maniglia di
+  /// metà-segmento sempre visibile (rimossa: poco discoverable e posizionata
+  /// al centro della corda retta, non del sentiero).
+  ///
+  /// Non aggiorna `selectedWaypointProvider` (il suo indice slitta di uno in
+  /// avanti): farlo qui creerebbe una dipendenza circolare, dato che
+  /// `SelectedWaypoint` osserva `activeTrackIdProvider` → `tracksProvider`.
+  /// Sposta la selezione chi chiama, con `ref` non vincolato a questo notifier
+  /// (vedi `_DrawingBody` in `draw_route_controls.dart`).
+  void insertPointBefore(int index) {
+    final t = state.editing;
+    if (t == null || index <= 0 || index >= t.waypoints.length) return;
+    final a = t.waypoints[index - 1];
+    final b = t.waypoints[index];
+    final mid = LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+    insertPoint(index, mid);
   }
 
   /// Collega [photos] alla traccia [id] (§"Sync album fotografico"), evitando
@@ -872,6 +891,10 @@ class SelectedWaypoint extends Notifier<int?> {
   /// Tap sullo stesso punto = deseleziona; su un altro = seleziona.
   void toggle(int i) => state = state == i ? null : i;
   void clear() => state = null;
+
+  /// Seleziona esplicitamente il punto [i] (es. per seguire un punto dopo che
+  /// un inserimento ne ha spostato l'indice, invece di perdere la selezione).
+  void set(int i) => state = i;
 }
 
 final selectedWaypointProvider =
@@ -932,6 +955,18 @@ final elevationServiceProvider = Provider<ElevationService>(
     fetchTile: cachingTerrariumFetcher(cache: ref.read(terrariumCacheProvider)),
   ),
 );
+
+/// Quota di un waypoint selezionato durante l'editing (stessa fonte, DEM
+/// Terrarium, del punto ispezionato in esplorazione). `null` se non disponibile
+/// (tile mancante/fuori copertura).
+final waypointElevationProvider =
+    FutureProvider.family<double?, LatLng>((ref, point) async {
+  try {
+    return await ref.read(elevationServiceProvider).elevationAt(point);
+  } catch (_) {
+    return null;
+  }
+});
 
 /// Percorso instradato **in tempo reale** della traccia in modifica (anteprima
 /// durante il disegno). Le tracce finalizzate usano `DrawnTrack.routedPath`.

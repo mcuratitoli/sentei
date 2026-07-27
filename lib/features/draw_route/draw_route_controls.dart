@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart'
         CupertinoTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/util/format.dart';
 import '../../domain/services/track_metrics.dart';
@@ -21,8 +22,10 @@ import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
 ///
-/// - **Creazione/modifica**: vista essenziale — nome, colore, annulla/undo/salva
-///   (niente distanza né profilo: si calcolano al salvataggio).
+/// - **Creazione/modifica**: nome, distanza live, impostazioni avanzate
+///   (colore/segui sentieri, in un foglio dedicato) e annulla/undo/salva
+///   (niente D+/D-: richiederebbero il calcolo completo delle quote ad ogni
+///   spostamento di un punto, si calcolano solo al salvataggio).
 /// - **Selezionata**: dati memorizzati (distanza, D+/D-, numeri sentiero, grado
 ///   di difficoltà CAI), profilo altimetrico e ripidezza on-demand. Subito dopo
 ///   il "Salva" la card **resta aperta** con un indicatore di caricamento finché
@@ -54,8 +57,8 @@ class DrawRouteControls extends ConsumerWidget {
   }
 }
 
-/// Vista di **creazione/modifica**: minimale. Nome, colore e le sole azioni
-/// annulla · undo · salva.
+/// Vista di **creazione/modifica**: nome, distanza live, impostazioni
+/// avanzate (colore/segui sentieri) e le azioni annulla · undo · salva.
 class _DrawingBody extends ConsumerWidget {
   const _DrawingBody();
 
@@ -80,33 +83,30 @@ class _DrawingBody extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _NameField(),
-        _ColorPicker(selected: track?.color),
-        // Segui sentieri: OFF = linee dritte tra i punti (fuori sentiero,
-        // ghiacciai, creste senza tracce OSM dove lo snap devierebbe).
-        Row(
-          children: [
-            Expanded(
-              child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ),
-            CupertinoSwitch(
-              value: snap,
-              onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
-            ),
-          ],
-        ),
         if (wpCount >= 2) ...[
           const SizedBox(height: 6),
           _Metric(icon: Icons.straighten, value: Format.distance(distance)),
         ],
-        // Barra contestuale del punto selezionato: elimina con conferma
-        // (niente più tap-per-eliminare accidentale sulla mappa).
+        const SizedBox(height: 4),
+        _AdvancedSettingsRow(track: track, snap: snap),
+        // Barra contestuale del punto selezionato: quota + azioni (elimina con
+        // conferma, aggiungi punto prima) — niente più tap-per-eliminare
+        // accidentale sulla mappa.
         if (selectedWp != null && selectedWp < wpCount) ...[
           const SizedBox(height: 8),
           _SelectedWaypointBar(
             index: selectedWp,
             total: wpCount,
+            point: track!.waypoints[selectedWp],
             onDelete: () => _confirmDeleteWaypoint(context, ref, selectedWp),
+            onInsertBefore: selectedWp == 0
+                ? null
+                : () {
+                    ref.read(tracksProvider.notifier).insertPointBefore(selectedWp);
+                    // Il nuovo punto prende il posto di quello selezionato:
+                    // segue la selezione sul punto originale (slittato di uno).
+                    ref.read(selectedWaypointProvider.notifier).set(selectedWp + 1);
+                  },
             onClose: () => ref.read(selectedWaypointProvider.notifier).clear(),
           ),
         ],
@@ -356,50 +356,91 @@ Future<void> _confirmDeleteWaypoint(
 }
 
 /// Barra contestuale mostrata quando un waypoint è selezionato in editing:
-/// indica quale punto è selezionato e offre **Elimina** (con conferma) e chiudi.
-class _SelectedWaypointBar extends StatelessWidget {
+/// indica quale punto è selezionato con la sua **quota** (stessa fonte del
+/// punto ispezionato in esplorazione), un suggerimento per lo spostamento e le
+/// azioni **Aggiungi punto prima** (assente sul primo punto, che non ha un
+/// precedente) ed **Elimina** (con conferma).
+class _SelectedWaypointBar extends ConsumerWidget {
   const _SelectedWaypointBar({
     required this.index,
     required this.total,
+    required this.point,
     required this.onDelete,
+    required this.onInsertBefore,
     required this.onClose,
   });
 
   final int index;
   final int total;
+  final LatLng point;
   final VoidCallback onDelete;
+  final VoidCallback? onInsertBefore;
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final elevation = ref.watch(waypointElevationProvider(point));
     return Container(
-      padding: const EdgeInsets.only(left: 12, right: 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
       decoration: BoxDecoration(
         color: context.palette.accent.withValues(alpha: 0.08),
         borderRadius: AppRadii.rMd,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(CupertinoIcons.smallcircle_fill_circle,
-              size: 16, color: context.palette.accent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text('Punto ${index + 1} di $total',
-                style: AppText.caption.copyWith(color: context.palette.bodyText)),
+          Row(
+            children: [
+              Icon(CupertinoIcons.smallcircle_fill_circle,
+                  size: 16, color: context.palette.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Punto ${index + 1} di $total',
+                    style:
+                        AppText.caption.copyWith(color: context.palette.bodyText)),
+              ),
+              elevation.when(
+                data: (m) => Text(
+                  m != null ? Format.meters(m) : 'quota non disponibile',
+                  style: AppText.caption.copyWith(
+                      color: m != null
+                          ? context.palette.bodyText
+                          : context.palette.tertiaryIcon),
+                ),
+                loading: () => const CupertinoActivityIndicator(radius: 7),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(32, 32),
+                onPressed: onClose,
+                child: Icon(CupertinoIcons.xmark,
+                    size: 16, color: context.palette.secondaryLabel),
+              ),
+            ],
           ),
-          CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            minimumSize: const Size(0, 36),
-            onPressed: onDelete,
-            child: Text('Elimina',
-                style: AppText.pillLabel.copyWith(color: AppColors.destructive)),
-          ),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(36, 36),
-            onPressed: onClose,
-            child: Icon(CupertinoIcons.xmark,
-                size: 16, color: context.palette.secondaryLabel),
+          Text('Tieni premuto per spostare',
+              style: AppText.captionSmall.copyWith(color: context.palette.tertiaryIcon)),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              if (onInsertBefore != null)
+                CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 32),
+                  onPressed: onInsertBefore,
+                  child: Text('Aggiungi punto prima',
+                      style: AppText.pillLabel.copyWith(color: context.palette.accent)),
+                ),
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+                onPressed: onDelete,
+                child: Text('Elimina',
+                    style: AppText.pillLabel.copyWith(color: AppColors.destructive)),
+              ),
+            ],
           ),
         ],
       ),
@@ -522,64 +563,120 @@ class _DifficultyChip extends StatelessWidget {
   }
 }
 
-/// Selettore di colore per la traccia in modifica: **collassato** mostra solo
-/// il colore scelto (un tocco espande la palette per cambiarlo), invece di
-/// tenere sempre visibili tutti i pallini.
-class _ColorPicker extends ConsumerStatefulWidget {
-  const _ColorPicker({required this.selected});
+/// Riga collassata: **colore** e **segui i sentieri** vivono in un foglio
+/// separato (aperto al tocco) invece di occupare sempre spazio nella card.
+class _AdvancedSettingsRow extends StatelessWidget {
+  const _AdvancedSettingsRow({required this.track, required this.snap});
 
-  final Color? selected;
-
-  @override
-  ConsumerState<_ColorPicker> createState() => _ColorPickerState();
-}
-
-class _ColorPickerState extends ConsumerState<_ColorPicker> {
-  bool _expanded = false;
+  final DrawnTrack? track;
+  final bool snap;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final selected = widget.selected ?? kTrackPalette.first;
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
+    final palette = context.palette;
+    return CupertinoButton(
+      key: const Key('advancedSettingsRow'),
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(0, 0),
+      onPressed: () => _showAdvancedSettingsSheet(context, track?.color, snap),
       child: Row(
         children: [
-          GestureDetector(
-            key: const Key('colorPickerSelectedSwatch'),
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: _ColorSwatch(color: selected, ringColor: scheme.onSurface, ringWidth: 2.5),
-          ),
+          _ColorSwatch(
+              color: track?.color ?? kTrackPalette.first,
+              ringColor: palette.hairline,
+              ringWidth: 1.5),
           const SizedBox(width: 10),
-          if (_expanded)
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final c in kTrackPalette)
-                      if (c != selected)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () {
-                              ref.read(tracksProvider.notifier).setColor(c);
-                              setState(() => _expanded = false);
-                            },
-                            child: _ColorSwatch(color: c, ringColor: scheme.outline),
-                          ),
-                        ),
-                  ],
-                ),
-              ),
-            )
-          else
+          Expanded(
+            child: Text('Impostazioni avanzate',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: palette.secondaryLabel)),
+          ),
+          Icon(CupertinoIcons.chevron_right, size: 16, color: palette.tertiaryIcon),
+        ],
+      ),
+    );
+  }
+}
+
+/// Foglio con **colore** della traccia e **segui i sentieri**, spostati fuori
+/// dalla card principale (troppo spazio per due impostazioni secondarie).
+Future<void> _showAdvancedSettingsSheet(
+    BuildContext context, Color? selected, bool snap) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: context.palette.glassFill,
+    showDragHandle: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
+    ),
+    builder: (_) => _AdvancedSettingsSheet(selected: selected, snap: snap),
+  );
+}
+
+class _AdvancedSettingsSheet extends ConsumerWidget {
+  const _AdvancedSettingsSheet({required this.selected, required this.snap});
+
+  final Color? selected;
+  final bool snap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final palette = context.palette;
+    final selected = ref.watch(tracksProvider.select((s) => s.editing?.color)) ??
+        this.selected ??
+        kTrackPalette.first;
+    final snap =
+        ref.watch(tracksProvider.select((s) => s.editing?.snapToTrail)) ?? this.snap;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Impostazioni avanzate', style: AppText.sheetTitle),
+            const SizedBox(height: 16),
             Text('Colore',
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: scheme.onSurface.withValues(alpha: 0.6))),
-        ],
+                    ?.copyWith(color: palette.secondaryLabel)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final c in kTrackPalette)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      onTap: () => ref.read(tracksProvider.notifier).setColor(c),
+                      child: _ColorSwatch(
+                        color: c,
+                        ringColor: c == selected ? scheme.onSurface : scheme.outline,
+                        ringWidth: c == selected ? 2.5 : 1,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
+                      style: Theme.of(context).textTheme.bodyMedium),
+                ),
+                CupertinoSwitch(
+                  value: snap,
+                  onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

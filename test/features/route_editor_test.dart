@@ -111,6 +111,29 @@ void main() {
     expect(state().editing!.waypoints.length, 1);
   });
 
+  test(
+      'insertPointBefore inserisce a metà tra il punto e il precedente '
+      '(nessun predecessore per il primo punto: no-op)', () {
+    final n = notifier();
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0)) // indice 0
+      ..addPoint(const LatLng(45.02, 7.0)); // indice 1
+
+    n.insertPointBefore(1);
+
+    final wps = state().editing!.waypoints;
+    expect(wps.length, 3);
+    // Il nuovo punto è a metà tra i due originali.
+    expect(wps[1].latitude, closeTo(45.01, 1e-9));
+    expect(wps[1].longitude, closeTo(7.0, 1e-9));
+
+    // Nessun predecessore per il primo punto: no-op.
+    n.undo(); // torna a 2 punti
+    n.insertPointBefore(0);
+    expect(state().editing!.waypoints.length, 2);
+  });
+
   test('undo a stack: annulla add/move/remove in ordine inverso', () {
     final n = notifier();
     n.startNewDrawing();
