@@ -1,4 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/cupertino.dart'
+    show CupertinoIcons, CupertinoTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -111,10 +112,12 @@ void main() {
     await tester.pump();
 
     // Collassato: nella card non ci sono né "Colore" né "Segui i sentieri",
-    // solo la voce riassuntiva.
+    // solo la voce riassuntiva con un'icona neutra (non uno swatch del
+    // colore corrente: era fuorviante, sembrava un'informazione a sé).
     expect(find.text('Impostazioni avanzate'), findsOneWidget);
     expect(find.text('Colore'), findsNothing);
     expect(find.text('Segui i sentieri'), findsNothing);
+    expect(find.byIcon(CupertinoIcons.slider_horizontal_3), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('advancedSettingsRow')));
     await tester.pumpAndSettle();
@@ -197,6 +200,39 @@ void main() {
 
     expect(find.text('Punto 1 di 3'), findsOneWidget);
     expect(find.text('Aggiungi punto prima'), findsNothing);
+  });
+
+  testWidgets(
+      'selezionare un punto sostituisce nome/distanza/impostazioni avanzate '
+      '(si sta modificando il punto, non il resto della traccia)',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0));
+    notifier.addPoint(const LatLng(45.01, 7.0));
+    await tester.pumpAndSettle();
+
+    // Nessun punto selezionato: card "normale".
+    expect(find.byType(CupertinoTextField), findsOneWidget); // _NameField
+    expect(find.text('Impostazioni avanzate'), findsOneWidget);
+    expect(find.byIcon(Icons.straighten), findsOneWidget); // distanza
+
+    container.read(selectedWaypointProvider.notifier).toggle(1);
+    await tester.pumpAndSettle();
+
+    // Un punto selezionato: solo i suoi dati, il resto sparisce.
+    expect(find.byType(CupertinoTextField), findsNothing);
+    expect(find.text('Impostazioni avanzate'), findsNothing);
+    expect(find.byIcon(Icons.straighten), findsNothing);
+    expect(find.text('Punto 2 di 2'), findsOneWidget);
+
+    // Chiudendo si torna alla card normale.
+    await tester.tap(find.byIcon(CupertinoIcons.clear_circled_solid));
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoTextField), findsOneWidget);
+    expect(find.text('Impostazioni avanzate'), findsOneWidget);
   });
 
   testWidgets(

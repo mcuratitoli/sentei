@@ -78,22 +78,24 @@ class _DrawingBody extends ConsumerWidget {
     // disponibili solo dopo il Salva, come per le tracce importate.
     final distance = ref.watch(routeDistanceProvider);
 
+    final selectingPoint = selectedWp != null && selectedWp < wpCount;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _NameField(),
-        if (wpCount >= 2) ...[
-          const SizedBox(height: 6),
-          _Metric(icon: Icons.straighten, value: Format.distance(distance)),
-        ],
-        const SizedBox(height: 4),
-        _AdvancedSettingsRow(track: track, snap: snap),
-        // Barra contestuale del punto selezionato: quota + azioni (elimina con
-        // conferma, aggiungi punto prima) — niente più tap-per-eliminare
-        // accidentale sulla mappa.
-        if (selectedWp != null && selectedWp < wpCount) ...[
-          const SizedBox(height: 8),
+        // Un punto selezionato **sostituisce** nome/distanza/impostazioni: a
+        // quel punto si sta modificando il punto, non il resto della traccia
+        // (che comunque non cambia sotto — il "Salva" resta in fondo).
+        if (!selectingPoint) ...[
+          const _NameField(),
+          if (wpCount >= 2) ...[
+            const SizedBox(height: 6),
+            _Metric(icon: Icons.straighten, value: Format.distance(distance)),
+          ],
+          const SizedBox(height: 4),
+          _AdvancedSettingsRow(track: track, snap: snap),
+        ] else ...[
           _SelectedWaypointBar(
             index: selectedWp,
             total: wpCount,
@@ -355,11 +357,13 @@ Future<void> _confirmDeleteWaypoint(
   );
 }
 
-/// Barra contestuale mostrata quando un waypoint è selezionato in editing:
-/// indica quale punto è selezionato con la sua **quota** (stessa fonte del
-/// punto ispezionato in esplorazione), un suggerimento per lo spostamento e le
+/// Vista **dedicata al punto selezionato**: sostituisce nome/distanza/
+/// impostazioni avanzate (si sta modificando il punto, non il resto della
+/// traccia). Mostra quale punto, la sua **quota** (stessa fonte del punto
+/// ispezionato in esplorazione), un suggerimento per lo spostamento e le
 /// azioni **Aggiungi punto prima** (assente sul primo punto, che non ha un
-/// precedente) ed **Elimina** (con conferma).
+/// precedente) ed **Elimina** (con conferma) — pillole chiare con icona,
+/// stesso linguaggio del resto della card (`_PillAction`), non più testo puro.
 class _SelectedWaypointBar extends ConsumerWidget {
   const _SelectedWaypointBar({
     required this.index,
@@ -379,71 +383,65 @@ class _SelectedWaypointBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final elevation = ref.watch(waypointElevationProvider(point));
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-      decoration: BoxDecoration(
-        color: context.palette.accent.withValues(alpha: 0.08),
-        borderRadius: AppRadii.rMd,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(CupertinoIcons.smallcircle_fill_circle,
-                  size: 16, color: context.palette.accent),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(40, 40),
+              onPressed: onClose,
+              child: Icon(CupertinoIcons.clear_circled_solid,
+                  size: 24, color: palette.tertiaryIcon),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Punto ${index + 1} di $total',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            elevation.when(
+              data: (m) => Text(
+                m != null ? Format.meters(m) : 'quota non disponibile',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: m != null ? palette.accent : palette.tertiaryIcon),
+              ),
+              loading: () => const CupertinoActivityIndicator(radius: 8),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 44),
+          child: Text('Tieni premuto per spostare', style: AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            if (onInsertBefore != null) ...[
+              _PillAction(
+                label: 'Aggiungi punto prima',
+                icon: CupertinoIcons.add,
+                onPressed: onInsertBefore,
+              ),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text('Punto ${index + 1} di $total',
-                    style:
-                        AppText.caption.copyWith(color: context.palette.bodyText)),
-              ),
-              elevation.when(
-                data: (m) => Text(
-                  m != null ? Format.meters(m) : 'quota non disponibile',
-                  style: AppText.caption.copyWith(
-                      color: m != null
-                          ? context.palette.bodyText
-                          : context.palette.tertiaryIcon),
-                ),
-                loading: () => const CupertinoActivityIndicator(radius: 7),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(32, 32),
-                onPressed: onClose,
-                child: Icon(CupertinoIcons.xmark,
-                    size: 16, color: context.palette.secondaryLabel),
-              ),
             ],
-          ),
-          Text('Tieni premuto per spostare',
-              style: AppText.captionSmall.copyWith(color: context.palette.tertiaryIcon)),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              if (onInsertBefore != null)
-                CupertinoButton(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  minimumSize: const Size(0, 32),
-                  onPressed: onInsertBefore,
-                  child: Text('Aggiungi punto prima',
-                      style: AppText.pillLabel.copyWith(color: context.palette.accent)),
-                ),
-              CupertinoButton(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: const Size(0, 32),
-                onPressed: onDelete,
-                child: Text('Elimina',
-                    style: AppText.pillLabel.copyWith(color: AppColors.destructive)),
-              ),
-            ],
-          ),
-        ],
-      ),
+            _PillAction(
+              label: 'Elimina',
+              icon: CupertinoIcons.delete,
+              color: AppColors.destructive,
+              onPressed: onDelete,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -581,10 +579,7 @@ class _AdvancedSettingsRow extends StatelessWidget {
       onPressed: () => _showAdvancedSettingsSheet(context, track?.color, snap),
       child: Row(
         children: [
-          _ColorSwatch(
-              color: track?.color ?? kTrackPalette.first,
-              ringColor: palette.hairline,
-              ringWidth: 1.5),
+          Icon(CupertinoIcons.slider_horizontal_3, size: 18, color: palette.secondaryLabel),
           const SizedBox(width: 10),
           Expanded(
             child: Text('Impostazioni avanzate',
@@ -849,6 +844,7 @@ class _PillAction extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.filled = false,
+    this.color,
   });
 
   final String label;
@@ -856,16 +852,22 @@ class _PillAction extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool filled;
 
+  /// Tinta della pillola, `scheme.primary` se non specificata — es.
+  /// `AppColors.destructive` per un'azione distruttiva (es. "Elimina") con lo
+  /// stesso linguaggio "chiaro + icona" delle altre azioni, non testo puro.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final tint = color ?? scheme.primary;
     final enabled = onPressed != null;
     final bg = filled
-        ? scheme.primary.withValues(alpha: enabled ? 1 : 0.4)
-        : scheme.primary.withValues(alpha: enabled ? 0.14 : 0.06);
+        ? tint.withValues(alpha: enabled ? 1 : 0.4)
+        : tint.withValues(alpha: enabled ? 0.14 : 0.06);
     final fg = filled
         ? const Color(0xFFFFFFFF)
-        : scheme.primary.withValues(alpha: enabled ? 1 : 0.4);
+        : tint.withValues(alpha: enabled ? 1 : 0.4);
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       color: bg,
