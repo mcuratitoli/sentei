@@ -23,35 +23,30 @@
 > Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Precedono
 > tutto il resto della roadmap.
 
-1. [ ] **[FIX] Tema chiaro/scuro non rispettato all'apertura** — *SP 3*. Con il tema
-   impostato manualmente (es. Chiaro) su un telefono col sistema in Dark Mode, all'avvio
-   l'app mostra comunque Scuro: la preferenza salvata (`appThemeModeProvider`) non viene
-   applicata prima del primo frame. Verificare l'ordine di caricamento
-   `shared_preferences` vs. `MaterialApp`/override `platformBrightness` in `lib/app/app.dart`.
-2. [ ] **[FIX] Traccia "fantasma" dopo import GPX** — *SP 5*. Nel flusso di import a 2 fasi
+1. [ ] **[FIX] Traccia "fantasma" dopo import GPX** — *SP 5*. Nel flusso di import a 2 fasi
    (grezza tratteggiata → editing → Salva, vedi `docs/CHANGELOG-DEV.md`), la traccia grezza
    originale può restare visibile in mappa senza essere né selezionabile né eliminabile.
    Garantire che, in ogni uscita dal flusso di import (Salva **o** Annulla), la geometria
    grezza temporanea venga sempre rimossa dal rendering.
-3. [ ] **[FIX] Testo del pulsante in uscita dall'editing** — *SP 1*. Il messaggio di
+2. [ ] **[FIX] Testo del pulsante in uscita dall'editing** — *SP 1*. Il messaggio di
    conferma dice "Annulla percorso": va cambiato in **"Annulla modifiche"**, corretto anche
    quando si sta modificando una traccia esistente e non solo disegnandone una nuova.
-4. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
+3. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
    come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
    pannello).
-5. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
+4. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
    mappa deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato
    importato, invece di restare sull'inquadratura precedente.
-6. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
+5. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
    l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
    un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card
    che appare selezionando una traccia sulla mappa.
-7. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
+6. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
    è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
    visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
    sovrapposte.
-8. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
+7. [ ] **[FIX] Editing punti intermedi — ripensare l'interazione** — *SP 8*. Il punto
    draggabile a metà segmento (vedi `docs/CHANGELOG-DEV.md`, 23 luglio) è poco discoverable
    (serve tenere premuto qualche secondo) e posizionato in modo poco sensato (centro della
    corda retta, non del sentiero). **Da implementare al posto dell'attuale:** rimuovere la
@@ -61,14 +56,14 @@
    **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e
    il precedente. Tocca `route_editor_provider.dart` + rendering/gesture in
    `map_gl_screen.dart` (rivedere anche `docs/eval-waypoint-editing.md`).
-9. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
+8. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
    scelta colore deve essere collassata di default e espandersi al tocco; ampliare la
    palette con più tonalità, coerenti con la palette blu dell'app (`lib/ui/tokens.dart`).
-10. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
+9. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
     editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
     immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
     attivo/disattivo) — oggi incoerenti.
-11. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+10. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
     Sotto-richieste raccolte dal test:
@@ -89,10 +84,10 @@
     - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
       sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
       risolto altrove con `DefaultTextStyle(decoration:none)`).
-12. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+11. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~45 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~42 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 

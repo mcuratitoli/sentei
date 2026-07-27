@@ -9,6 +9,9 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🌗 Il tema **Chiaro/Scuro** scelto in Impostazioni ora viene rispettato fin
+  dall'apertura dell'app — prima, con il sistema in Dark Mode, poteva mostrare
+  per un istante lo Scuro anche con Chiaro selezionato manualmente.
 - 🗺️ Impostazioni → Informazioni → Sentèi ora si apre con due schede: **Novità** (come
   prima) e **Roadmap**, un'anteprima sintetica delle prossime priorità di sviluppo. La
   card ha sempre la stessa dimensione passando da una scheda all'altra (prima si

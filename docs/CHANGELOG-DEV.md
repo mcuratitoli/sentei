@@ -11,6 +11,30 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Tema rispettato fin dal primo frame (P1 #1, in lavorazione, non ancora rilasciato)
+
+**Sintomo segnalato testando `1.0.0+4`:** con il tema impostato manualmente (es. Chiaro) su
+un telefono col sistema in Dark Mode, all'avvio l'app mostrava per un istante lo Scuro di
+sistema. **Causa:** `AppThemeModeController.build()`/`AppDarkVariantController.build()`
+(`lib/app/theme_provider.dart`) ritornavano sempre il default (`AppThemeMode.auto`/
+`AppDarkVariant.standard`) al primo frame, poi un `_restore()` asincrono (await
+`SharedPreferences.getInstance()`) aggiornava lo stato — nel frattempo `SenteiApp`
+(`lib/app/app.dart`) risolveva `themeMode: ThemeMode.system`, quindi seguiva il sistema
+(Scuro) invece della preferenza salvata, per la finestra fra il primo frame e la risoluzione
+del restore.
+
+**Fix:** `main()` (`lib/main.dart`) ora è `async`, attende `SharedPreferences.getInstance()`
+**prima** di `runApp` e legge da lì mode/variant salvati (nuovi metodi statici
+`AppThemeModeController.readFrom`/`AppDarkVariantController.readFrom`); i due `Notifier`
+accettano ora un valore iniziale opzionale via costruttore, iniettato con
+`ProviderScope(overrides: ...)` — se valorizzato, `build()` lo ritorna direttamente senza
+passare dal restore asincrono, azzerando la finestra sbagliata. Il costruttore di default
+(nessun argomento) resta invariato per i test esistenti (`test/app/theme_provider_test.dart`,
+comportamento asincrono con `SharedPreferences.setMockInitialValues`), a cui si sono
+aggiunti due test per il nuovo percorso sincrono.
+
+---
+
 ## 27 luglio 2026 — Altezza fissa per la card Novità/Roadmap (in lavorazione, non ancora rilasciato)
 
 Il bottom sheet di Impostazioni → Informazioni → Sentèi (`showReleaseNotes`,
