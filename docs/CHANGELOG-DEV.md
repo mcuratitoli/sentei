@@ -11,6 +11,71 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Audit coerenza grafica (opacità, icone, pesi visivi) (in lavorazione, non ancora rilasciato)
+
+Prima revisione grafica trasversale dell'app (non un fix puntuale come le voci precedenti):
+partita da 4 problemi concreti indicati su uno screenshot (card foto vs card traccia con
+opacità diverse, X di chiusura con pesi diversi, icona "Modifica" non allineata alle altre,
+chevron riduci/espandi più opaco della X adiacente), estesa a una ricognizione di tutte le
+`GlassSurface(...)`, icone `Icons.*`/`CupertinoIcons.*` e usi di
+`Theme.of(context).colorScheme` in `draw_route_controls.dart`, `map_gl_screen.dart`,
+`nearby_photos_action.dart`, `legends.dart`.
+
+**Causa radice del problema più sistemico (chevron vs X):** `_CardIconButton` — usato per
+Undo, Annulla-e-chiudi, Colori dislivelli, Trova foto vicine, Modifica, Salva offline e il
+nuovo Riduci/Espandi — leggeva `Theme.of(context).colorScheme.onSurface`/`.primary` invece
+dei token `context.palette` dell'app. `colorScheme` è generato da
+`ColorScheme.fromSeed(seedColor: palette.accent)` (vedi `app/theme.dart`): `.primary` è
+esplicitamente forzato a combaciare con `palette.accent` (`.copyWith(primary: ...)`), ma
+`.onSurface` **no** — resta il tono calcolato dall'algoritmo tonale M3, senza alcuna garanzia
+di combaciare con `palette.tertiaryIcon`/`iconGrey` usati ovunque nel resto della card. Da lì
+il chevron (via `_CardIconButton`, `onSurface@75%`, piuttosto scuro) risultava percepibilmente
+più opaco della X adiacente (`palette.tertiaryIcon`, grigio chiaro) pur essendo due azioni di
+pari peso nella stessa riga. Fix: `_CardIconButton` ora usa `palette.iconGrey` (enabled),
+`palette.tertiaryIcon` (disabled), `palette.accent` (attivo); icona portata da 22 a 24px
+(altro scostamento minore dalla X, che era già a 24px). Il chevron riduci/espandi in
+`_SelectedBody` non passa comunque da `_CardIconButton` (tarato per la riga di azioni sotto,
+un contesto diverso) ma replica esattamente lo stile della X adiacente (stesso file, stessa
+riga, stesso peso — la scelta più diretta per garantire identità visiva tra i due).
+
+**Altri scostamenti trovati e corretti:**
+- `PhotoDetailCard`: `GlassSurface` non passava `opacity`/`blur` → usava il default della
+  palette (tarato per la "chrome" di navigazione — menubar, controlli laterali, ricerca:
+  tutti volutamente più trasparenti) invece del livello "card di contenuto" (`opacity: 0.92,
+  blur: 30`) di `DrawRouteControls`/`_ImportLoadingCard`, con cui condivide lo stesso
+  contesto visivo (impilate una sopra l'altra nello stesso `Column` in fondo allo schermo).
+  X di chiusura anche lei disallineata: 22px/32×32 invece di 24px/40×40 come le altre tre X
+  dell'app (`_SelectedBody`, `_SelectedWaypointBar`, `_PointInfoCard` in `map_gl_screen.dart`).
+- `_NearbyPhotosSheet` (`nearby_photos_action.dart`): opacità 0.94, un valore isolato senza
+  un motivo per differire dalle altre card di contenuto → 0.92.
+- **Icona "Modifica"** in `_SelectedBody`: `Icons.edit_rounded` (Material) — stonava sia con
+  le altre icone Cupertino nella stessa riga (Trova foto vicine, Salva offline) sia con le
+  altre matite dell'app (nome traccia in `_NameField`, titolo foto in `PhotoDetailCard`,
+  entrambe già `CupertinoIcons.pencil`) → uniformata a `CupertinoIcons.pencil`.
+- `legends.dart`: stesso tipo di scostamento, `Icons.info_outline` (Material) → uniformato a
+  `CupertinoIcons.info`, la stessa icona già usata in Impostazioni → Informazioni → Sentèi
+  per lo stesso concetto "info".
+- `_NameField`: riempimento campo (`scheme.onSurface.withValues(alpha:0.06)`) e icona matita
+  (`scheme.onSurface.withValues(alpha:0.5)`) non allineati al campo concettualmente identico
+  in `_promptEditPhotoTitle` (`palette.hairline.withValues(alpha:0.1)`) → uniformati
+  (`palette.hairline`/`palette.iconGreyLight`).
+- `map_gl_screen.dart`, testo "2D"/"3D" nei controlli laterali: `scheme.onSurface.
+  withValues(alpha:0.85)` → `palette.label`.
+
+**Non toccato deliberatamente** (uso legittimo, non un'incoerenza): `Icons.straighten`/
+`trending_up`/`trending_down`/`signpost_outlined`/`search_rounded` — icone Material scelte
+perché non esiste un buon equivalente Cupertino per quel concetto specifico, usate sempre
+allo stesso modo per lo stesso concetto (nessun conflitto con un'icona Cupertino usata altrove
+per la stessa cosa); `ios_menu.dart`/`ios_progress.dart`/il dialog "Modifica titolo" (tutti a
+opacità 0.96) — tier deliberatamente diverso per dialog/menu centrati, non card impilate sulla
+mappa; `bandTextColor: scheme.onSecondaryContainer` nel grafico profilo — abbinamento
+Material corretto (testo pensato apposta per il contrasto su `secondaryContainer`).
+
+Aggiunti 2 test di regressione mirati in `draw_route_controls_test.dart` (icona "Modifica"
+Cupertino, opacità di `PhotoDetailCard` allineata a `DrawRouteControls`).
+
+---
+
 ## 27 luglio 2026 — Pin foto in mappa evidenziato + card traccia riducibile (feedback utente diretto, in lavorazione, non ancora rilasciato)
 
 Sesto e ultimo giro di feedback diretto sul tema foto (stesso giorno), più una richiesta

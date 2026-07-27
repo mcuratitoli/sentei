@@ -9,6 +9,10 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🎨 Prima passata di **coerenza grafica**: card e pulsanti "X" con la
+  stessa trasparenza/dimensione ovunque, icone allineate allo stesso stile
+  in tutta l'app (era capitato qualche pulsante fuori tono, es. l'icona
+  "Modifica" o il tasto per ridurre la card traccia).
 - 📸 Toccare una foto (sia dalla card traccia sia dal pin in mappa) apre ora
   la stessa card con **titolo** (impostabile), **quota e coordinate** del
   punto di scatto, data e ora, e i tasti "Modifica titolo"/"Scollega" —
