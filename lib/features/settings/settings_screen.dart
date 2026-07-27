@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/cupertino.dart'
     show
         CupertinoActivityIndicator,
+        CupertinoButton,
         CupertinoIcons,
         CupertinoListTile,
         CupertinoListTileChevron,
@@ -14,14 +15,39 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/theme.dart';
 import '../../app/theme_provider.dart';
+import '../../ui/app_bottom_sheet.dart';
 import '../../ui/app_list_section.dart';
-import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/legends.dart';
 import '../../ui/release_notes.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
+
+/// Contenitore icona uniforme per le righe di Impostazioni (`new
+/// design/DESIGN_GUIDELINES.md` §5): quadrato arrotondato 30×30, sfondo
+/// tinta d'accento (rossa solo per un'azione distruttiva come "Disconnetti").
+class _SettingsIcon extends StatelessWidget {
+  const _SettingsIcon(this.icon, {this.destructive = false});
+
+  final IconData icon;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = destructive ? AppColors.destructive : context.palette.accent;
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, size: 17, color: tint),
+    );
+  }
+}
 
 /// Versione app (unica per Android e iOS, da `pubspec.yaml`): "1.0.0 (2)".
 final appVersionProvider = FutureProvider<String>((ref) async {
@@ -39,7 +65,6 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final accent = context.palette.accent;
     return Scaffold(
       backgroundColor: context.palette.scaffoldBg,
       appBar: AppBar(
@@ -55,13 +80,13 @@ class SettingsScreen extends ConsumerWidget {
             header: 'Mappa',
             children: [
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.map, color: accent),
+                leading: const _SettingsIcon(CupertinoIcons.map),
                 title: const Text('Mappa'),
                 subtitle:
                     const Text('Mapbox Outdoors · Sentiero CAI'),
               ),
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.cloud_download, color: accent),
+                leading: const _SettingsIcon(CupertinoIcons.cloud_download),
                 title: const Text('Mappe offline'),
                 subtitle:
                     const Text('Scarica aree per l\'uso senza connessione'),
@@ -76,7 +101,7 @@ class SettingsScreen extends ConsumerWidget {
             header: 'Informazioni',
             children: [
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.book, color: accent),
+                leading: const _SettingsIcon(CupertinoIcons.book),
                 title: const Text('Legenda difficoltà'),
                 subtitle:
                     const Text('T · E · EE · EEA, alpinistiche e scala Welzenbach'),
@@ -84,14 +109,14 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showDifficultyLegend(context),
               ),
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.textformat_abc, color: accent),
+                leading: const _SettingsIcon(CupertinoIcons.textformat_abc),
                 title: const Text('Abbreviazioni'),
                 subtitle: const Text('ANA, ASF, CAF, CAI, GTA, IGM, IGN, UGET'),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => showAbbreviationsLegend(context),
               ),
               CupertinoListTile(
-                leading: Icon(CupertinoIcons.info, color: accent),
+                leading: const _SettingsIcon(CupertinoIcons.info),
                 title: const Text('Sentèi'),
                 subtitle: const Text('App per l\'escursionismo · novità'),
                 additionalInfo:
@@ -122,66 +147,117 @@ class _AppearanceSection extends ConsumerWidget {
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
     final isEffectivelyDark =
         mode == AppThemeMode.dark || (mode == AppThemeMode.auto && systemIsDark);
-    final accent = context.palette.accent;
 
     return AppListSection(
       header: 'Aspetto',
       children: [
-        Builder(
-          builder: (tileCtx) => CupertinoListTile(
-            leading: Icon(CupertinoIcons.moon_fill, color: accent),
-            title: const Text('Tema'),
-            // subtitle (non additionalInfo): "Risparmio energetico" è troppo
-            // lungo per stare a destra senza troncare il titolo della riga.
-            subtitle: Text(mode.label),
-            trailing: const CupertinoListTileChevron(),
-            onTap: () => _showThemeMenu(tileCtx, ref, mode),
-          ),
+        CupertinoListTile(
+          leading: const _SettingsIcon(CupertinoIcons.moon_fill),
+          title: const Text('Tema'),
+          // subtitle (non additionalInfo): "Risparmio energetico" è troppo
+          // lungo per stare a destra senza troncare il titolo della riga.
+          subtitle: Text(mode.label),
+          trailing: const CupertinoListTileChevron(),
+          onTap: () => _showThemeSheet(context, ref, mode),
         ),
         if (isEffectivelyDark)
-          Builder(
-            builder: (tileCtx) => CupertinoListTile(
-              leading: Icon(CupertinoIcons.sparkles, color: accent),
-              title: const Text('Variante scura'),
-              subtitle: Text(variant.label),
-              trailing: const CupertinoListTileChevron(),
-              onTap: () => _showVariantMenu(tileCtx, ref, variant),
-            ),
+          CupertinoListTile(
+            leading: const _SettingsIcon(CupertinoIcons.sparkles),
+            title: const Text('Variante scura'),
+            subtitle: Text(variant.label),
+            trailing: const CupertinoListTileChevron(),
+            onTap: () => _showVariantSheet(context, ref, variant),
           ),
       ],
     );
   }
 
-  Future<void> _showThemeMenu(
+  Future<void> _showThemeSheet(
       BuildContext context, WidgetRef ref, AppThemeMode current) {
     final notifier = ref.read(appThemeModeProvider.notifier);
-    return showIosMenu(
+    return showAppBottomSheet<void>(
       context: context,
-      anchorContext: context,
-      items: [
-        for (final m in AppThemeMode.values)
-          IosMenuItem(
-            label: m.label,
-            selected: m == current,
-            onPressed: () => notifier.set(m),
-          ),
-      ],
+      builder: (_) => _SelectionSheet<AppThemeMode>(
+        title: 'Tema',
+        values: AppThemeMode.values,
+        current: current,
+        labelOf: (m) => m.label,
+        onSelected: notifier.set,
+      ),
     );
   }
 
-  Future<void> _showVariantMenu(
+  Future<void> _showVariantSheet(
       BuildContext context, WidgetRef ref, AppDarkVariant current) {
     final notifier = ref.read(appDarkVariantProvider.notifier);
-    return showIosMenu(
+    return showAppBottomSheet<void>(
       context: context,
-      anchorContext: context,
-      items: [
-        for (final v in AppDarkVariant.values)
-          IosMenuItem(
-            label: v.label,
-            selected: v == current,
-            onPressed: () => notifier.set(v),
+      builder: (_) => _SelectionSheet<AppDarkVariant>(
+        title: 'Variante scura',
+        values: AppDarkVariant.values,
+        current: current,
+        labelOf: (v) => v.label,
+        onSelected: notifier.set,
+      ),
+    );
+  }
+}
+
+/// Bottom sheet di selezione da una lista breve (tema, variante scura):
+/// titolo + × in header, righe testo con spunta sul valore corrente — stessa
+/// struttura di "Selezione tema" in `new design/DESIGN_GUIDELINES.md` §7.
+class _SelectionSheet<T> extends StatelessWidget {
+  const _SelectionSheet({
+    required this.title,
+    required this.values,
+    required this.current,
+    required this.labelOf,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<T> values;
+  final T current;
+  final String Function(T) labelOf;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSheetHeader(
+          title: title,
+          onClose: () => Navigator.of(context).pop(),
+        ),
+        const SizedBox(height: 6),
+        for (final v in values) ...[
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            minimumSize: const Size(0, 0),
+            onPressed: () {
+              Navigator.of(context).pop();
+              onSelected(v);
+            },
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(labelOf(v),
+                      style:
+                          Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: palette.label,
+                              )),
+                ),
+                if (v == current)
+                  Icon(CupertinoIcons.checkmark,
+                      size: 18, color: palette.accent),
+              ],
+            ),
           ),
+          if (v != values.last) Divider(color: palette.borderDivider, height: 1),
+        ],
       ],
     );
   }
@@ -214,7 +290,6 @@ class _CloudSection extends ConsumerWidget {
     });
 
     const spinner = CupertinoActivityIndicator(radius: 11);
-    final tint = context.palette.accent;
 
     return AppListSection(
       header: 'Sincronizzazione cloud',
@@ -223,7 +298,7 @@ class _CloudSection extends ConsumerWidget {
         if (Platform.isIOS) const _CloudProviderSelector(),
         if (!cloud.signedIn)
           CupertinoListTile(
-            leading: Icon(providerIcon, color: tint),
+            leading: _SettingsIcon(providerIcon),
             title: Text(providerName),
             subtitle: const Text('Accedi per sincronizzare le tracce'),
             trailing: cloud.busy
@@ -233,12 +308,12 @@ class _CloudSection extends ConsumerWidget {
           )
         else ...[
           CupertinoListTile(
-            leading: Icon(providerIcon, color: tint),
+            leading: _SettingsIcon(providerIcon),
             title: Text(providerName),
             subtitle: Text(cloud.account ?? 'Connesso'),
           ),
           CupertinoListTile(
-            leading: Icon(CupertinoIcons.arrow_2_circlepath, color: tint),
+            leading: const _SettingsIcon(CupertinoIcons.arrow_2_circlepath),
             title: const Text('Sincronizza ora'),
             subtitle:
                 const Text('Carica e scarica le tracce (last-write-wins)'),
@@ -247,9 +322,10 @@ class _CloudSection extends ConsumerWidget {
             onTap: cloud.busy ? null : notifier.syncNow,
           ),
           CupertinoListTile(
-            leading: const Icon(CupertinoIcons.square_arrow_right,
-                color: AppColors.destructive),
-            title: const Text('Disconnetti'),
+            leading: const _SettingsIcon(CupertinoIcons.square_arrow_right,
+                destructive: true),
+            title: const Text('Disconnetti',
+                style: TextStyle(color: AppColors.destructive)),
             onTap: cloud.busy ? null : notifier.signOut,
           ),
         ],

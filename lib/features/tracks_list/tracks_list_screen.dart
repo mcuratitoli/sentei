@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/path_geometry.dart';
+import '../../ui/app_buttons.dart';
 import '../../ui/app_list_section.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
@@ -129,9 +130,11 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         const PathGeometry().totalDistance(t.routedPath);
     final gain = t.metrics?.elevation.gain;
     return CupertinoListTile(
+      // Pallino colore tracciato: cerchio pieno 12-13px (`new
+      // design/DESIGN_GUIDELINES.md` §6), non più 16px.
       leading: Container(
-        width: 16,
-        height: 16,
+        width: 13,
+        height: 13,
         decoration: BoxDecoration(color: t.color, shape: BoxShape.circle),
       ),
       title: Text(t.name.isNotEmpty ? t.name : 'Senza nome'),
@@ -141,10 +144,10 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         if (t.trailRefs.isNotEmpty) t.trailRefs.join(", "),
       ].join(' · ')),
       trailing: Builder(
-        builder: (btnCtx) => IconButton(
-          visualDensity: VisualDensity.compact,
-          icon: Icon(CupertinoIcons.ellipsis_circle,
-              color: context.palette.iconGrey),
+        builder: (btnCtx) => AppIconButton(
+          tooltip: 'Altre azioni',
+          icon: CupertinoIcons.ellipsis,
+          size: 36,
           onPressed: () => _showTrackActions(btnCtx, t),
         ),
       ),
