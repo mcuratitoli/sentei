@@ -331,7 +331,7 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     context: context,
     title: 'Annullare?',
     message: 'Le modifiche non salvate al percorso andranno perse.',
-    confirmLabel: 'Annulla percorso',
+    confirmLabel: 'Annulla modifiche',
     cancelLabel: 'Continua a modificare',
     onConfirm: () => ref.read(tracksProvider.notifier).cancelEditing(),
   );
