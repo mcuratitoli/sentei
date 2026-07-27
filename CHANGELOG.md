@@ -9,13 +9,17 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🎨 **Redesign grafico** di percorso/foto/impostazioni: card e pannelli
+  ora hanno uno sfondo **pieno** (non più "vetro" semitrasparente),
+  bottoni coerenti in tutta l'app (pieno/bordato/testo/distruttivo),
+  badge di difficoltà e numeri sentiero con forme distinte, "Modifica
+  titolo" foto e selezione tema convertite in pannelli a comparsa dal
+  basso, switch "Segui i sentieri" blu invece che verde. *(Sostituisce le
+  voci più sotto su trasparenza/coerenza grafica della sessione precedente,
+  mai rilasciate: qui lo sfondo torna pieno.)*
 - 🎨 Il tasto "Percorso" nella card traccia (mostra/nasconde il grafico
   altimetrico) ora è un'icona, coerente con le altre azioni della stessa
   riga (prima era l'unico pulsante con testo in quella riga).
-- 🎨 Card della traccia selezionata, del dettaglio foto e le altre card di
-  contenuto sono ora un po' più **trasparenti**, per vedere meglio la mappa
-  sotto; anche la card del punto selezionato in esplorazione (fuori
-  dall'editing) è più trasparente.
 - 🎨 Prima passata di **coerenza grafica**: card e pulsanti "X" con la
   stessa trasparenza/dimensione ovunque, icone allineate allo stesso stile
   in tutta l'app (era capitato qualche pulsante fuori tono, es. l'icona

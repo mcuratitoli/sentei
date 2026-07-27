@@ -11,6 +11,112 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Redesign grafico completo secondo `new design/DESIGN_GUIDELINES.md` (in lavorazione, non ancora rilasciato)
+
+L'utente ha preparato un intero sistema di design (`new design/DESIGN_GUIDELINES.md` + 9
+mockup PNG, non versionati) partendo dalla revisione grafica di un prototipo HTML di
+riferimento (`Sentei Redesign.dc.html`, non incluso nel repo — solo riferimento visivo,
+ricostruito qui in widget Flutter). Cambio radicale rispetto al linguaggio "vetro
+smerigliato" usato finora: superfici **opache**, un solo sistema di bottoni, badge di
+difficoltà/tag sentiero con forme sempre distinte, bottom sheet come unico pattern modale.
+
+**Decisioni chiarite con l'utente prima di scrivere codice** (`AskUserQuestion`, entrambe le
+opzioni consigliate scelte):
+1. **Dark mode** — le linee guida coprono solo il tema chiaro; le 3 varianti scure esistenti
+   (`AppPalette.darkStandard/darkNight/darkOled`) **mantengono i loro colori attuali**
+   (incluso l'accento ambra di `darkNight`), il nuovo sistema si applica solo come
+   *struttura* (bottom sheet, forma bottoni/badge) sopra quei colori.
+2. **Vetro → opaco** — le card/sheet delle schermate coperte diventano completamente opache
+   (niente `BackdropFilter`/blur), coerente con tutti i mockup. La chrome di navigazione
+   (menubar/ricerca/controlli mappa/punto ispezionato in esplorazione) **non è coperta** da
+   nessun mockup esplicito e resta invariata (vecchio linguaggio `GlassSurface`).
+
+Salvato l'intento e le decisioni in memoria di progetto
+(`sentei-design-guidelines-2026`) per le sessioni future.
+
+### Nuovi widget condivisi (`lib/ui/`)
+
+- **`app_buttons.dart`** — `AppButton` (4 varianti: primario pieno, secondario bordato,
+  testo, distruttivo bordato — stessa altezza 48px, stesso raggio pill) e `AppIconButton`
+  (icon-button circolare 44px, sfondo neutro di default / tinta d'accento se `active`).
+  Formalizza esplicitamente la regola a due livelli già introdotta in sessione precedente
+  (icone nude per righe dense da 3+ azioni, pillole con testo per righe da 1-2) — ora come
+  commento sui widget condivisi invece che sulle classi private di `draw_route_controls.dart`.
+- **`app_bottom_sheet.dart`** — `AppSheetSurface` (superficie opaca, handle 36×5px, angoli
+  superiori r22, ombra) + `AppSheetHeader` (titolo + chevron opzionale + × 36px, più uno slot
+  `trailing` per casi come la quota nella barra del punto selezionato) + `showAppBottomSheet`
+  (wrapper di `showModalBottomSheet` con backdrop nero ~45%) — un solo meccanismo per tutti i
+  pannelli modali, sheet persistenti (card traccia, non è una route) inclusi.
+- **`badges.dart`** — `AppDifficultyBadge` (rettangolo r9, sfondo pieno colore, testo bianco)
+  e `AppTrailTag` (pill, sfondo bianco/superficie, bordo `borderDivider`) — forme sempre
+  distinte, mai per colore casuale (prima erano entrambi `Chip`/container ad-hoc).
+
+### Token (`lib/ui/tokens.dart`, `lib/ui/cai_difficulty.dart`)
+
+- Blu di brand aggiornato `#1565C0` → `#0071E0` (+ `primaryPressed` `#0058C4`).
+- `AppColors.destructive` **unificato** al rosso della scala CAI `EEA`
+  (`AppDifficultyColors.eea`, `#CC3336`) invece del vecchio *systemRed* iOS indipendente — un
+  solo rosso "attenzione/distruttivo/dislivello negativo" in tutta l'app, coerente con la
+  tabella colori delle linee guida (`difficulty.EEA` è esplicitamente anche "distruttivo").
+- Nuova palette `AppDifficultyColors` (T/E/EE/EEA): `caiScaleColor` in `cai_difficulty.dart`
+  ora la usa. **"E" non è più blu** (`#1565C0`, lo stesso del brand — ambiguo con lo stato
+  attivo) ma teal (`#009192`).
+- Nuovi campi `AppPalette.borderDivider`/`iconBgNeutral` per variante di tema: valori nuovi
+  in `light` (`#E2E1DD`/`#F1F0EC` dalle linee guida), **derivati** per le 3 varianti scure
+  (nessun valore specificato dalle linee guida, che coprono solo il chiaro — scelte in modo
+  da restare "flat" e coerenti con i toni già esistenti di ciascuna variante).
+- `scaffoldBg` chiaro `#F2F2F7` → `#F5F3EF` (`bg.app` delle linee guida).
+
+### Schermate aggiornate
+
+- **Card percorso/traccia selezionata** (`draw_route_controls.dart`, `_SelectedBody`):
+  `GlassSurface` → `AppSheetSurface`; header con `AppSheetHeader` (chevron riduci/espandi +
+  ×); riga azioni con `AppIconButton`; `_TrailInfo` con `AppTrailTag`/`AppDifficultyBadge`;
+  D+/D- con icone Cupertino diagonali (`arrow_up_right`/`arrow_down_right`) invece di
+  `Icons.trending_up/down` (Material) e colori `AppDifficultyColors.t/eea` invece di verde/
+  rosso indipendenti; icona/testo della distanza non più tinti d'accento (il blu è riservato
+  ad azioni/stati attivi, non ai dati).
+- **Card foto** (`PhotoDetailCard`): superficie opaca, header con titolo statico "Dettaglio
+  foto" (prima il titolo/data della foto faceva anche da header) + ×; **bug fix**: quando non
+  c'è un titolo personalizzato, la data/ora non compare più due volte (una come titolo-
+  fallback, una come riga a sé) — ora una singola volta; bottoni "Modifica titolo"/"Scollega"
+  con `AppButton` (secondario/distruttivo) invece di pillole locali.
+- **"Modifica titolo" foto**: da dialog centrato (`showGeneralDialog`) a vera bottom sheet
+  (`showAppBottomSheet`) — l'esempio esplicitamente citato dalle linee guida (§10) da
+  convertire.
+- **Edit percorso** (`_DrawingBody`): footer con `AppIconButton` (annulla/undo) + `AppButton`
+  primario espanso per "Salva" (prima pillola a larghezza fissa); riga "Impostazioni
+  avanzate" ora su una barra piena (sfondo `hairline@10%`, non più testo nudo con icona).
+- **Impostazioni avanzate traccia**: sheet convertita a `showAppBottomSheet` +
+  `AppSheetHeader`; **color swatch** ridisegnato — il selezionato ha un anello d'accento e
+  una spunta bianca sopra la tinta, gli altri sono cerchi pieni senza contorno (prima: tutti
+  con un anello, quello attivo solo più spesso — ambiguo); switch "Segui i sentieri" blu
+  (`activeTrackColor: palette.accent`) invece del verde di sistema di default.
+- **Impostazioni** (`settings_screen.dart`): nuovo `_SettingsIcon` (contenitore icona
+  uniforme, quadrato arrotondato 30×30 r8, sfondo tinta d'accento — rosso solo per
+  "Disconnetti") su tutte le righe. Selezione tema/variante scura: da menu ancorato
+  (`showIosMenu`, popup posizionato accanto al tap) a bottom sheet dedicata
+  (`_SelectionSheet<T>`, generica su `AppThemeMode`/`AppDarkVariant`) con righe testo e
+  spunta sul valore corrente.
+- **Elenco tracciati** (`tracks_list_screen.dart`): pallino colore tracciato 16px → 13px
+  (spec §6, "12–13px"); pulsante "altre azioni" da icona nuda `ellipsis_circle` a
+  `AppIconButton` (cerchio neutro).
+
+**Deliberatamente fuori scope** (nessun mockup li copre esplicitamente): i menu "Ordina"/
+"Azioni traccia" e le conferme di eliminazione restano sul componente condiviso
+`ios_menu.dart` (popup ancorato / dialog centrato) — usato in decine di altri punti dell'app
+non toccati da questo redesign; convertirlo a bottom sheet avrebbe un raggio d'impatto molto
+più ampio delle 9 schermate coperte dalle linee guida.
+
+Test: aggiornati i finder che assumevano la vecchia struttura in
+`draw_route_controls_test.dart` (icona rimossa da "Impostazioni avanzate" collassata,
+`CupertinoIcons.xmark` invece di `clear_circled_solid` per la ×, testo "COLORE" maiuscolo
+nello sheet, asserzioni `GlassSurface`/opacità sostituite con `AppSheetSurface`, doppia
+data/ora nella card foto corretta a singola). Nessuna modifica ai test di
+`settings_appearance_test.dart` (già indipendenti dal meccanismo di menu/sheet sottostante).
+
+---
+
 ## 27 luglio 2026 — Regola a due livelli per le azioni delle card: pillola vs icona (in lavorazione, non ancora rilasciato)
 
 Domanda diretta dell'utente su uno screenshot con card foto + card traccia affiancate: "sono
