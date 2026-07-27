@@ -35,12 +35,13 @@ void main() {
       distanceMeters: 500,
       takenAt: DateTime.utc(2026, 6, 1, 11, 0),
       thumbnail: Uint8List.fromList([1, 2, 3, 4, 5]),
+      title: 'Bivacco Ravelli',
     ),
     const TrackPhoto(
       id: 'p2',
       position: LatLng(45.16, 7.96),
       distanceMeters: 700,
-    ), // senza takenAt/thumbnail (opzionali)
+    ), // senza takenAt/thumbnail/title (opzionali)
   ];
 
   final track = DrawnTrack(
@@ -87,9 +88,11 @@ void main() {
     expect(p1.distanceMeters, 500);
     expect(p1.takenAt, DateTime.utc(2026, 6, 1, 11, 0));
     expect(p1.thumbnail, [1, 2, 3, 4, 5]);
+    expect(p1.title, 'Bivacco Ravelli');
     final p2 = back.photos.last;
     expect(p2.takenAt, isNull);
     expect(p2.thumbnail, isNull);
+    expect(p2.title, isNull);
   });
 
   test('fromJson tollera campi assenti (valori di default)', () {

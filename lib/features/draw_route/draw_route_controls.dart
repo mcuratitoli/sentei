@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:flutter/cupertino.dart'
     show
         CupertinoActivityIndicator,
@@ -8,8 +10,10 @@ import 'package:flutter/cupertino.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:photo_manager/photo_manager.dart' show AssetEntity;
 
 import '../../core/util/format.dart';
+import '../../domain/models/track_photo.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
@@ -112,39 +116,44 @@ class _DrawingBody extends ConsumerWidget {
             onClose: () => ref.read(selectedWaypointProvider.notifier).clear(),
           ),
         ],
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            if (pathLoading) ...[
-              const CupertinoActivityIndicator(radius: 8),
+        // Annulla/Undo/Salva riguardano la traccia nel suo complesso: non
+        // hanno senso mentre si sta guardando/spostando un singolo punto (la
+        // X in alto in quella vista chiude già, tornando qui).
+        if (!selectingPoint) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (pathLoading) ...[
+                const CupertinoActivityIndicator(radius: 8),
+                const SizedBox(width: 8),
+                Text('Calcolo percorso…',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+              const Spacer(),
+              _CardIconButton(
+                tooltip: 'Annulla e chiudi',
+                onPressed: () => _confirmCancel(context, ref),
+                icon: CupertinoIcons.xmark,
+              ),
+              _CardIconButton(
+                tooltip: 'Annulla',
+                onPressed: canUndo
+                    ? () => ref.read(tracksProvider.notifier).undo()
+                    : null,
+                icon: CupertinoIcons.arrow_uturn_left,
+              ),
               const SizedBox(width: 8),
-              Text('Calcolo percorso…',
-                  style: Theme.of(context).textTheme.bodySmall),
+              _PillAction(
+                label: 'Salva',
+                icon: CupertinoIcons.check_mark,
+                filled: true,
+                onPressed: (!canSave || pathLoading)
+                    ? null
+                    : () => ref.read(tracksProvider.notifier).finishDrawing(),
+              ),
             ],
-            const Spacer(),
-            _CardIconButton(
-              tooltip: 'Annulla e chiudi',
-              onPressed: () => _confirmCancel(context, ref),
-              icon: CupertinoIcons.xmark,
-            ),
-            _CardIconButton(
-              tooltip: 'Annulla',
-              onPressed: canUndo
-                  ? () => ref.read(tracksProvider.notifier).undo()
-                  : null,
-              icon: CupertinoIcons.arrow_uturn_left,
-            ),
-            const SizedBox(width: 8),
-            _PillAction(
-              label: 'Salva',
-              icon: CupertinoIcons.check_mark,
-              filled: true,
-              onPressed: (!canSave || pathLoading)
-                  ? null
-                  : () => ref.read(tracksProvider.notifier).finishDrawing(),
-            ),
-          ],
-        ),
+          ),
+        ],
       ],
     );
   }
@@ -174,6 +183,24 @@ class _SelectedBody extends ConsumerWidget {
     final cursor = ref.watch(profileCursorProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
+    // Foto la cui distanza-lungo-percorso è più vicina al cursore corrente
+    // (scrubbing sul grafico): la thumbnail corrispondente si evidenzia nella
+    // striscia sotto e, se fuori vista, la striscia scorre per mostrarla.
+    String? highlightedPhotoId;
+    if (cursor != null && track != null && track.photos.isNotEmpty) {
+      TrackPhoto? nearest;
+      var best = double.infinity;
+      for (final p in track.photos) {
+        final d = (p.distanceMeters - cursor.distanceMeters).abs();
+        if (d < best) {
+          best = d;
+          nearest = p;
+        }
+      }
+      if (nearest != null && best <= _photoHighlightToleranceMeters) {
+        highlightedPhotoId = nearest.id;
+      }
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -290,7 +317,7 @@ class _SelectedBody extends ConsumerWidget {
           ],
         ),
         if (!saving && track != null && track.photos.isNotEmpty)
-          _PhotoStrip(track: track),
+          _PhotoStrip(track: track, highlightedPhotoId: highlightedPhotoId),
         if (showingChart) ...[
           const SizedBox(height: 4),
           // Slot fisso per la quota al cursore (spazio riservato sempre, così la
@@ -483,36 +510,88 @@ class _TrailInfo extends StatelessWidget {
 /// fotografico"): miniatura + rimozione con conferma. Sola lettura/gestione
 /// dei collegamenti — l'apertura dell'originale (re-match locale) è un passo
 /// successivo, non ancora implementato.
-class _PhotoStrip extends ConsumerWidget {
-  const _PhotoStrip({required this.track});
+/// Tolleranza (metri lungo il percorso) per evidenziare la thumbnail di una
+/// foto mentre si scorre il grafico del profilo con il dito.
+const double _photoHighlightToleranceMeters = 25;
+
+/// Dimensione delle thumbnail nella striscia: più piccole di prima (56px),
+/// ma non sotto il target di tocco minimo (44pt) dato che restano tappabili.
+const double _photoThumbSize = 44;
+
+class _PhotoStrip extends ConsumerStatefulWidget {
+  const _PhotoStrip({required this.track, this.highlightedPhotoId});
 
   final DrawnTrack track;
 
+  /// Foto il cui pin sul grafico è sotto il dito durante lo scrubbing: la sua
+  /// thumbnail si evidenzia e, se fuori vista, la striscia scorre per mostrarla.
+  final String? highlightedPhotoId;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PhotoStrip> createState() => _PhotoStripState();
+}
+
+class _PhotoStripState extends ConsumerState<_PhotoStrip> {
+  final Map<String, GlobalKey> _keys = {};
+
+  GlobalKey _keyFor(String photoId) =>
+      _keys.putIfAbsent(photoId, () => GlobalKey());
+
+  @override
+  void didUpdateWidget(covariant _PhotoStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final id = widget.highlightedPhotoId;
+    if (id != null && id != oldWidget.highlightedPhotoId) {
+      // Post-frame: la thumbnail deve già essere nell'albero (con la sua
+      // GlobalKey) prima di poterla far scorrere in vista.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _keys[id]?.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(ctx,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              alignment: 0.5);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: SizedBox(
-        height: 56,
+        height: _photoThumbSize,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: track.photos.length,
+          itemCount: widget.track.photos.length,
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (_, i) {
-            final photo = track.photos[i];
+            final photo = widget.track.photos[i];
+            final highlighted = photo.id == widget.highlightedPhotoId;
             return GestureDetector(
-              onTap: () => _confirmRemovePhoto(context, ref, track.id, photo.id),
-              child: ClipRRect(
-                borderRadius: AppRadii.rMd,
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
+              key: _keyFor(photo.id),
+              onTap: () => ref.read(selectedPhotoProvider.notifier).set(photo),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: _photoThumbSize,
+                height: _photoThumbSize,
+                decoration: BoxDecoration(
+                  borderRadius: AppRadii.rMd,
+                  border: Border.all(
+                    color: highlighted ? palette.accent : Colors.transparent,
+                    width: 2.5,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: AppRadii.rMd,
                   child: photo.thumbnail != null
                       ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
                       : ColoredBox(
-                          color: context.palette.hairline.withValues(alpha: 0.08),
+                          color: palette.hairline.withValues(alpha: 0.08),
                           child: Icon(CupertinoIcons.photo,
-                              color: context.palette.tertiaryIcon),
+                              color: palette.tertiaryIcon),
                         ),
                 ),
               ),
@@ -531,7 +610,11 @@ Future<void> _confirmRemovePhoto(
     title: 'Scollegare la foto?',
     message: 'La foto resta nella tua libreria: viene solo scollegata dalla traccia.',
     confirmLabel: 'Scollega',
-    onConfirm: () => ref.read(tracksProvider.notifier).removePhoto(trackId, photoId),
+    onConfirm: () {
+      ref.read(tracksProvider.notifier).removePhoto(trackId, photoId);
+      // La foto potrebbe essere anche quella aperta in PhotoDetailCard.
+      ref.read(selectedPhotoProvider.notifier).clear();
+    },
   );
 }
 
@@ -881,6 +964,319 @@ class _PillAction extends StatelessWidget {
           const SizedBox(width: 6),
           Text(label, style: AppText.pillLabel.copyWith(color: fg)),
         ],
+      ),
+    );
+  }
+}
+
+/// Card **unificata** per i dettagli di una foto collegata: stessa vista sia
+/// toccando una thumbnail nella striscia della card traccia sia un pin foto
+/// in mappa (entrambi passano da `selectedPhotoProvider`, mostrata sopra
+/// `DrawRouteControls` in `map_gl_screen.dart`). Mostra thumbnail (tap → foto
+/// a schermo intero se ancora reperibile sul device), titolo (o data/ora come
+/// default), coordinate + quota del punto di scatto, data/ora, e le azioni
+/// **Modifica titolo**/**Scollega**.
+class PhotoDetailCard extends ConsumerWidget {
+  const PhotoDetailCard({super.key, required this.photo, required this.onClose});
+
+  final TrackPhoto photo;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final trackId = ref.watch(tracksProvider.select((s) => s.active?.id));
+    // Rilegge sempre la versione corrente (il titolo può essere stato
+    // modificato) invece di fidarsi dello snapshot catturato alla selezione.
+    final photos =
+        ref.watch(tracksProvider.select((s) => s.active?.photos)) ?? const [];
+    var current = photo;
+    for (final p in photos) {
+      if (p.id == photo.id) {
+        current = p;
+        break;
+      }
+    }
+    final elevation = ref.watch(waypointElevationProvider(current.position));
+    final hasTitle = current.title != null && current.title!.isNotEmpty;
+    final title = hasTitle
+        ? current.title!
+        : (current.takenAt != null
+            ? Format.dateTime(current.takenAt!)
+            : 'Foto collegata');
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
+      child: GlassSurface(
+        borderRadius: AppRadii.rCard,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () => openFullPhoto(context, current.id),
+                    child: ClipRRect(
+                      borderRadius: AppRadii.rMd,
+                      child: SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: current.thumbnail != null
+                            ? Image.memory(current.thumbnail!, fit: BoxFit.cover)
+                            : ColoredBox(
+                                color: palette.hairline.withValues(alpha: 0.08),
+                                child: Icon(CupertinoIcons.photo,
+                                    color: palette.tertiaryIcon),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.value.copyWith(
+                                color: palette.label, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(
+                          Format.coordinates(
+                              current.position.latitude, current.position.longitude),
+                          style: AppText.captionSmall.copyWith(color: palette.secondaryLabel),
+                        ),
+                        elevation.when(
+                          data: (m) => m == null
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text('Quota ${Format.meters(m)}',
+                                      style: AppText.captionSmall
+                                          .copyWith(color: palette.secondaryLabel)),
+                                ),
+                          loading: () => const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: SizedBox(
+                                height: 10,
+                                width: 10,
+                                child: CupertinoActivityIndicator(radius: 5)),
+                          ),
+                          error: (_, __) => const SizedBox.shrink(),
+                        ),
+                        if (hasTitle && current.takenAt != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(Format.dateTime(current.takenAt!),
+                                style: AppText.captionSmall
+                                    .copyWith(color: palette.secondaryLabel)),
+                          ),
+                      ],
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(32, 32),
+                    onPressed: onClose,
+                    child: Icon(CupertinoIcons.clear_circled_solid,
+                        size: 22, color: palette.tertiaryIcon),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _PillAction(
+                    label: 'Modifica titolo',
+                    icon: CupertinoIcons.pencil,
+                    onPressed: trackId == null
+                        ? null
+                        : () => _promptEditPhotoTitle(context, ref, trackId, current),
+                  ),
+                  const SizedBox(width: 8),
+                  _PillAction(
+                    label: 'Scollega',
+                    icon: CupertinoIcons.delete,
+                    color: AppColors.destructive,
+                    onPressed: trackId == null
+                        ? null
+                        : () => _confirmRemovePhoto(context, ref, trackId, current.id),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog per rinominare una foto: campo di testo precompilato col titolo
+/// corrente (vuoto se non impostato — l'interfaccia mostra la data/ora come
+/// default, non un valore forzato nei dati).
+Future<void> _promptEditPhotoTitle(
+    BuildContext context, WidgetRef ref, String trackId, TrackPhoto photo) async {
+  final controller = TextEditingController(text: photo.title ?? '');
+  final result = await showGeneralDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'modifica titolo',
+    barrierColor: const Color(0x14000000),
+    transitionDuration: const Duration(milliseconds: 160),
+    pageBuilder: (dialogContext, __, ___) {
+      final palette = dialogContext.palette;
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 300),
+          child: GlassSurface(
+            opacity: 0.96,
+            borderRadius: AppRadii.rMd,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: DefaultTextStyle(
+                style: AppText.footnote
+                    .copyWith(decoration: TextDecoration.none, color: palette.label),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Modifica titolo',
+                        style: AppText.value.copyWith(
+                            color: palette.label, decoration: TextDecoration.none)),
+                    const SizedBox(height: 14),
+                    CupertinoTextField(
+                      controller: controller,
+                      autofocus: true,
+                      placeholder: 'Titolo della foto',
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: palette.hairline.withValues(alpha: 0.1),
+                        borderRadius: AppRadii.rMd,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CupertinoButton(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            color: palette.glassFill.withValues(alpha: 0.5),
+                            borderRadius: AppRadii.rPill,
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            child: Text('Annulla',
+                                style: AppText.pillLabel.copyWith(color: palette.label)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: CupertinoButton(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            color: AppColors.primary,
+                            borderRadius: AppRadii.rPill,
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            child: Text('Salva',
+                                style: AppText.pillLabel
+                                    .copyWith(color: const Color(0xFFFFFFFF))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (_, anim, __, child) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(curved), child: child),
+      );
+    },
+  );
+  if (result == true) {
+    await ref
+        .read(tracksProvider.notifier)
+        .updatePhotoTitle(trackId, photo.id, controller.text.trim());
+  }
+  controller.dispose();
+}
+
+/// Apre la foto **a schermo intero** riaprendo l'asset dalla libreria del
+/// dispositivo tramite [photoId] (`TrackPhoto.id`, l'id `photo_manager` di
+/// **questo** device). Se l'asset non risolve (es. la traccia è stata
+/// sincronizzata da un altro dispositivo, dove quell'id non esiste) non fa
+/// nulla — nessun errore, nessun re-match per posizione/orario (non richiesto
+/// qui): l'originale resta comunque sempre reperibile a mano nella libreria.
+Future<void> openFullPhoto(BuildContext context, String photoId) async {
+  AssetEntity? asset;
+  try {
+    asset = await AssetEntity.fromId(photoId);
+  } catch (_) {
+    asset = null;
+  }
+  if (asset == null || !context.mounted) return;
+  final file = await asset.file;
+  if (file == null || !context.mounted) return;
+  await Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      opaque: true,
+      barrierColor: const Color(0xFF000000),
+      pageBuilder: (_, __, ___) => _FullPhotoView(file: file),
+    ),
+  );
+}
+
+class _FullPhotoView extends StatelessWidget {
+  const _FullPhotoView({required this.file});
+
+  final File file;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF000000),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 5,
+                child: Center(child: Image.file(file)),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(44, 44),
+                onPressed: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                      color: Color(0x66000000), shape: BoxShape.circle),
+                  child: const Icon(CupertinoIcons.xmark,
+                      color: Color(0xFFFFFFFF), size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

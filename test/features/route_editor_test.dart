@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:sentei/data/cloud/cloud_sync_service.dart';
 import 'package:sentei/data/storage/tracks_repository.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
+import 'package:sentei/domain/models/track_photo.dart';
 import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
@@ -407,5 +408,28 @@ void main() {
     expect(state().tracks, isEmpty);
     expect(state().editingId, isNull);
     expect(container.read(importPreviewProvider), isNull);
+  });
+
+  test('updatePhotoTitle aggiorna il titolo di una foto collegata', () async {
+    final n = notifier();
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45, 7))
+      ..addPoint(const LatLng(45.01, 7));
+    await n.finishDrawing();
+    final id = state().tracks.first.id;
+
+    await n.addPhotos(id, const [
+      TrackPhoto(id: 'ph1', position: LatLng(45.005, 7), distanceMeters: 50),
+    ]);
+    expect(state().byId(id)!.photos.single.title, isNull);
+
+    await n.updatePhotoTitle(id, 'ph1', 'Bivacco Ravelli');
+    expect(state().byId(id)!.photos.single.title, 'Bivacco Ravelli');
+
+    // Titolo vuoto: l'interfaccia userà la data come default, ma resta un
+    // valore esplicito (non torna a `null`, vedi `TrackPhoto.copyWith`).
+    await n.updatePhotoTitle(id, 'ph1', '');
+    expect(state().byId(id)!.photos.single.title, '');
   });
 }

@@ -11,6 +11,8 @@ import 'package:sentei/core/util/format.dart';
 import 'package:sentei/data/cloud/cloud_sync_service.dart';
 import 'package:sentei/data/storage/tracks_repository.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
+import 'package:sentei/domain/models/elevation_profile.dart' show ProfileSample;
+import 'package:sentei/domain/models/track_photo.dart';
 import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
@@ -284,5 +286,179 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(tracksProvider).editing!.waypoints.length, 1);
+  });
+
+  testWidgets(
+      'scorrendo il grafico, la thumbnail della foto vicina al cursore si evidenzia',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.05, 7.0)); // percorso lungo qualche km
+    await notifier.finishDrawing();
+    final id = container.read(tracksProvider).tracks.first.id;
+    await notifier.addPhotos(id, const [
+      TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
+      TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
+    ]);
+    await tester.pumpAndSettle();
+
+    List<Color> borderColors() => [
+          for (final w in tester.widgetList<AnimatedContainer>(
+              find.byType(AnimatedContainer)))
+            ((w.decoration as BoxDecoration).border as Border).top.color,
+        ];
+
+    // Nessun cursore: nessuna thumbnail evidenziata (bordo trasparente).
+    expect(borderColors().every((c) => c == Colors.transparent), isTrue);
+
+    // Cursore a 510m: entro tolleranza (25m) dalla foto "near" (500m), non
+    // dalla foto "far" (5000m).
+    container.read(profileCursorProvider.notifier).set(
+        const ProfileSample(
+            distanceMeters: 510, elevation: 1000, position: LatLng(45.005, 7)));
+    await tester.pumpAndSettle();
+
+    final colors = borderColors();
+    expect(colors[0] == Colors.transparent, isFalse); // "near": evidenziata
+    expect(colors[1], Colors.transparent); // "far": non evidenziata
+  });
+
+  testWidgets(
+      'tap su una thumbnail nella striscia apre la stessa PhotoDetailCard '
+      'del pin in mappa (selectedPhotoProvider condiviso)', (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await notifier.finishDrawing();
+    final id = container.read(tracksProvider).tracks.first.id;
+    await notifier.addPhotos(id, const [
+      TrackPhoto(id: 'ph1', position: LatLng(45.005, 7), distanceMeters: 500),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(container.read(selectedPhotoProvider), isNull);
+    // La foto finta non ha bytes di thumbnail: la striscia mostra la stessa
+    // icona segnaposto (CupertinoIcons.photo) usata anche dal tasto "Trova
+    // foto vicine" nella riga sopra — quest'ultima viene prima nell'albero.
+    await tester.tap(find.byIcon(CupertinoIcons.photo).last);
+    await tester.pumpAndSettle();
+
+    expect(container.read(selectedPhotoProvider)?.id, 'ph1');
+  });
+
+  testWidgets(
+      'PhotoDetailCard mostra titolo (o data come default), coordinate, '
+      'quota e data/ora', (tester) async {
+    final notifier2 = ProviderContainer(overrides: [
+      routingServiceProvider.overrideWithValue(_FakeRouting()),
+      elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+    ]);
+    addTearDown(notifier2.dispose);
+    notifier2
+      ..read(tracksProvider.notifier).startNewDrawing()
+      ..read(tracksProvider.notifier).addPoint(const LatLng(45.0, 7.0))
+      ..read(tracksProvider.notifier).addPoint(const LatLng(45.01, 7.0));
+    await notifier2.read(tracksProvider.notifier).finishDrawing();
+    final id = notifier2.read(tracksProvider).tracks.first.id;
+    final takenAt = DateTime(2025, 8, 18, 10, 30);
+    await notifier2.read(tracksProvider.notifier).addPhotos(id, [
+      TrackPhoto(
+          id: 'ph1',
+          position: const LatLng(45.005, 7),
+          distanceMeters: 500,
+          takenAt: takenAt),
+    ]);
+    final photo = notifier2.read(tracksProvider).tracks.first.photos.single;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: notifier2,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: PhotoDetailCard(photo: photo, onClose: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Nessun titolo impostato: la data/ora di scatto fa da titolo di default.
+    expect(find.text(Format.dateTime(takenAt)), findsOneWidget);
+    expect(
+        find.text(Format.coordinates(45.005, 7)), findsOneWidget);
+    expect(find.text('Quota ${Format.meters(_FakeElevation.fixedElevation)}'),
+        findsOneWidget);
+    expect(find.text('Modifica titolo'), findsOneWidget);
+    expect(find.text('Scollega'), findsOneWidget);
+
+    // Modifica titolo: il dialog precompilato salva il nuovo valore.
+    await tester.tap(find.text('Modifica titolo'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(CupertinoTextField), 'Bivacco Ravelli');
+    await tester.tap(find.text('Salva'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bivacco Ravelli'), findsOneWidget);
+    expect(
+        notifier2.read(tracksProvider).tracks.first.photos.single.title,
+        'Bivacco Ravelli');
+  });
+
+  testWidgets('PhotoDetailCard: Scollega chiede conferma e rimuove la foto',
+      (tester) async {
+    final container2 = ProviderContainer(overrides: [
+      routingServiceProvider.overrideWithValue(_FakeRouting()),
+      elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+    ]);
+    addTearDown(container2.dispose);
+    container2.read(tracksProvider.notifier)
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await container2.read(tracksProvider.notifier).finishDrawing();
+    final id = container2.read(tracksProvider).tracks.first.id;
+    await container2.read(tracksProvider.notifier).addPhotos(id, const [
+      TrackPhoto(id: 'ph1', position: LatLng(45.005, 7), distanceMeters: 500),
+    ]);
+    final photo = container2.read(tracksProvider).tracks.first.photos.single;
+    container2.read(selectedPhotoProvider.notifier).set(photo);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container2,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: PhotoDetailCard(
+              photo: photo,
+              onClose: () =>
+                  container2.read(selectedPhotoProvider.notifier).clear(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Scollega'));
+    await tester.pumpAndSettle();
+    expect(find.text('Scollegare la foto?'), findsOneWidget);
+
+    await tester.tap(find.text('Scollega').last);
+    await tester.pumpAndSettle();
+
+    expect(container2.read(tracksProvider).tracks.first.photos, isEmpty);
+    expect(container2.read(selectedPhotoProvider), isNull);
   });
 }

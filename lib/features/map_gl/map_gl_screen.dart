@@ -1159,10 +1159,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Anteprima della foto selezionata (tap su un pin), sopra la
-                  // card traccia.
+                  // Dettagli della foto selezionata (tap su un pin mappa o su
+                  // una thumbnail nella card traccia, stesso provider), sopra
+                  // la card traccia.
                   if (selectedPhoto != null) ...[
-                    _PhotoInfoCard(
+                    PhotoDetailCard(
                       photo: selectedPhoto,
                       onClose: () =>
                           ref.read(selectedPhotoProvider.notifier).clear(),
@@ -1578,12 +1579,8 @@ class _PointInfoCard extends StatelessWidget {
   final InspectedPoint data;
   final VoidCallback onClose;
 
-  static String _fmtCoords(ll.LatLng p) {
-    final ns = p.latitude >= 0 ? 'N' : 'S';
-    final ew = p.longitude >= 0 ? 'E' : 'O';
-    return '${p.latitude.abs().toStringAsFixed(5)}°$ns  '
-        '${p.longitude.abs().toStringAsFixed(5)}°$ew';
-  }
+  static String _fmtCoords(ll.LatLng p) =>
+      Format.coordinates(p.latitude, p.longitude);
 
   @override
   Widget build(BuildContext context) {
@@ -1689,72 +1686,6 @@ class _PointInfoCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                minimumSize: const ui.Size(40, 40),
-                onPressed: onClose,
-                child: Icon(CupertinoIcons.clear_circled_solid,
-                    size: 24, color: palette.tertiaryIcon),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Mini-card in vetro con l'anteprima della foto selezionata (tap su un pin
-/// mappa/profilo, §"Sync album fotografico"): thumbnail + data di scatto (se
-/// nota). L'originale non è recuperabile da qui (re-match locale non ancora
-/// implementato) — solo i metadati sincronizzati sono mostrati.
-class _PhotoInfoCard extends StatelessWidget {
-  const _PhotoInfoCard({required this.photo, required this.onClose});
-
-  final TrackPhoto photo;
-  final VoidCallback onClose;
-
-  static String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/'
-      '${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final thumbnail = photo.thumbnail;
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width - 16,
-      ),
-      child: GlassSurface(
-        borderRadius: AppRadii.rPill,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: AppRadii.rMd,
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: thumbnail != null
-                      ? Image.memory(thumbnail, fit: BoxFit.cover)
-                      : ColoredBox(
-                          color: palette.hairline.withValues(alpha: 0.08),
-                          child: Icon(CupertinoIcons.photo,
-                              color: palette.tertiaryIcon),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  photo.takenAt != null
-                      ? _fmtDate(photo.takenAt!)
-                      : 'Foto collegata',
-                  style: AppText.value.copyWith(color: palette.label),
                 ),
               ),
               CupertinoButton(

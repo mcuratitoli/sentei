@@ -846,6 +846,31 @@ class Tracks extends Notifier<TracksState> {
     await _persistPhotos(id);
   }
 
+  /// Aggiorna il titolo della foto [photoId] collegata alla traccia [id].
+  /// [title] vuoto → l'interfaccia torna a mostrare la data/ora di scatto
+  /// come titolo di default (vedi `TrackPhoto.title`). Persiste e propaga al
+  /// cloud.
+  Future<void> updatePhotoTitle(
+      String id, String photoId, String title) async {
+    final track = state.byId(id);
+    if (track == null) return;
+    final updated = [
+      for (final p in track.photos)
+        if (p.id == photoId) p.copyWith(title: title) else p,
+    ];
+    state = TracksState(
+      tracks: [
+        for (final t in state.tracks)
+          if (t.id == id) t.copyWith(photos: updated) else t,
+      ],
+      editingId: state.editingId,
+      selectedId: state.selectedId,
+      savingId: state.savingId,
+      geometryNonce: state.geometryNonce,
+    );
+    await _persistPhotos(id);
+  }
+
   /// Scollega la foto [photoId] dalla traccia [id]. Persiste e propaga al cloud.
   Future<void> removePhoto(String id, String photoId) async {
     final track = state.byId(id);

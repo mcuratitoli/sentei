@@ -18,9 +18,14 @@ class TrackPhoto {
     required this.distanceMeters,
     this.takenAt,
     this.thumbnail,
+    this.title,
   });
 
   /// Identificativo della voce (per rimuovere/aggiornare il collegamento).
+  /// Coincide oggi con l'id nella libreria foto del dispositivo — non
+  /// portabile tra device, ma sufficiente per riaprire l'originale **sullo
+  /// stesso** dispositivo che l'ha collegata (vedi `openFullPhoto`); su un
+  /// altro device (sincronizzato via cloud) l'id semplicemente non risolve.
   final String id;
 
   /// Posizione GPS della foto, dall'EXIF.
@@ -40,12 +45,17 @@ class TrackPhoto {
   /// resta visibile anche su un dispositivo dove l'originale non si ritrova.
   final Uint8List? thumbnail;
 
+  /// Titolo impostabile dall'utente. `null`/vuoto → l'interfaccia mostra la
+  /// data/ora di scatto come titolo di default (nessun valore forzato qui).
+  final String? title;
+
   TrackPhoto copyWith({
     String? id,
     LatLng? position,
     double? distanceMeters,
     DateTime? takenAt,
     Uint8List? thumbnail,
+    String? title,
   }) =>
       TrackPhoto(
         id: id ?? this.id,
@@ -53,5 +63,6 @@ class TrackPhoto {
         distanceMeters: distanceMeters ?? this.distanceMeters,
         takenAt: takenAt ?? this.takenAt,
         thumbnail: thumbnail ?? this.thumbnail,
+        title: title ?? this.title,
       );
 }

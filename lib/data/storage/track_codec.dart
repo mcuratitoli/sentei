@@ -100,6 +100,7 @@ abstract final class TrackCodec {
         'd': p.distanceMeters,
         if (p.takenAt != null) 'at': p.takenAt!.toIso8601String(),
         if (p.thumbnail != null) 'thumb': base64Encode(p.thumbnail!),
+        if (p.title != null && p.title!.isNotEmpty) 't': p.title,
       };
 
   static TrackPhoto photoFromJson(Map<String, dynamic> j) => TrackPhoto(
@@ -110,6 +111,7 @@ abstract final class TrackCodec {
         takenAt: parseDate(j['at']),
         thumbnail:
             j['thumb'] == null ? null : base64Decode(j['thumb'] as String),
+        title: j['t'] as String?,
       );
 
   static List<Map<String, dynamic>> photosToJson(List<TrackPhoto> photos) =>
