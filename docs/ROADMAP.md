@@ -48,14 +48,11 @@
    **"aggiungi punto prima"** che inserisce un waypoint a metà tra il punto selezionato e
    il precedente. Tocca `route_editor_provider.dart` + rendering/gesture in
    `map_gl_screen.dart` (rivedere anche `docs/eval-waypoint-editing.md`).
-6. [ ] **[FEATURE] Selettore colore traccia espandibile** — *SP 3*. Nell'editing traccia la
-   scelta colore deve essere collassata di default e espandersi al tocco; ampliare la
-   palette con più tonalità, coerenti con la palette blu dell'app (`lib/ui/tokens.dart`).
-7. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
+6. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
     editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
     immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
     attivo/disattivo) — oggi incoerenti.
-8. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+7. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
     Sotto-richieste raccolte dal test:
@@ -76,10 +73,10 @@
     - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
       sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
       risolto altrove con `DefaultTextStyle(decoration:none)`).
-9. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+8. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~36 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~33 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
@@ -87,7 +84,7 @@
 
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P1, punto 8**.
+  requisiti dettagliati in **P1, punto 7**.
 - [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
   su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
   già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non

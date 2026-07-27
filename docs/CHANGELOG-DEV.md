@@ -11,6 +11,42 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Rifinitura card di disegno (feedback utente diretto, in lavorazione, non ancora rilasciato)
+
+Tre richieste puntuali sulla card di creazione/modifica (`_DrawingBody` in
+`lib/features/draw_route/draw_route_controls.dart`), non ancora in `ROADMAP.md` P1
+(risolte su richiesta diretta prima di riprendere la lista):
+
+1. **Selettore colore sempre tutto visibile** → `_ColorPicker` diventato
+   `ConsumerStatefulWidget` con stato `_expanded` locale: collassato mostra solo il colore
+   scelto (`_ColorSwatch` con `Key('colorPickerSelectedSwatch')` per i test) + label
+   "Colore"; un tocco espande la riga con gli altri colori della palette (scrollabile
+   orizzontalmente), sceglierne uno la richiude. Anticipa parte di quanto già previsto in
+   `ROADMAP.md` P1 ("Selettore colore traccia espandibile") — la sola parte "ampliare la
+   palette con più tonalità" non era richiesta ora, quindi il punto è stato **rimosso**
+   dalla roadmap (non "ampliare la palette con più tonalità" da sola: se servirà, va
+   riaperta con un punto dedicato).
+2. **Nessuna distanza/dislivello live durante il disegno** → aggiunta la sola
+   **distanza totale**, riusando `routeDistanceProvider` (già esistente e usato da
+   `_SelectedBody` per lo stesso scopo): haversine sul percorso live
+   (`livePathProvider`), nessuna chiamata di rete. **D+/D- volutamente esclusi**:
+   richiederebbero `TrackMetricsCalculator.compute()` (densificazione + fetch quote
+   Terrarium) ad ogni spostamento di un punto — troppo costoso per un aggiornamento live,
+   restano disponibili solo dopo il Salva (o per un import, a fine fase 1).
+3. **Icona poco chiara accanto a "Segui i sentieri"** — `CupertinoIcons.arrow_turn_up_right`/
+   `minus` non comunicava nulla di più del testo + switch già presenti → rimossa.
+
+**Verifica:** i tap sintetici via `osascript`/System Events sul simulatore (vedi
+[[sentei-simulator-tap-automation]]) funzionano sui widget Flutter standard ma **non**
+sulla vista nativa Mapbox (piattaforma view) —i tap sulla mappa per aggiungere waypoint
+non venivano recapitati, rendendo impossibile una verifica visiva end-to-end del disegno.
+Sostituita con un test widget dedicato, `test/features/draw_route_controls_test.dart` (3
+casi: colore collassato/espandibile, icona assente, distanza live con ≥2 waypoint), che
+pilota `tracksProvider` direttamente (`startNewDrawing`/`addPoint`) senza passare dal
+gesto sulla mappa.
+
+---
+
 ## 27 luglio 2026 — Testo pulsante conferma annulla editing (P1, in lavorazione, non ancora rilasciato)
 
 `_confirmCancel` (`lib/features/draw_route/draw_route_controls.dart`) è condiviso tra la

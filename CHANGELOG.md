@@ -9,6 +9,11 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🎨 Card di **disegno/modifica percorso** rifinita: il selettore colore è
+  collassato di default (un tocco per sceglierne un altro, invece di
+  tenere sempre visibili tutti i pallini), la **distanza totale** si vede
+  in tempo reale mentre si disegna (non solo dopo il Salva), ed è sparita
+  l'icona poco chiara accanto a "Segui i sentieri".
 - ✏️ Il messaggio di conferma per uscire dall'editing di un percorso dice ora
   "Annulla modifiche" invece di "Annulla percorso" — più corretto quando si
   sta modificando una traccia già esistente, non solo disegnandone una nuova.
