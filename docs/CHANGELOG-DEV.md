@@ -11,6 +11,35 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Traccia "fantasma" dopo import GPX (P1, in lavorazione, non ancora rilasciato)
+
+**Sintomo segnalato testando `1.0.0+4`:** nel flusso di import a 2 fasi (grezza tratteggiata
+→ editing → Salva), la traccia grezza originale poteva restare visibile in mappa per sempre,
+senza più alcun modo di rimuoverla, e le altre tracce salvate sparivano insieme ad essa.
+
+**Causa:** `TracksListScreen` (`lib/features/tracks_list/tracks_list_screen.dart:47`) legge
+`tracksProvider` — lo stato **live** di tutte le tracce, incluse quelle con un import ancora
+in caricamento (fase 1) o in revisione (fase 2) — non un elenco filtrato alle sole tracce
+persistite. La sua azione "Elimina" (menu riga → `_confirmDeleteTrack` → `remove(t.id)`)
+è quindi disponibile anche su una traccia del genere, ma `Tracks.remove()`
+(`lib/features/draw_route/route_editor_provider.dart`) rimuoveva solo la traccia da
+`TracksState` senza passare da `cancelImport`/`cancelEditing`: non ripuliva
+`importPreviewProvider` (il riferimento grezzo tratteggiato, `_importRawLine` in
+`map_gl_screen.dart`) né `importLoadingProvider`. Risultato: il riferimento grezzo restava
+disegnato per sempre — nessuna card/pulsante può più rimuoverlo, dato che la traccia (e
+quindi la card) non esiste già più — e `importLoadingProvider` restava valorizzato,
+facendo sì che `_renderAll`'s `importing` restasse sempre vero, nascondendo tutte le altre
+tracce salvate (branch "in creazione/modifica ... nascondi TUTTE le altre").
+
+**Fix:** `remove()` ora controlla, prima di rimuovere la traccia, se l'id coincide con
+`importLoadingProvider` e/o con l'id tracciato da `importPreviewProvider`: in tal caso li
+ripulisce (e incrementa `_importGen` per invalidare un eventuale `_runImport` ancora in
+volo, anche se già protetto dal controllo `state.byId(id) == null` in `cancelled()`).
+Aggiunti 2 test di regressione in `test/features/route_editor_test.dart` (rimozione durante
+fase 1 e fase 2 dell'import) che avrebbero fallito prima del fix.
+
+---
+
 ## 27 luglio 2026 — Tema rispettato fin dal primo frame (P1 #1, in lavorazione, non ancora rilasciato)
 
 **Sintomo segnalato testando `1.0.0+4`:** con il tema impostato manualmente (es. Chiaro) su
@@ -136,8 +165,9 @@ ricalcolata con la grezza tratteggiata (dimmed) come riferimento immutabile; per
 al Salva. Rif. `Tracks.importGpx`/`_runImport`/`_hybridRoute`, `PolylineSimplifier`,
 `importPreviewProvider`, `importLoadingProvider`.
 
-> Bug noto emerso dal test su device (la grezza può restare "fantasma" in mappa) →
-> tracciato come fix in `ROADMAP.md` P1.
+> Bug emerso dal test su device (la grezza può restare "fantasma" in mappa, eliminando
+> l'import da Tracks List invece che da Annulla) → causa e fix nella voce datata 27 luglio
+> 2026 più sopra.
 
 ### Sync foto lungo il percorso — analisi e decisione (implementazione UI in corso)
 Analisi completa in `docs/eval-photo-sync.md`. Scoperta chiave: non esiste un asse

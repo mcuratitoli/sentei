@@ -9,6 +9,10 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🧹 Se si elimina dalla lista tracciati una traccia appena importata da GPX
+  mentre è ancora in caricamento/revisione, non resta più una linea
+  tratteggiata "fantasma" bloccata sulla mappa (e le altre tracce salvate non
+  spariscono più insieme ad essa).
 - 🌗 Il tema **Chiaro/Scuro** scelto in Impostazioni ora viene rispettato fin
   dall'apertura dell'app — prima, con il sistema in Dark Mode, poteva mostrare
   per un istante lo Scuro anche con Chiaro selezionato manualmente.
