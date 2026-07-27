@@ -53,6 +53,33 @@ void main() {
     expect(container2.read(appDarkVariantProvider), AppDarkVariant.night);
   });
 
+  test('valore iniziale esplicito: nessun restore asincrono, stato subito corretto',
+      () {
+    final container = ProviderContainer(overrides: [
+      appThemeModeProvider
+          .overrideWith(() => AppThemeModeController(AppThemeMode.light)),
+      appDarkVariantProvider
+          .overrideWith(() => AppDarkVariantController(AppDarkVariant.night)),
+    ]);
+    addTearDown(container.dispose);
+    // Nessun await: se dipendesse dal restore asincrono, qui vedremmo ancora
+    // i default (Automatico/Standard) del primo frame.
+    expect(container.read(appThemeModeProvider), AppThemeMode.light);
+    expect(container.read(appDarkVariantProvider), AppDarkVariant.night);
+  });
+
+  test(
+      'AppThemeModeController.readFrom / AppDarkVariantController.readFrom leggono '
+      'dalle preferenze salvate', () async {
+    SharedPreferences.setMockInitialValues({
+      'app_theme_mode': AppThemeMode.dark.name,
+      'app_dark_variant': AppDarkVariant.oled.name,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    expect(AppThemeModeController.readFrom(prefs), AppThemeMode.dark);
+    expect(AppDarkVariantController.readFrom(prefs), AppDarkVariant.oled);
+  });
+
   test('AppTheme.dark(variant) applica la palette corretta come extension',
       () {
     for (final v in AppDarkVariant.values) {

@@ -26,8 +26,26 @@ extension AppThemeModeX on AppThemeMode {
 class AppThemeModeController extends Notifier<AppThemeMode> {
   static const _key = 'app_theme_mode';
 
+  /// Se valorizzato (letto sincronamente da `main()` prima di `runApp`),
+  /// evita il frame iniziale con la modalità sbagliata: senza, il primo
+  /// frame usa sempre [AppThemeMode.auto] finché `_restore()` (asincrono)
+  /// non risolve dalle preferenze salvate.
+  AppThemeModeController([this._initial]);
+  final AppThemeMode? _initial;
+
+  /// Legge la modalità salvata senza passare da un [Notifier] — usato in
+  /// `main()` per conoscere il valore corretto prima del primo frame.
+  static AppThemeMode readFrom(SharedPreferences prefs) {
+    final saved = prefs.getString(_key);
+    return AppThemeMode.values.firstWhere(
+      (m) => m.name == saved,
+      orElse: () => AppThemeMode.auto,
+    );
+  }
+
   @override
   AppThemeMode build() {
+    if (_initial != null) return _initial;
     _restore();
     return AppThemeMode.auto;
   }
@@ -69,8 +87,23 @@ final appThemeModeProvider =
 class AppDarkVariantController extends Notifier<AppDarkVariant> {
   static const _key = 'app_dark_variant';
 
+  /// Vedi [AppThemeModeController._initial]: stesso scopo, stesso motivo.
+  AppDarkVariantController([this._initial]);
+  final AppDarkVariant? _initial;
+
+  /// Legge la variante salvata senza passare da un [Notifier] — usato in
+  /// `main()` per conoscere il valore corretto prima del primo frame.
+  static AppDarkVariant readFrom(SharedPreferences prefs) {
+    final saved = prefs.getString(_key);
+    return AppDarkVariant.values.firstWhere(
+      (v) => v.name == saved,
+      orElse: () => AppDarkVariant.standard,
+    );
+  }
+
   @override
   AppDarkVariant build() {
+    if (_initial != null) return _initial;
     _restore();
     return AppDarkVariant.standard;
   }
