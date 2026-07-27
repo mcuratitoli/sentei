@@ -11,6 +11,38 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Rifinitura card foto: 3 righe, ordine, evidenziazione gialla (feedback utente diretto su screenshot, in lavorazione, non ancora rilasciato)
+
+Quinto giro di feedback diretto (stesso giorno) sulla card foto appena introdotta.
+
+1. **Layout a 3 righe**: titolo; quota (solo `Format.meters(m)`, senza l'etichetta "Quota
+   ") + coordinate sulla stessa riga (`Row` con due `Text`); data/ora sempre in una riga a
+   sé, non più condizionata a `hasTitle` — prima veniva mostrata solo se c'era un titolo
+   custom (altrimenti sarebbe stata un doppione del titolo-default). Ora può effettivamente
+   duplicare il titolo quando questo è ancora il default data/ora: accettato esplicitamente,
+   l'utente vuole comunque sempre 3 righe fisse.
+2. **Ordine della striscia**: `_PhotoStrip` ordina `track.photos` per `distanceMeters`
+   crescente prima di renderle (`[...track.photos]..sort(...)`), invece di seguire l'ordine
+   di collegamento/import — più intuitivo scorrendo insieme al grafico.
+3. **Evidenziazione gialla, non blu**: sia la thumbnail (`_PhotoStrip`) sia il pin nel
+   grafico (`ElevationProfileChart`/`_ProfilePainter`, nuovo parametro
+   `highlightedPhotoId`) usano ora `0xFFFFD600` invece dell'accento blu dell'app — il pin
+   evidenziato è anche più grande (raggio 7 vs 5). Si applica in due casi, con priorità
+   alla selezione esplicita:
+   - foto **selezionata** (tap su thumbnail o pin, `selectedPhotoProvider` valorizzato,
+     `PhotoDetailCard` aperta) — nuovo, prima nessuna evidenziazione avveniva in questo caso;
+   - foto **sotto il cursore** durante lo scrubbing sul grafico (come già introdotto), ora
+     con tolleranza aumentata da 25 a 50 m lungo il percorso (più facile "agganciarla").
+   `_SelectedBody` calcola `highlightedPhotoId` con questa priorità e lo passa a entrambi i
+   widget.
+
+Aggiornati/aggiunti test in `draw_route_controls_test.dart`: ordine (foto collegate in
+ordine "sbagliato", verificato tappando la prima da sinistra), colore esatto
+`0xFFFFD600` (non solo "non trasparente"), priorità selezione-su-cursore con verifica del
+`highlightedPhotoId` passato a `ElevationProfileChart`.
+
+---
+
 ## 27 luglio 2026 — Foto lungo il percorso: card unificata + titolo + evidenziazione (feedback utente diretto, in lavorazione, non ancora rilasciato)
 
 Quarto giro di feedback diretto (stesso giorno), questa volta sull'epica "Foto lungo il
