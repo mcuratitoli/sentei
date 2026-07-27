@@ -108,10 +108,14 @@ class _DrawingBody extends ConsumerWidget {
             onInsertBefore: selectedWp == 0
                 ? null
                 : () {
-                    ref.read(tracksProvider.notifier).insertPointBefore(selectedWp);
+                    ref
+                        .read(tracksProvider.notifier)
+                        .insertPointBefore(selectedWp);
                     // Il nuovo punto prende il posto di quello selezionato:
                     // segue la selezione sul punto originale (slittato di uno).
-                    ref.read(selectedWaypointProvider.notifier).set(selectedWp + 1);
+                    ref
+                        .read(selectedWaypointProvider.notifier)
+                        .set(selectedWp + 1);
                   },
             onClose: () => ref.read(selectedWaypointProvider.notifier).clear(),
           ),
@@ -170,8 +174,8 @@ class _SelectedBody extends ConsumerWidget {
     final saving = ref.watch(
         tracksProvider.select((s) => s.saving && s.savingId == s.activeId));
     // Ricerca lazy di segnavia/difficoltà su una traccia vecchia appena aperta.
-    final resolvingTrails = ref.watch(
-        tracksProvider.select((s) => s.resolvingTrailsId == s.activeId));
+    final resolvingTrails = ref
+        .watch(tracksProvider.select((s) => s.resolvingTrailsId == s.activeId));
     final distance = ref.watch(routeDistanceProvider);
     final metrics = track?.metrics;
     final hasMetrics = metrics != null;
@@ -209,6 +213,8 @@ class _SelectedBody extends ConsumerWidget {
       }
     }
 
+    final expanded = ref.watch(trackCardExpandedProvider);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,6 +230,15 @@ class _SelectedBody extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
+            // Riduci/espandi: solo nome + chiudi, per vedere più mappa.
+            _CardIconButton(
+              tooltip: expanded ? 'Riduci' : 'Espandi',
+              onPressed: () =>
+                  ref.read(trackCardExpandedProvider.notifier).toggle(),
+              icon: expanded
+                  ? CupertinoIcons.chevron_down
+                  : CupertinoIcons.chevron_up,
+            ),
             // Chiudi la card (deseleziona) — stessa X della mini-card punto.
             CupertinoButton(
               padding: EdgeInsets.zero,
@@ -234,126 +249,132 @@ class _SelectedBody extends ConsumerWidget {
             ),
           ],
         ),
-        if (saving)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Row(children: [
-              CupertinoActivityIndicator(radius: 9),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Calcolo percorso, dislivello e segnavia…',
-                  style: AppText.caption,
-                ),
-              ),
-            ]),
-          )
-        else ...[
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              _Metric(icon: Icons.straighten, value: Format.distance(distance)),
-              if (hasMetrics) ...[
-                const SizedBox(width: 14),
-                Container(
-                  width: 1,
-                  height: 18,
-                  color: Theme.of(context).dividerColor,
-                ),
-                const SizedBox(width: 14),
-                _GainLoss(metrics: metrics),
-              ],
-            ],
-          ),
-          if (resolvingTrails)
+        if (expanded) ...[
+          if (saving)
             const Padding(
-              padding: EdgeInsets.only(top: 6),
+              padding: EdgeInsets.symmetric(vertical: 6),
               child: Row(children: [
-                CupertinoActivityIndicator(radius: 7),
-                SizedBox(width: 8),
-                Text('Ricerca segnavia CAI…', style: AppText.captionSmall),
+                CupertinoActivityIndicator(radius: 9),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Calcolo percorso, dislivello e segnavia…',
+                    style: AppText.caption,
+                  ),
+                ),
               ]),
             )
-          else if ((track?.trailRefs.isNotEmpty ?? false) || difficulty != null)
-            _TrailInfo(
-                refs: track?.trailRefs ?? const [], scale: difficulty),
-        ],
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _PillAction(
-              label: 'Percorso',
-              icon: showingChart
-                  ? CupertinoIcons.chevron_up
-                  : CupertinoIcons.chevron_down,
-              onPressed: (!hasMetrics || saving)
-                  ? null
-                  : () => ref.read(profileVisibleProvider.notifier).toggle(),
+          else ...[
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                _Metric(
+                    icon: Icons.straighten, value: Format.distance(distance)),
+                if (hasMetrics) ...[
+                  const SizedBox(width: 14),
+                  Container(
+                    width: 1,
+                    height: 18,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                  const SizedBox(width: 14),
+                  _GainLoss(metrics: metrics),
+                ],
+              ],
             ),
-            const SizedBox(width: 6),
-            _CardIconButton(
-              tooltip: 'Colori dislivelli',
-              active: steepnessOn,
-              onPressed: (!hasMetrics || saving)
-                  ? null
-                  : () => ref.read(steepnessVisibleProvider.notifier).toggle(),
-              icon: CupertinoIcons.graph_square,
+            if (resolvingTrails)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Row(children: [
+                  CupertinoActivityIndicator(radius: 7),
+                  SizedBox(width: 8),
+                  Text('Ricerca segnavia CAI…', style: AppText.captionSmall),
+                ]),
+              )
+            else if ((track?.trailRefs.isNotEmpty ?? false) ||
+                difficulty != null)
+              _TrailInfo(refs: track?.trailRefs ?? const [], scale: difficulty),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _PillAction(
+                label: 'Percorso',
+                icon: showingChart
+                    ? CupertinoIcons.chevron_up
+                    : CupertinoIcons.chevron_down,
+                onPressed: (!hasMetrics || saving)
+                    ? null
+                    : () => ref.read(profileVisibleProvider.notifier).toggle(),
+              ),
+              const SizedBox(width: 6),
+              _CardIconButton(
+                tooltip: 'Colori dislivelli',
+                active: steepnessOn,
+                onPressed: (!hasMetrics || saving)
+                    ? null
+                    : () =>
+                        ref.read(steepnessVisibleProvider.notifier).toggle(),
+                icon: CupertinoIcons.graph_square,
+              ),
+              const Spacer(),
+              _CardIconButton(
+                tooltip: 'Trova foto vicine',
+                onPressed: (!hasMetrics || saving || track == null)
+                    ? null
+                    : () => findNearbyPhotos(context, ref, track),
+                icon: CupertinoIcons.photo,
+              ),
+              _CardIconButton(
+                tooltip: 'Modifica',
+                onPressed: saving
+                    ? null
+                    : () => ref.read(tracksProvider.notifier).editSelected(),
+                icon: Icons.edit_rounded,
+              ),
+              _CardIconButton(
+                tooltip: 'Salva offline',
+                onPressed: saving || track == null
+                    ? null
+                    : () => downloadTrackOffline(context, ref, track),
+                icon: CupertinoIcons.cloud_download,
+              ),
+            ],
+          ),
+          if (!saving && track != null && track.photos.isNotEmpty)
+            _PhotoStrip(track: track, highlightedPhotoId: highlightedPhotoId),
+          if (showingChart) ...[
+            const SizedBox(height: 4),
+            // Slot fisso per la quota al cursore (spazio riservato sempre, così la
+            // card non cambia altezza scorrendo il grafico).
+            SizedBox(
+              height: 16,
+              child: Text(
+                cursor == null
+                    ? 'Tocca il grafico per la quota del punto'
+                    : 'Quota ${Format.meters(cursor.elevation)} · '
+                        '${Format.distance(cursor.distanceMeters)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight:
+                          cursor == null ? FontWeight.normal : FontWeight.bold,
+                      color:
+                          cursor == null ? Theme.of(context).hintColor : null,
+                    ),
+              ),
             ),
-            const Spacer(),
-            _CardIconButton(
-              tooltip: 'Trova foto vicine',
-              onPressed: (!hasMetrics || saving || track == null)
-                  ? null
-                  : () => findNearbyPhotos(context, ref, track),
-              icon: CupertinoIcons.photo,
-            ),
-            _CardIconButton(
-              tooltip: 'Modifica',
-              onPressed: saving
-                  ? null
-                  : () => ref.read(tracksProvider.notifier).editSelected(),
-              icon: Icons.edit_rounded,
-            ),
-            _CardIconButton(
-              tooltip: 'Salva offline',
-              onPressed: saving || track == null
-                  ? null
-                  : () => downloadTrackOffline(context, ref, track),
-              icon: CupertinoIcons.cloud_download,
+            ElevationProfileChart(
+              profile: metrics.profile,
+              trailSegments: metrics.trailSegments,
+              cursor: cursor,
+              steepness: steepnessOn,
+              height: 120,
+              onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
+              photos: track?.photos ?? const [],
+              onPhotoTap: (p) =>
+                  ref.read(selectedPhotoProvider.notifier).set(p),
+              highlightedPhotoId: highlightedPhotoId,
             ),
           ],
-        ),
-        if (!saving && track != null && track.photos.isNotEmpty)
-          _PhotoStrip(track: track, highlightedPhotoId: highlightedPhotoId),
-        if (showingChart) ...[
-          const SizedBox(height: 4),
-          // Slot fisso per la quota al cursore (spazio riservato sempre, così la
-          // card non cambia altezza scorrendo il grafico).
-          SizedBox(
-            height: 16,
-            child: Text(
-              cursor == null
-                  ? 'Tocca il grafico per la quota del punto'
-                  : 'Quota ${Format.meters(cursor.elevation)} · '
-                      '${Format.distance(cursor.distanceMeters)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight:
-                        cursor == null ? FontWeight.normal : FontWeight.bold,
-                    color: cursor == null ? Theme.of(context).hintColor : null,
-                  ),
-            ),
-          ),
-          ElevationProfileChart(
-            profile: metrics.profile,
-            trailSegments: metrics.trailSegments,
-            cursor: cursor,
-            steepness: steepnessOn,
-            height: 120,
-            onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
-            photos: track?.photos ?? const [],
-            onPhotoTap: (p) => ref.read(selectedPhotoProvider.notifier).set(p),
-            highlightedPhotoId: highlightedPhotoId,
-          ),
         ],
       ],
     );
@@ -455,7 +476,9 @@ class _SelectedWaypointBar extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(left: 44),
-          child: Text('Tieni premuto per spostare', style: AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
+          child: Text('Tieni premuto per spostare',
+              style:
+                  AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
         ),
         const SizedBox(height: 10),
         Row(
@@ -630,7 +653,8 @@ Future<void> _confirmRemovePhoto(
   await showIosConfirm(
     context: context,
     title: 'Scollegare la foto?',
-    message: 'La foto resta nella tua libreria: viene solo scollegata dalla traccia.',
+    message:
+        'La foto resta nella tua libreria: viene solo scollegata dalla traccia.',
     confirmLabel: 'Scollega',
     onConfirm: () {
       ref.read(tracksProvider.notifier).removePhoto(trackId, photoId);
@@ -684,7 +708,8 @@ class _AdvancedSettingsRow extends StatelessWidget {
       onPressed: () => _showAdvancedSettingsSheet(context, track?.color, snap),
       child: Row(
         children: [
-          Icon(CupertinoIcons.slider_horizontal_3, size: 18, color: palette.secondaryLabel),
+          Icon(CupertinoIcons.slider_horizontal_3,
+              size: 18, color: palette.secondaryLabel),
           const SizedBox(width: 10),
           Expanded(
             child: Text('Impostazioni avanzate',
@@ -693,7 +718,8 @@ class _AdvancedSettingsRow extends StatelessWidget {
                     .bodyMedium
                     ?.copyWith(color: palette.secondaryLabel)),
           ),
-          Icon(CupertinoIcons.chevron_right, size: 16, color: palette.tertiaryIcon),
+          Icon(CupertinoIcons.chevron_right,
+              size: 16, color: palette.tertiaryIcon),
         ],
       ),
     );
@@ -725,11 +751,13 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final palette = context.palette;
-    final selected = ref.watch(tracksProvider.select((s) => s.editing?.color)) ??
-        this.selected ??
-        kTrackPalette.first;
+    final selected =
+        ref.watch(tracksProvider.select((s) => s.editing?.color)) ??
+            this.selected ??
+            kTrackPalette.first;
     final snap =
-        ref.watch(tracksProvider.select((s) => s.editing?.snapToTrail)) ?? this.snap;
+        ref.watch(tracksProvider.select((s) => s.editing?.snapToTrail)) ??
+            this.snap;
     return SafeArea(
       top: false,
       child: Padding(
@@ -752,10 +780,12 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: GestureDetector(
-                      onTap: () => ref.read(tracksProvider.notifier).setColor(c),
+                      onTap: () =>
+                          ref.read(tracksProvider.notifier).setColor(c),
                       child: _ColorSwatch(
                         color: c,
-                        ringColor: c == selected ? scheme.onSurface : scheme.outline,
+                        ringColor:
+                            c == selected ? scheme.onSurface : scheme.outline,
                         ringWidth: c == selected ? 2.5 : 1,
                       ),
                     ),
@@ -771,7 +801,8 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
                 ),
                 CupertinoSwitch(
                   value: snap,
-                  onChanged: (v) => ref.read(tracksProvider.notifier).setSnap(v),
+                  onChanged: (v) =>
+                      ref.read(tracksProvider.notifier).setSnap(v),
                 ),
               ],
             ),
@@ -811,8 +842,8 @@ class _NameField extends ConsumerStatefulWidget {
 }
 
 class _NameFieldState extends ConsumerState<_NameField> {
-  late final TextEditingController _controller = TextEditingController(
-      text: ref.read(tracksProvider).active?.name ?? '');
+  late final TextEditingController _controller =
+      TextEditingController(text: ref.read(tracksProvider).active?.name ?? '');
 
   @override
   void dispose() {
@@ -999,7 +1030,8 @@ class _PillAction extends StatelessWidget {
 /// default), coordinate + quota del punto di scatto, data/ora, e le azioni
 /// **Modifica titolo**/**Scollega**.
 class PhotoDetailCard extends ConsumerWidget {
-  const PhotoDetailCard({super.key, required this.photo, required this.onClose});
+  const PhotoDetailCard(
+      {super.key, required this.photo, required this.onClose});
 
   final TrackPhoto photo;
   final VoidCallback onClose;
@@ -1028,7 +1060,8 @@ class PhotoDetailCard extends ConsumerWidget {
             : 'Foto collegata');
 
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
+      constraints:
+          BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
       child: GlassSurface(
         borderRadius: AppRadii.rCard,
         child: Padding(
@@ -1048,7 +1081,8 @@ class PhotoDetailCard extends ConsumerWidget {
                         width: 64,
                         height: 64,
                         child: current.thumbnail != null
-                            ? Image.memory(current.thumbnail!, fit: BoxFit.cover)
+                            ? Image.memory(current.thumbnail!,
+                                fit: BoxFit.cover)
                             : ColoredBox(
                                 color: palette.hairline.withValues(alpha: 0.08),
                                 child: Icon(CupertinoIcons.photo,
@@ -1069,7 +1103,8 @@ class PhotoDetailCard extends ConsumerWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.value.copyWith(
-                                color: palette.label, fontWeight: FontWeight.bold)),
+                                color: palette.label,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -1087,7 +1122,8 @@ class PhotoDetailCard extends ConsumerWidget {
                                 child: SizedBox(
                                     height: 10,
                                     width: 10,
-                                    child: CupertinoActivityIndicator(radius: 5)),
+                                    child:
+                                        CupertinoActivityIndicator(radius: 5)),
                               ),
                               error: (_, __) => const SizedBox.shrink(),
                             ),
@@ -1129,7 +1165,8 @@ class PhotoDetailCard extends ConsumerWidget {
                     icon: CupertinoIcons.pencil,
                     onPressed: trackId == null
                         ? null
-                        : () => _promptEditPhotoTitle(context, ref, trackId, current),
+                        : () => _promptEditPhotoTitle(
+                            context, ref, trackId, current),
                   ),
                   const SizedBox(width: 8),
                   _PillAction(
@@ -1138,7 +1175,8 @@ class PhotoDetailCard extends ConsumerWidget {
                     color: AppColors.destructive,
                     onPressed: trackId == null
                         ? null
-                        : () => _confirmRemovePhoto(context, ref, trackId, current.id),
+                        : () => _confirmRemovePhoto(
+                            context, ref, trackId, current.id),
                   ),
                 ],
               ),
@@ -1153,8 +1191,8 @@ class PhotoDetailCard extends ConsumerWidget {
 /// Dialog per rinominare una foto: campo di testo precompilato col titolo
 /// corrente (vuoto se non impostato — l'interfaccia mostra la data/ora come
 /// default, non un valore forzato nei dati).
-Future<void> _promptEditPhotoTitle(
-    BuildContext context, WidgetRef ref, String trackId, TrackPhoto photo) async {
+Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
+    String trackId, TrackPhoto photo) async {
   final controller = TextEditingController(text: photo.title ?? '');
   final result = await showGeneralDialog<bool>(
     context: context,
@@ -1173,15 +1211,16 @@ Future<void> _promptEditPhotoTitle(
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: DefaultTextStyle(
-                style: AppText.footnote
-                    .copyWith(decoration: TextDecoration.none, color: palette.label),
+                style: AppText.footnote.copyWith(
+                    decoration: TextDecoration.none, color: palette.label),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Modifica titolo',
                         style: AppText.value.copyWith(
-                            color: palette.label, decoration: TextDecoration.none)),
+                            color: palette.label,
+                            decoration: TextDecoration.none)),
                     const SizedBox(height: 14),
                     CupertinoTextField(
                       controller: controller,
@@ -1189,7 +1228,8 @@ Future<void> _promptEditPhotoTitle(
                       placeholder: 'Titolo della foto',
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 10),
                       decoration: BoxDecoration(
                         color: palette.hairline.withValues(alpha: 0.1),
                         borderRadius: AppRadii.rMd,
@@ -1203,9 +1243,11 @@ Future<void> _promptEditPhotoTitle(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             color: palette.glassFill.withValues(alpha: 0.5),
                             borderRadius: AppRadii.rPill,
-                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(false),
                             child: Text('Annulla',
-                                style: AppText.pillLabel.copyWith(color: palette.label)),
+                                style: AppText.pillLabel
+                                    .copyWith(color: palette.label)),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1214,7 +1256,8 @@ Future<void> _promptEditPhotoTitle(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             color: AppColors.primary,
                             borderRadius: AppRadii.rPill,
-                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(true),
                             child: Text('Salva',
                                 style: AppText.pillLabel
                                     .copyWith(color: const Color(0xFFFFFFFF))),
@@ -1235,7 +1278,8 @@ Future<void> _promptEditPhotoTitle(
       return FadeTransition(
         opacity: anim,
         child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1).animate(curved), child: child),
+            scale: Tween<double>(begin: 0.96, end: 1).animate(curved),
+            child: child),
       );
     },
   );

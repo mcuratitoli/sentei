@@ -439,21 +439,25 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   /// Marker delle foto collegate alla traccia **attiva** (in modifica o
   /// selezionata): pallino ambra alla posizione GPS **reale** dello scatto —
   /// non agganciato al percorso (più onesto: si vede anche se un po' fuori
-  /// sentiero). Tap → [_onPhotoTap] mostra l'anteprima.
+  /// sentiero). Tap → [_onPhotoTap] mostra l'anteprima. Quella **selezionata**
+  /// (stessa `selectedPhotoProvider` della card/pin sul grafico) è più grande
+  /// con un anello giallo invece del bianco.
   Future<void> _renderPhotos() async {
     final mgr = _photoDots;
     if (mgr == null) return;
     await mgr.deleteAll();
     _photoById.clear();
     final track = ref.read(tracksProvider).active;
+    final selectedId = ref.read(selectedPhotoProvider)?.id;
     for (final p in track?.photos ?? const <TrackPhoto>[]) {
+      final isSelected = p.id == selectedId;
       final a = await mgr.create(CircleAnnotationOptions(
         geometry:
             Point(coordinates: Position(p.position.longitude, p.position.latitude)),
-        circleRadius: 7,
+        circleRadius: isSelected ? 10 : 7,
         circleColor: 0xFFFFB300,
-        circleStrokeColor: 0xFFFFFFFF,
-        circleStrokeWidth: 2,
+        circleStrokeColor: isSelected ? 0xFFFFD600 : 0xFFFFFFFF,
+        circleStrokeWidth: isSelected ? 3 : 2,
       ));
       _photoById[a.id] = p;
     }
@@ -1114,6 +1118,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
+    ref.listen(selectedPhotoProvider, (_, __) => _renderPhotos());
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _scheduleFocusTrack(next.trackId);

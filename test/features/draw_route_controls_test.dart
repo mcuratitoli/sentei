@@ -545,4 +545,36 @@ void main() {
     expect(container2.read(tracksProvider).tracks.first.photos, isEmpty);
     expect(container2.read(selectedPhotoProvider), isNull);
   });
+
+  testWidgets(
+      'la card traccia selezionata si riduce a solo nome + azioni, per '
+      'lasciare più mappa visibile', (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await notifier.finishDrawing();
+    await tester.pumpAndSettle();
+
+    // Espansa di default: distanza e azioni (es. "Percorso") visibili.
+    expect(find.byIcon(Icons.straighten), findsOneWidget);
+    expect(find.text('Percorso'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Riduci'));
+    await tester.pumpAndSettle();
+
+    // Ridotta: solo nome + i due tasti in alto, il resto è sparito.
+    expect(find.byIcon(Icons.straighten), findsNothing);
+    expect(find.text('Percorso'), findsNothing);
+    expect(find.text('Senza nome'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Espandi'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.straighten), findsOneWidget);
+    expect(find.text('Percorso'), findsOneWidget);
+  });
 }

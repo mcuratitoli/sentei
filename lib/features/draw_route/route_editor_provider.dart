@@ -1039,6 +1039,23 @@ class ProfileVisible extends Notifier<bool> {
 final profileVisibleProvider =
     NotifierProvider<ProfileVisible, bool>(ProfileVisible.new);
 
+/// Espansione della card **traccia selezionata**: `true` = tutti i dati
+/// (distanza, D+/D-, segnavia, profilo, foto...); `false` = solo nome +
+/// azione chiudi/riduci-espandi, per lasciare più mappa visibile. Riparte
+/// sempre espansa a un cambio di traccia (stesso pattern di [ProfileVisible]).
+class TrackCardExpanded extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(activeTrackIdProvider);
+    return true;
+  }
+
+  void toggle() => state = !state;
+}
+
+final trackCardExpandedProvider =
+    NotifierProvider<TrackCardExpanded, bool>(TrackCardExpanded.new);
+
 /// Visibilità della colorazione per **ripidezza** (pendenza) della traccia
 /// selezionata. Si azzera al cambio di traccia.
 class SteepnessVisible extends Notifier<bool> {
