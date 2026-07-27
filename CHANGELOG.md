@@ -9,6 +9,13 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 📸 Toccare una foto (sia dalla card traccia sia dal pin in mappa) apre ora
+  la stessa card con **titolo** (impostabile), **coordinate e quota** del
+  punto di scatto, data e ora, e i tasti "Modifica titolo"/"Scollega" —
+  toccando la thumbnail si apre la foto originale a schermo intero (se
+  ancora presente nella libreria del dispositivo). Scorrendo il grafico del
+  profilo, la thumbnail della foto più vicina si evidenzia e la striscia
+  scorre per mostrarla; le thumbnail sono anche più piccole.
 - 🎨 Card di **disegno/modifica percorso** rifinita: colore e "Segui i
   sentieri" ora vivono in un foglio **Impostazioni avanzate** dedicato
   (invece di occupare sempre spazio nella card), la **distanza totale** si

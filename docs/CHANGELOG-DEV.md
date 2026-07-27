@@ -11,6 +11,61 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Foto lungo il percorso: card unificata + titolo + evidenziazione (feedback utente diretto, in lavorazione, non ancora rilasciato)
+
+Quarto giro di feedback diretto (stesso giorno), questa volta sull'epica "Foto lungo il
+percorso" (P1, analisi in `docs/eval-photo-sync.md`) e su un dettaglio residuo della card
+del punto selezionato.
+
+1. **Riga Annulla/Undo/Salva nella vista del punto selezionato** — non ha senso lì
+   (riguardano la traccia intera, non il punto); rimossa quando `selectingPoint` è vero in
+   `_DrawingBody` — la X in alto nella vista del punto chiude già, tornando alla card
+   normale dove quei tasti ricompaiono.
+2. **Thumbnail più piccole**: `_PhotoStrip` da 56 a 44px (minimo target di tocco iOS,
+   restano tappabili).
+3. **Evidenziazione + auto-scroll scorrendo il grafico**: `_SelectedBody` calcola ora
+   `highlightedPhotoId` confrontando `profileCursorProvider` con `photo.distanceMeters` di
+   ciascuna foto (tolleranza 25 m lungo il percorso — costante `_photoHighlightToleranceMeters`
+   in `draw_route_controls.dart`); `_PhotoStrip` (diventato `ConsumerStatefulWidget`) disegna
+   un bordo (`AnimatedContainer`) sulla thumbnail corrispondente e, in `didUpdateWidget`,
+   scorre fino a renderla visibile (`Scrollable.ensureVisible` via `GlobalKey` per foto,
+   assegnata in un post-frame callback — la thumbnail deve già essere nell'albero).
+4. **Card di dettaglio foto unificata**: prima, tap su una thumbnail nella card apriva
+   direttamente `_confirmRemovePhoto` (nessun dettaglio, solo "Scollega?"), mentre tap su un
+   pin foto in mappa apriva `_PhotoInfoCard` (thumbnail + sola data). Ora **entrambi** i tap
+   passano da `selectedPhotoProvider` (già mostrato sopra `DrawRouteControls` in
+   `map_gl_screen.dart` — bastava riusare lo stesso provider dalla striscia invece di aprire
+   un action-sheet separato) e mostrano la stessa `PhotoDetailCard` (nuovo widget pubblico
+   in `draw_route_controls.dart`, sostituisce `_PhotoInfoCard`): thumbnail (tap → foto a
+   schermo intero), titolo (o data/ora come default), coordinate + quota del punto di scatto
+   (`waypointElevationProvider`, lo stesso già introdotto per il punto selezionato — riusato
+   qui passandogli `photo.position` invece della posizione di un waypoint), data/ora, azioni
+   "Modifica titolo"/"Scollega" come pillole (`_PillAction`, stesso linguaggio del resto
+   della card, non più testo puro/action-sheet).
+   - **Titolo**: nuovo campo `TrackPhoto.title` (nullable, chiave `'t'` in
+     `track_codec.dart`), `Tracks.updatePhotoTitle(trackId, photoId, title)`. Titolo vuoto →
+     resta un valore esplicito (stringa vuota, non torna a `null`: limite di
+     `TrackPhoto.copyWith`, che usa `??` per tutti i campi) — l'interfaccia tratta comunque
+     vuoto/null allo stesso modo (mostra la data come titolo di default).
+   - **Foto a schermo intero**: `openFullPhoto` usa `AssetEntity.fromId(photo.id)` — l'id è
+     già l'id `photo_manager` **di questo device** (nonostante il commento originale di
+     `TrackPhoto.id` scoraggiasse di affidarsi a un id di libreria non portabile: di fatto è
+     già quello che viene salvato da `NearbyPhotosFinder._toTrackPhoto`). Se l'asset non
+     risolve (traccia sincronizzata da un altro device) l'apertura è un no-op silenzioso, come
+     richiesto — nessun re-match per posizione/orario implementato qui (fuori scope, l'id
+     esistente basta per il caso "stesso device" richiesto). Viewer minimale con
+     `InteractiveViewer` (pinch-zoom), niente dipendenza nuova.
+   - **Coordinate/data-ora**: nuovi `Format.coordinates`/`Format.dateTime` in
+     `core/util/format.dart` — `_PointInfoCard` in `map_gl_screen.dart` (punto ispezionato in
+     esplorazione) aggiornato per riusare `Format.coordinates` invece di duplicare la
+     formattazione.
+
+Non incluso in questo giro (restano aperti in `ROADMAP.md` P1): import/toggle
+mostra-nascondi dalla card, vista a griglia con selezione multipla, zoom/focus mappa al tap
+su un'anteprima, fix del testo sottolineato "Trovate X immagini".
+
+---
+
 ## 27 luglio 2026 — Rifinitura design su screenshot (skill mobile-app-design-mastery, in lavorazione, non ancora rilasciato)
 
 Terzo giro di feedback diretto sulla stessa card (stesso giorno), questa volta caricando

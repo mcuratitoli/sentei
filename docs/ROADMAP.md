@@ -43,30 +43,28 @@
     immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
     attivo/disattivo) — oggi incoerenti.
 6. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
-    *SP 13* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
-    è già fatta in `docs/eval-photo-sync.md`, qui vanno rifinite/aggiunte le parti UI).
-    Sotto-richieste raccolte dal test:
+    *SP 8* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
+    è già fatta in `docs/eval-photo-sync.md`). **Fatto** (27 luglio 2026, vedi
+    `docs/CHANGELOG-DEV.md`): card di dettaglio foto unificata (stessa sia dal pin mappa sia
+    dalla striscia nella card traccia) con titolo/coordinate/quota/data-ora e azioni
+    "Modifica titolo"/"Scollega"; apertura a schermo intero della foto originale (se ancora
+    reperibile sul device); evidenziazione + auto-scroll della thumbnail scorrendo il
+    grafico; thumbnail più piccole. **Resta da fare:**
     - il tasto immagini nella card deve permettere di **importare nuove foto**, oltre a
-      mostrare/nascondere le anteprime esistenti;
-    - scorrendo il profilo/tracciato, il punto con una foto associata deve **evidenziarsi**
-      (es. bordo giallo) quando il dito lo attraversa;
-    - toccando un punto giallo (con foto) oggi si mostra l'anteprima; **toccando
-      l'anteprima** ci si aspetta la foto a **schermo intero**;
-    - le foto devono poter avere un **titolo** impostabile dall'utente (default: data e ora
-      dello scatto);
-    - un **tasto info** deve mostrare i metadati della foto: coordinate (ed eventualmente
-      altitudine) del luogo di scatto, data/ora, titolo;
+      mostrare/nascondere le anteprime esistenti (oggi "Trova foto vicine" importa, ma non
+      c'è un modo per nascondere/mostrare la striscia già collegata);
     - serve una **vista a griglia** con tutte le foto della traccia, con selezione multipla
       e azioni bulk (es. eliminazione massiva);
-    - toccando un'anteprima (dalla griglia o dal punto in mappa) ci si aspetta lo
-      **zoom/focus della mappa** sul punto di scatto **e** l'apertura delle info foto;
-    - fix minore incluso: il testo "Trovate X immagini" (import foto) risulta ancora
-      sottolineato in giallo (probabile residuo di sottolineatura di debug, stesso bug già
-      risolto altrove con `DefaultTextStyle(decoration:none)`).
+    - toccando un'anteprima (dalla griglia o dal punto in mappa) ci si aspetta anche lo
+      **zoom/focus della mappa** sul punto di scatto (oggi si apre solo la card di dettaglio,
+      la mappa non si sposta);
+    - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
+      in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
+      altrove con `DefaultTextStyle(decoration:none)`).
 7. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~25 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~20 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
