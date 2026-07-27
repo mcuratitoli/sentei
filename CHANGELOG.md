@@ -9,6 +9,10 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🎨 Card della traccia selezionata, del dettaglio foto e le altre card di
+  contenuto sono ora un po' più **trasparenti**, per vedere meglio la mappa
+  sotto; anche la card del punto selezionato in esplorazione (fuori
+  dall'editing) è più trasparente.
 - 🎨 Prima passata di **coerenza grafica**: card e pulsanti "X" con la
   stessa trasparenza/dimensione ovunque, icone allineate allo stesso stile
   in tutta l'app (era capitato qualche pulsante fuori tono, es. l'icona

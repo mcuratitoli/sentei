@@ -11,6 +11,33 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Token `contentGlassOpacity`/`contentGlassBlur`, card più trasparenti (in lavorazione, non ancora rilasciato)
+
+Seguito diretto dell'audit di coerenza grafica sotto: l'utente ha chiesto più trasparenza per
+`DrawRouteControls`/`PhotoDetailCard` (che l'audit aveva appena reso coerenti a 0.92/30, un
+valore isolato senza un token dedicato) e per `_PointInfoCard` (punto selezionato fuori
+dall'editing). Prima di implementare, chiarito con l'utente (frase ambigua "trasparenza/opacità
+in più") che l'intento era **abbassare** il valore di opacità, non alzarlo.
+
+Aggiunta una seconda coppia di token in `AppPalette` (`lib/ui/tokens.dart`):
+`contentGlassOpacity`/`contentGlassBlur` (default 0.85/30), distinta da `glassOpacity`/
+`glassBlur` già esistente per la chrome di navigazione (menubar, controlli laterali, ricerca).
+Aggiornati i 4 call site che avevano il vecchio valore hardcoded 0.92/30:
+`DrawRouteControls` e `PhotoDetailCard` (`draw_route_controls.dart`), `_ImportLoadingCard`
+(`map_gl_screen.dart`), `_NearbyPhotosSheet` (`nearby_photos_action.dart`). `darkOled` imposta
+esplicitamente `contentGlassOpacity/Blur` a 0.98/0, stesso valore "flat, senza blur" già usato
+per la chrome in quella variante (coerente con l'intento "risparmio energetico" del tema).
+
+`_PointInfoCard` non condivide il tier "contenuto" (leggibilità dati non prioritaria quanto
+traccia/foto): opacità impostata a `palette.glassOpacity - 0.08` (clampata), relativa così da
+restare coerente se in futuro `glassOpacity` cambiasse per variante di tema.
+
+Test: aggiornate le due asserzioni di opacità in `draw_route_controls_test.dart` da `0.92`
+letterale a `AppPalette.light.contentGlassOpacity`, per non irrigidire il test su un valore che
+può cambiare.
+
+---
+
 ## 27 luglio 2026 — Audit coerenza grafica (opacità, icone, pesi visivi) (in lavorazione, non ancora rilasciato)
 
 Prima revisione grafica trasversale dell'app (non un fix puntuale come le voci precedenti):
