@@ -308,16 +308,22 @@ class _SelectedBody extends ConsumerWidget {
               _TrailInfo(refs: track?.trailRefs ?? const [], scale: difficulty),
           ],
           const SizedBox(height: 8),
+          // Riga con 4-5 azioni: icone nude, senza testo/sfondo (a differenza
+          // delle pillole con label usate dove la riga ha solo 1-2 azioni —
+          // barra del punto selezionato, card foto, foglio foto vicine —
+          // altrimenti qui andrebbe fuori schermo o su due righe). "Percorso"
+          // era l'unica pillola con label in questa riga, incoerente con le
+          // altre 4: ora è un'icona con stato attivo/disattivo come "Colori
+          // dislivelli" accanto.
           Row(
             children: [
-              _PillAction(
-                label: 'Percorso',
-                icon: showingChart
-                    ? CupertinoIcons.chevron_up
-                    : CupertinoIcons.chevron_down,
+              _CardIconButton(
+                tooltip: 'Profilo altimetrico',
+                active: showingChart,
                 onPressed: (!hasMetrics || saving)
                     ? null
                     : () => ref.read(profileVisibleProvider.notifier).toggle(),
+                icon: CupertinoIcons.waveform_path,
               ),
               const SizedBox(width: 6),
               _CardIconButton(
@@ -947,6 +953,15 @@ class _GainLoss extends StatelessWidget {
 
 /// Bottone-icona compatto stile iOS per la card (press-dim, niente ripple).
 /// `active` = stato acceso (pastiglia tinta), `onPressed` null = disabilitato.
+///
+/// **Regola a due livelli** (formalizzata dopo un'incoerenza segnalata
+/// dall'utente — vedi `_PillAction` per il secondo livello): righe con
+/// **3+ azioni** (es. la riga della card traccia: profilo, colori dislivelli,
+/// foto vicine, modifica, salva offline) usano solo icone nude — con testo e
+/// sfondo per ciascuna andrebbe fuori schermo o su due righe. Righe con
+/// **1-2 azioni** (barra del punto selezionato, card dettaglio foto, foglio
+/// foto vicine) usano invece `_PillAction`, più leggibile quando c'è spazio.
+/// Non mescolare i due stili nella stessa riga.
 class _CardIconButton extends StatelessWidget {
   const _CardIconButton({
     required this.icon,
@@ -997,6 +1012,10 @@ class _CardIconButton extends StatelessWidget {
 
 /// Pillola d'azione stile iOS. `filled` = tinta primaria piena (azione
 /// primaria); altrimenti tinta leggera (azione secondaria).
+///
+/// Secondo livello della regola descritta su `_CardIconButton`: usare qui
+/// solo dove la riga ha **1-2 azioni** (c'è spazio per testo leggibile),
+/// mai in righe dense da 3+ azioni.
 class _PillAction extends StatelessWidget {
   const _PillAction({
     required this.label,

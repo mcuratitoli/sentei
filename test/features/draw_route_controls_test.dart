@@ -384,9 +384,9 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    // Il grafico è collassato di default: aprirlo ("Percorso") per farlo
-    // comparire nell'albero.
-    await tester.tap(find.text('Percorso'));
+    // Il grafico è collassato di default: aprirlo ("Profilo altimetrico")
+    // per farlo comparire nell'albero.
+    await tester.tap(find.byTooltip('Profilo altimetrico'));
     await tester.pumpAndSettle();
 
     // Cursore lontano da entrambe: nessuna evidenziata da scrubbing.
@@ -561,23 +561,24 @@ void main() {
     await notifier.finishDrawing();
     await tester.pumpAndSettle();
 
-    // Espansa di default: distanza e azioni (es. "Percorso") visibili.
+    // Espansa di default: distanza e azioni (es. "Profilo altimetrico")
+    // visibili.
     expect(find.byIcon(Icons.straighten), findsOneWidget);
-    expect(find.text('Percorso'), findsOneWidget);
+    expect(find.byTooltip('Profilo altimetrico'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Riduci'));
     await tester.pumpAndSettle();
 
     // Ridotta: solo nome + i due tasti in alto, il resto è sparito.
     expect(find.byIcon(Icons.straighten), findsNothing);
-    expect(find.text('Percorso'), findsNothing);
+    expect(find.byTooltip('Profilo altimetrico'), findsNothing);
     expect(find.text('Senza nome'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Espandi'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.straighten), findsOneWidget);
-    expect(find.text('Percorso'), findsOneWidget);
+    expect(find.byTooltip('Profilo altimetrico'), findsOneWidget);
   });
 
   testWidgets(
