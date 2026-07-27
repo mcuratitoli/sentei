@@ -9,6 +9,9 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
 ## In lavorazione (non ancora rilasciato)
 
+- 🎨 Il tasto "Percorso" nella card traccia (mostra/nasconde il grafico
+  altimetrico) ora è un'icona, coerente con le altre azioni della stessa
+  riga (prima era l'unico pulsante con testo in quella riga).
 - 🎨 Card della traccia selezionata, del dettaglio foto e le altre card di
   contenuto sono ora un po' più **trasparenti**, per vedere meglio la mappa
   sotto; anche la card del punto selezionato in esplorazione (fuori

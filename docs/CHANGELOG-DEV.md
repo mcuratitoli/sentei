@@ -11,6 +11,36 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Regola a due livelli per le azioni delle card: pillola vs icona (in lavorazione, non ancora rilasciato)
+
+Domanda diretta dell'utente su uno screenshot con card foto + card traccia affiancate: "sono
+coerenti tutti i bottoni?" — la risposta onesta, dopo lettura del codice, era no. La riga azioni
+della card traccia (`_SelectedBody`) mescolava `_PillAction` "Percorso" (icona+testo+sfondo) con
+4 `_CardIconButton` icon-only (Colori dislivelli, Trova foto vicine, Modifica, Salva offline);
+`_SelectedWaypointBar`, `PhotoDetailCard` e `_NearbyPhotosSheet` invece usano solo `_PillAction`.
+Nessun commento nel codice spiegava perché — le 4 icone erano finite icon-only una alla volta,
+in round diversi di feedback (audit coerenza grafica, foto lungo il percorso), senza rivalutare
+la riga nel suo insieme.
+
+Chiarito con l'utente (via `AskUserQuestion`, opzioni con preview ASCII delle 3 alternative) che
+la scelta preferita è formalizzare **due livelli** invece di uniformare tutto a un solo stile:
+righe con **3+ azioni** (card traccia: 5 azioni in una riga) restano icon-only — con
+testo+sfondo per ognuna andrebbe fuori schermo o su due righe; righe con **1-2 azioni** (punto
+selezionato, card foto, foto vicine) restano a pillole con label, più leggibili quando c'è
+spazio. Regola scritta come commento su entrambe le classi (`_CardIconButton`, `_PillAction`,
+`draw_route_controls.dart`) così il criterio resta esplicito per le prossime azioni aggiunte.
+
+Applicata la regola al caso concreto che l'aveva rotta: "Percorso" (toggle apertura/chiusura
+del grafico altimetrico) non è più una `_PillAction` ma un `_CardIconButton` con icona fissa
+`CupertinoIcons.waveform_path` e stato `active: showingChart` — stesso linguaggio di "Colori
+dislivelli" accanto (icona fissa + pastiglia tinta quando attivo), invece del testo + chevron
+direzionale che aveva prima.
+
+Test: sostituiti i `find.text('Percorso')` con `find.byTooltip('Profilo altimetrico')` in
+`draw_route_controls_test.dart` (3 asserzioni: apertura grafico, card ridotta/espansa).
+
+---
+
 ## 27 luglio 2026 — Token `contentGlassOpacity`/`contentGlassBlur`, card più trasparenti (in lavorazione, non ancora rilasciato)
 
 Seguito diretto dell'audit di coerenza grafica sotto: l'utente ha chiesto più trasparenza per
