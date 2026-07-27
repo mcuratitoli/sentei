@@ -69,6 +69,11 @@ class _DrawingBody extends ConsumerWidget {
     final snap = track?.snapToTrail ?? true;
     final selectedWp = ref.watch(selectedWaypointProvider);
     final wpCount = track?.waypoints.length ?? 0;
+    // Solo la distanza (haversine sul percorso live, nessuna rete): D+/D-
+    // richiedono il calcolo completo delle metriche (quote via Terrarium),
+    // troppo costoso da rifare ad ogni spostamento di un punto — restano
+    // disponibili solo dopo il Salva, come per le tracce importate.
+    final distance = ref.watch(routeDistanceProvider);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -80,9 +85,6 @@ class _DrawingBody extends ConsumerWidget {
         // ghiacciai, creste senza tracce OSM dove lo snap devierebbe).
         Row(
           children: [
-            Icon(snap ? CupertinoIcons.arrow_turn_up_right : CupertinoIcons.minus,
-                size: 18, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
             Expanded(
               child: Text(snap ? 'Segui i sentieri' : 'Linee dritte',
                   style: Theme.of(context).textTheme.bodyMedium),
@@ -93,6 +95,10 @@ class _DrawingBody extends ConsumerWidget {
             ),
           ],
         ),
+        if (wpCount >= 2) ...[
+          const SizedBox(height: 6),
+          _Metric(icon: Icons.straighten, value: Format.distance(distance)),
+        ],
         // Barra contestuale del punto selezionato: elimina con conferma
         // (niente più tap-per-eliminare accidentale sulla mappa).
         if (selectedWp != null && selectedWp < wpCount) ...[
@@ -516,43 +522,87 @@ class _DifficultyChip extends StatelessWidget {
   }
 }
 
-/// Selettore di colore per la traccia in modifica.
-class _ColorPicker extends ConsumerWidget {
+/// Selettore di colore per la traccia in modifica: **collassato** mostra solo
+/// il colore scelto (un tocco espande la palette per cambiarlo), invece di
+/// tenere sempre visibili tutti i pallini.
+class _ColorPicker extends ConsumerStatefulWidget {
   const _ColorPicker({required this.selected});
 
   final Color? selected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ColorPicker> createState() => _ColorPickerState();
+}
+
+class _ColorPickerState extends ConsumerState<_ColorPicker> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final selected = widget.selected ?? kTrackPalette.first;
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
-          const Icon(Icons.palette_outlined, size: 18),
-          const SizedBox(width: 8),
-          for (final c in kTrackPalette)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => ref.read(tracksProvider.notifier).setColor(c),
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: c,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: c == selected ? Colors.black : Colors.white,
-                      width: c == selected ? 3 : 1,
-                    ),
-                  ),
+          GestureDetector(
+            key: const Key('colorPickerSelectedSwatch'),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: _ColorSwatch(color: selected, ringColor: scheme.onSurface, ringWidth: 2.5),
+          ),
+          const SizedBox(width: 10),
+          if (_expanded)
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final c in kTrackPalette)
+                      if (c != selected)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () {
+                              ref.read(tracksProvider.notifier).setColor(c);
+                              setState(() => _expanded = false);
+                            },
+                            child: _ColorSwatch(color: c, ringColor: scheme.outline),
+                          ),
+                        ),
+                  ],
                 ),
               ),
-            ),
+            )
+          else
+            Text('Colore',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: scheme.onSurface.withValues(alpha: 0.6))),
         ],
       ),
     );
   }
+}
+
+class _ColorSwatch extends StatelessWidget {
+  const _ColorSwatch(
+      {required this.color, required this.ringColor, this.ringWidth = 1});
+
+  final Color color;
+  final Color ringColor;
+  final double ringWidth;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: ringColor, width: ringWidth),
+        ),
+      );
 }
 
 /// Campo per dare un nome alla traccia in modifica. Sincronizzato col provider.
