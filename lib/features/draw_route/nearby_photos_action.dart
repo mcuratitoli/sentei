@@ -140,7 +140,10 @@ class _NearbyPhotosSheetState extends State<_NearbyPhotosSheet> {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: media.size.height * 0.7),
           child: GlassSurface(
-            opacity: 0.94,
+            // 0.92, come le altre card di contenuto impilate sulla mappa
+            // (DrawRouteControls, _ImportLoadingCard, PhotoDetailCard): era
+            // 0.94, un valore isolato senza un motivo per differire.
+            opacity: 0.92,
             blur: 30,
             borderRadius: AppRadii.rCard,
             child: Padding(

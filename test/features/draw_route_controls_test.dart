@@ -18,6 +18,7 @@ import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
 import 'package:sentei/ui/elevation_profile_chart.dart' show ElevationProfileChart;
+import 'package:sentei/ui/glass.dart' show GlassSurface;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -576,5 +577,67 @@ void main() {
 
     expect(find.byIcon(Icons.straighten), findsOneWidget);
     expect(find.text('Percorso'), findsOneWidget);
+  });
+
+  testWidgets(
+      'coerenza grafica: icona "Modifica" Cupertino (non Material)',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await notifier.finishDrawing();
+    await tester.pumpAndSettle();
+
+    // "Modifica" era `Icons.edit_rounded` (Material): stonava con le altre
+    // icone Cupertino della stessa riga (Trova foto vicine, Salva offline) e
+    // con le altre matite dell'app (nome traccia, titolo foto).
+    expect(find.byIcon(Icons.edit_rounded), findsNothing);
+    expect(find.byIcon(CupertinoIcons.pencil), findsOneWidget);
+
+    // Stessa opacità di GlassSurface della card traccia, verificata sotto
+    // (0.92): qui verifichiamo solo che DrawRouteControls la dichiari.
+    expect(tester.widget<GlassSurface>(find.byType(GlassSurface).first).opacity,
+        0.92);
+  });
+
+  testWidgets(
+      'coerenza grafica: PhotoDetailCard ha la stessa opacità di GlassSurface '
+      'della card traccia (era il default, più trasparente)', (tester) async {
+    final container = ProviderContainer(overrides: [
+      routingServiceProvider.overrideWithValue(_FakeRouting()),
+      elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+    ]);
+    addTearDown(container.dispose);
+    container.read(tracksProvider.notifier)
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await container.read(tracksProvider.notifier).finishDrawing();
+    final id = container.read(tracksProvider).tracks.first.id;
+    await container.read(tracksProvider.notifier).addPhotos(id, const [
+      TrackPhoto(id: 'ph1', position: LatLng(45.005, 7), distanceMeters: 500),
+    ]);
+    final photo = container.read(tracksProvider).tracks.first.photos.single;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: PhotoDetailCard(photo: photo, onClose: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<GlassSurface>(find.byType(GlassSurface)).opacity,
+        0.92);
   });
 }

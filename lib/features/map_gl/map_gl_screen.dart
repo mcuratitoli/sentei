@@ -1831,7 +1831,7 @@ class _SideControls extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: scheme.onSurface.withValues(alpha: 0.85),
+                color: context.palette.label,
               ),
             ),
           ),

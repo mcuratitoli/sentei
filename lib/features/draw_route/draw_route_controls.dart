@@ -230,14 +230,24 @@ class _SelectedBody extends ConsumerWidget {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            // Riduci/espandi: solo nome + chiudi, per vedere più mappa.
-            _CardIconButton(
-              tooltip: expanded ? 'Riduci' : 'Espandi',
-              onPressed: () =>
-                  ref.read(trackCardExpandedProvider.notifier).toggle(),
-              icon: expanded
-                  ? CupertinoIcons.chevron_down
-                  : CupertinoIcons.chevron_up,
+            // Riduci/espandi: solo nome + chiudi, per vedere più mappa. Stessa
+            // dimensione/colore/tap-area della X accanto (stesso peso visivo
+            // per due azioni di pari importanza nella stessa riga — non
+            // `_CardIconButton`, che è tarato per la riga di azioni sotto).
+            Tooltip(
+              message: expanded ? 'Riduci' : 'Espandi',
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(40, 40),
+                onPressed: () =>
+                    ref.read(trackCardExpandedProvider.notifier).toggle(),
+                child: Icon(
+                    expanded
+                        ? CupertinoIcons.chevron_down
+                        : CupertinoIcons.chevron_up,
+                    size: 24,
+                    color: context.palette.tertiaryIcon),
+              ),
             ),
             // Chiudi la card (deseleziona) — stessa X della mini-card punto.
             CupertinoButton(
@@ -330,7 +340,10 @@ class _SelectedBody extends ConsumerWidget {
                 onPressed: saving
                     ? null
                     : () => ref.read(tracksProvider.notifier).editSelected(),
-                icon: Icons.edit_rounded,
+                // Cupertino, non Material (era `Icons.edit_rounded`, stonava
+                // con le altre icone Cupertino della stessa riga e con la
+                // matita usata altrove nell'app — nome traccia, titolo foto).
+                icon: CupertinoIcons.pencil,
               ),
               _CardIconButton(
                 tooltip: 'Salva offline',
@@ -857,19 +870,21 @@ class _NameFieldState extends ConsumerState<_NameField> {
       if (next != _controller.text) _controller.text = next;
     });
 
-    final scheme = Theme.of(context).colorScheme;
+    final palette = context.palette;
     return CupertinoTextField(
       controller: _controller,
       textInputAction: TextInputAction.done,
       placeholder: 'Nome percorso',
       prefix: Padding(
         padding: const EdgeInsets.only(left: 10),
-        child: Icon(CupertinoIcons.pencil,
-            size: 18, color: scheme.onSurface.withValues(alpha: 0.5)),
+        child: Icon(CupertinoIcons.pencil, size: 18, color: palette.iconGreyLight),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+      // Stesso riempimento del campo titolo foto (`_promptEditPhotoTitle`):
+      // era `scheme.onSurface.withValues(alpha: 0.06)`, un grigio leggermente
+      // diverso da `palette.hairline` usato nell'altro campo di testo.
       decoration: BoxDecoration(
-        color: scheme.onSurface.withValues(alpha: 0.06),
+        color: palette.hairline.withValues(alpha: 0.1),
         borderRadius: AppRadii.rMd,
       ),
       onChanged: (v) => ref.read(tracksProvider.notifier).setName(v),
@@ -945,13 +960,19 @@ class _CardIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    // Token della palette dell'app (non `colorScheme.onSurface`/`.primary`
+    // grezzi): quelli sono generati dall'algoritmo tonale M3 a partire dal
+    // seed e non garantiscono di combaciare con i grigi delle altre icone/
+    // testi dell'app nelle varianti scure — con `context.palette` restano
+    // sempre coerenti con il resto della card (es. la X di chiusura, che usa
+    // `tertiaryIcon`). Icona a 24px, stessa dimensione della X di chiusura.
+    final palette = context.palette;
     final enabled = onPressed != null;
     final color = !enabled
-        ? scheme.onSurface.withValues(alpha: 0.28)
+        ? palette.tertiaryIcon
         : active
-            ? scheme.primary
-            : scheme.onSurface.withValues(alpha: 0.75);
+            ? palette.accent
+            : palette.iconGrey;
     Widget button = CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: const Size(40, 40),
@@ -961,10 +982,10 @@ class _CardIconButton extends StatelessWidget {
         height: 40,
         decoration: active
             ? BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
+                color: palette.accent.withValues(alpha: 0.12),
                 shape: BoxShape.circle)
             : null,
-        child: Icon(icon, size: 22, color: color),
+        child: Icon(icon, size: 24, color: color),
       ),
     );
     if (tooltip != null) button = Tooltip(message: tooltip!, child: button);
@@ -1063,6 +1084,12 @@ class PhotoDetailCard extends ConsumerWidget {
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
       child: GlassSurface(
+        // Stessa opacità/blur di DrawRouteControls e _ImportLoadingCard (le
+        // altre card impilate sopra la mappa): senza, usava il default più
+        // trasparente della "chrome" di navigazione (menubar/controlli),
+        // leggendosi visibilmente più diafana delle card sopra/sotto di lei.
+        opacity: 0.92,
+        blur: 30,
         borderRadius: AppRadii.rCard,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
@@ -1148,12 +1175,15 @@ class PhotoDetailCard extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  // Stessa dimensione/tap-area della X di _SelectedBody,
+                  // _SelectedWaypointBar e _PointInfoCard (era 22px/32×32,
+                  // percepibilmente più piccola delle altre).
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    minimumSize: const Size(32, 32),
+                    minimumSize: const Size(40, 40),
                     onPressed: onClose,
                     child: Icon(CupertinoIcons.clear_circled_solid,
-                        size: 22, color: palette.tertiaryIcon),
+                        size: 24, color: palette.tertiaryIcon),
                   ),
                 ],
               ),

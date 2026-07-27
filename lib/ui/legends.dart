@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import 'cai_difficulty.dart';
@@ -287,7 +288,9 @@ class _NoteBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 18, color: palette.secondaryLabel),
+          // Cupertino, non Material (era `Icons.info_outline`): stessa icona
+          // "info" usata in Impostazioni → Informazioni → Sentèi.
+          Icon(CupertinoIcons.info, size: 18, color: palette.secondaryLabel),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
