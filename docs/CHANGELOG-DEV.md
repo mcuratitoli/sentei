@@ -11,6 +11,27 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 27 luglio 2026 — Pin foto in mappa evidenziato + card traccia riducibile (feedback utente diretto, in lavorazione, non ancora rilasciato)
+
+Sesto e ultimo giro di feedback diretto sul tema foto (stesso giorno), più una richiesta
+indipendente sulla card della traccia selezionata.
+
+1. **Pin foto in mappa** — l'evidenziazione gialla introdotta per thumbnail e pin nel
+   grafico non arrivava al terzo posto dove compare una foto: il pin sulla **mappa**
+   (`_renderPhotos` in `map_gl_screen.dart`). Ora la foto selezionata ha lì un pin più
+   grande (raggio 10 vs 7) con anello giallo (`0xFFFFD600`) invece del bianco. Serviva
+   anche un nuovo `ref.listen(selectedPhotoProvider, (_, __) => _renderPhotos())`: prima
+   nessun listener triggerava un ridisegno dei pin al cambio di foto selezionata (il
+   provider veniva solo letto una volta dentro `_renderPhotos`, senza guardarlo).
+2. **Card traccia riducibile** — richiesta indipendente per vedere più mappa: nuovo
+   `trackCardExpandedProvider` (`bool`, sempre `true` a un cambio traccia, stesso pattern
+   di `profileVisibleProvider`/`ProfileVisible` — riparte espansa scegliendo un'altra
+   traccia). `_SelectedBody` ora avvolge tutto il contenuto sotto la riga del titolo in
+   `if (expanded) ...[ ... ]`; ridotta mostra solo nome + il nuovo tasto riduci/espandi
+   (`_CardIconButton`, chevron su/giù) + il tasto chiudi/deseleziona già esistente.
+
+---
+
 ## 27 luglio 2026 — Rifinitura card foto: 3 righe, ordine, evidenziazione gialla (feedback utente diretto su screenshot, in lavorazione, non ancora rilasciato)
 
 Quinto giro di feedback diretto (stesso giorno) sulla card foto appena introdotta.

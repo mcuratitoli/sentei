@@ -15,9 +15,12 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
   toccando la thumbnail si apre la foto originale a schermo intero (se
   ancora presente nella libreria del dispositivo). Le foto nella card sono
   ora in **ordine lungo il percorso**; scorrendo il grafico del profilo, o
-  selezionando una foto, la thumbnail e il punto sul grafico si evidenziano
-  in **giallo** e la striscia scorre per mostrarla; le thumbnail sono anche
-  più piccole.
+  selezionando una foto, la thumbnail, il punto sul grafico **e il pin in
+  mappa** si evidenziano in **giallo** e la striscia scorre per mostrarla;
+  le thumbnail sono anche più piccole.
+- 🗺️ La card di una traccia selezionata si può ora **ridurre** al solo nome
+  (tasto dedicato accanto alla X di chiusura), per vedere più mappa senza
+  perdere la selezione.
 - 🎨 Card di **disegno/modifica percorso** rifinita: colore e "Segui i
   sentieri" ora vivono in un foglio **Impostazioni avanzate** dedicato
   (invece di occupare sempre spazio nella card), la **distanza totale** si
