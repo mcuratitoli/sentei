@@ -546,6 +546,23 @@ class Tracks extends Notifier<TracksState> {
   void remove([String? id]) {
     final target = id ?? state.activeId;
     if (target == null) return;
+    // La traccia rimossa può essere quella con un import in corso (fase 1
+    // caricamento o fase 2 editing): Tracks List la mostra come una riga
+    // qualsiasi (legge lo stesso stato live, non solo le tracce persistite) e
+    // "Elimina" non passava da `cancelImport`/`cancelEditing`. Senza questo,
+    // il riferimento grezzo tratteggiato (`importPreviewProvider`) restava
+    // bloccato in mappa per sempre — nessuna card/pulsante lo rimuove più,
+    // dato che la traccia (e quindi la card) non c'è già più — e
+    // `importLoadingProvider` restava valorizzato, nascondendo tutte le altre
+    // tracce salvate (vedi `_renderAll`, `importing` in `map_gl_screen.dart`).
+    if (ref.read(importLoadingProvider) == target) {
+      _importGen++;
+      ref.read(importLoadingProvider.notifier).set(null);
+    }
+    final preview = ref.read(importPreviewProvider);
+    if (preview != null && preview.$1 == target) {
+      ref.read(importPreviewProvider.notifier).clear();
+    }
     state = TracksState(
       tracks: state.tracks.where((t) => t.id != target).toList(),
       editingId: state.editingId == target ? null : state.editingId,

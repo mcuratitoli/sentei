@@ -346,4 +346,43 @@ void main() {
     notifier().remove();
     expect(state().tracks, isEmpty);
   });
+
+  test(
+      'remove durante il caricamento di un import via il riferimento grezzo '
+      '(Tracks List mostra anche le tracce in importazione, non solo quelle '
+      'salvate: "Elimina" da lì non passava da cancelImport)', () async {
+    await notifier().importGpx(importXml);
+    final id = state().tracks.single.id;
+    expect(container.read(importLoadingProvider), id);
+    expect(container.read(importPreviewProvider), isNotNull);
+
+    notifier().remove(id);
+
+    expect(state().tracks, isEmpty);
+    // Senza il fix: restavano entrambi valorizzati → riferimento grezzo
+    // bloccato in mappa per sempre e tutte le altre tracce nascoste
+    // (`importing` sempre vero in `_renderAll`).
+    expect(container.read(importLoadingProvider), isNull);
+    expect(container.read(importPreviewProvider), isNull);
+  });
+
+  test(
+      'remove durante la revisione (fase 2) di un import via il riferimento '
+      'grezzo', () async {
+    await notifier().importGpx(importXml);
+    final id = state().tracks.single.id;
+    for (var i = 0;
+        i < 100 && container.read(importLoadingProvider) != null;
+        i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(state().editingId, id); // in editing (fase 2)
+    expect(container.read(importPreviewProvider), isNotNull);
+
+    notifier().remove(id);
+
+    expect(state().tracks, isEmpty);
+    expect(state().editingId, isNull);
+    expect(container.read(importPreviewProvider), isNull);
+  });
 }
