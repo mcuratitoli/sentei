@@ -104,13 +104,19 @@ enum _NotesTab { changelog, roadmap }
 /// Mostra Novità e Roadmap in un bottom sheet a due tab (stesso linguaggio
 /// visivo di `showDifficultyLegend`/`showAbbreviationsLegend` in `legends.dart`).
 Future<void> showReleaseNotes(BuildContext context) {
+  // Altezza fissa (min == max) invece di un semplice tetto massimo: senza
+  // questo il bottom sheet si restringe al contenuto e lo switch tra tab
+  // "Novità" (lunga) e "Roadmap" (corta) faceva cambiare vistosamente
+  // l'altezza della card ad ogni tocco del segmented control.
+  final sheetHeight = MediaQuery.of(context).size.height * 0.88;
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: context.palette.glassFill,
     isScrollControlled: true,
     showDragHandle: true,
     constraints: BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * 0.88,
+      minHeight: sheetHeight,
+      maxHeight: sheetHeight,
     ),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
@@ -139,7 +145,6 @@ class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             Text('Sentèi', style: AppText.sheetTitle),
             const SizedBox(height: 6),
@@ -170,7 +175,7 @@ class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Flexible(
+            Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),
                 child: isChangelog
