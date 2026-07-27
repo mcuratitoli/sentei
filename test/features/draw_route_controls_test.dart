@@ -17,6 +17,7 @@ import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
+import 'package:sentei/ui/elevation_profile_chart.dart' show ElevationProfileChart;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -315,16 +316,92 @@ void main() {
     // Nessun cursore: nessuna thumbnail evidenziata (bordo trasparente).
     expect(borderColors().every((c) => c == Colors.transparent), isTrue);
 
-    // Cursore a 510m: entro tolleranza (25m) dalla foto "near" (500m), non
-    // dalla foto "far" (5000m).
+    // Cursore a 540m: entro la tolleranza generosa (50m) dalla foto "near"
+    // (500m), non dalla foto "far" (5000m). Bordo giallo, non l'accento blu.
     container.read(profileCursorProvider.notifier).set(
         const ProfileSample(
-            distanceMeters: 510, elevation: 1000, position: LatLng(45.005, 7)));
+            distanceMeters: 540, elevation: 1000, position: LatLng(45.005, 7)));
     await tester.pumpAndSettle();
 
     final colors = borderColors();
-    expect(colors[0] == Colors.transparent, isFalse); // "near": evidenziata
+    expect(colors[0], const Color(0xFFFFD600)); // "near": evidenziata, gialla
     expect(colors[1], Colors.transparent); // "far": non evidenziata
+  });
+
+  testWidgets(
+      'la striscia mostra le foto in ordine di distanza lungo il percorso, '
+      'non nell\'ordine in cui sono state collegate', (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.05, 7.0));
+    await notifier.finishDrawing();
+    final id = container.read(tracksProvider).tracks.first.id;
+    // Collegate in ordine "sbagliato" (la più lontana prima).
+    await notifier.addPhotos(id, const [
+      TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
+      TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
+    ]);
+    await tester.pumpAndSettle();
+
+    // Le uniche GestureDetector con GlobalKey sono le thumbnail della
+    // striscia: la prima da sinistra (x minore) deve corrispondere a "near"
+    // (500m), non a "far" (5000m, collegata per prima) — verificato
+    // tappandola e controllando quale foto seleziona.
+    final detectors = tester
+        .widgetList<GestureDetector>(find.byType(GestureDetector))
+        .where((w) => w.key is GlobalKey)
+        .toList();
+    expect(detectors.length, 2);
+    detectors.sort((a, b) =>
+        tester.getTopLeft(find.byWidget(a)).dx.compareTo(tester.getTopLeft(find.byWidget(b)).dx));
+
+    await tester.tap(find.byWidget(detectors.first));
+    await tester.pumpAndSettle();
+    expect(container.read(selectedPhotoProvider)?.id, 'near');
+  });
+
+  testWidgets(
+      'selezionare una foto la evidenzia (thumbnail e pin nel grafico) anche '
+      'senza scrubbing, con priorità sul cursore', (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.05, 7.0));
+    await notifier.finishDrawing();
+    final id = container.read(tracksProvider).tracks.first.id;
+    await notifier.addPhotos(id, const [
+      TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
+      TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
+    ]);
+    await tester.pumpAndSettle();
+
+    // Il grafico è collassato di default: aprirlo ("Percorso") per farlo
+    // comparire nell'albero.
+    await tester.tap(find.text('Percorso'));
+    await tester.pumpAndSettle();
+
+    // Cursore lontano da entrambe: nessuna evidenziata da scrubbing.
+    container.read(profileCursorProvider.notifier).set(
+        const ProfileSample(
+            distanceMeters: 2500, elevation: 1000, position: LatLng(45.02, 7)));
+    // Ma "far" è selezionata esplicitamente: vince lei, non il cursore.
+    container
+        .read(selectedPhotoProvider.notifier)
+        .set(container.read(tracksProvider).tracks.first.photos
+            .firstWhere((p) => p.id == 'far'));
+    await tester.pumpAndSettle();
+
+    expect(
+        tester.widget<ElevationProfileChart>(find.byType(ElevationProfileChart))
+            .highlightedPhotoId,
+        'far');
   });
 
   testWidgets(
@@ -392,16 +469,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Nessun titolo impostato: la data/ora di scatto fa da titolo di default.
-    expect(find.text(Format.dateTime(takenAt)), findsOneWidget);
-    expect(
-        find.text(Format.coordinates(45.005, 7)), findsOneWidget);
-    expect(find.text('Quota ${Format.meters(_FakeElevation.fixedElevation)}'),
+    // 3 righe: titolo (nessuno impostato: la data/ora fa da default, quindi
+    // compare due volte — anche come riga data/ora, sempre mostrata); quota
+    // in soli metri (senza l'etichetta "Quota") + coordinate; data/ora.
+    expect(find.text(Format.dateTime(takenAt)), findsNWidgets(2));
+    expect(find.text(Format.coordinates(45.005, 7)), findsOneWidget);
+    expect(find.text(Format.meters(_FakeElevation.fixedElevation)),
         findsOneWidget);
+    expect(find.textContaining('Quota'), findsNothing);
     expect(find.text('Modifica titolo'), findsOneWidget);
     expect(find.text('Scollega'), findsOneWidget);
 
-    // Modifica titolo: il dialog precompilato salva il nuovo valore.
+    // Modifica titolo: il dialog precompilato salva il nuovo valore. Il
+    // titolo ora differisce dalla data: la riga data/ora resta comunque
+    // visibile (sempre mostrata, non solo come fallback del titolo).
     await tester.tap(find.text('Modifica titolo'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(CupertinoTextField), 'Bivacco Ravelli');
@@ -409,6 +490,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bivacco Ravelli'), findsOneWidget);
+    // Con un titolo custom, la data/ora torna a comparire una sola volta
+    // (solo come riga a sé, non più anche come titolo).
+    expect(find.text(Format.dateTime(takenAt)), findsOneWidget);
     expect(
         notifier2.read(tracksProvider).tracks.first.photos.single.title,
         'Bivacco Ravelli');

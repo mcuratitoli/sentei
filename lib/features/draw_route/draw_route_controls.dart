@@ -183,11 +183,18 @@ class _SelectedBody extends ConsumerWidget {
     final cursor = ref.watch(profileCursorProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
-    // Foto la cui distanza-lungo-percorso è più vicina al cursore corrente
-    // (scrubbing sul grafico): la thumbnail corrispondente si evidenzia nella
-    // striscia sotto e, se fuori vista, la striscia scorre per mostrarla.
+    // Foto da evidenziare (bordo/pin giallo, sia sulla thumbnail nella
+    // striscia sia sul pin nel grafico): quella **selezionata** (tap su
+    // thumbnail/pin, `PhotoDetailCard` aperta) ha priorità; altrimenti quella
+    // la cui distanza-lungo-percorso è più vicina al cursore corrente durante
+    // lo scrubbing. Se fuori vista, la striscia scorre per mostrarla.
+    final selectedPhoto = ref.watch(selectedPhotoProvider);
     String? highlightedPhotoId;
-    if (cursor != null && track != null && track.photos.isNotEmpty) {
+    if (track != null &&
+        selectedPhoto != null &&
+        track.photos.any((p) => p.id == selectedPhoto.id)) {
+      highlightedPhotoId = selectedPhoto.id;
+    } else if (cursor != null && track != null && track.photos.isNotEmpty) {
       TrackPhoto? nearest;
       var best = double.infinity;
       for (final p in track.photos) {
@@ -345,6 +352,7 @@ class _SelectedBody extends ConsumerWidget {
             onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
             photos: track?.photos ?? const [],
             onPhotoTap: (p) => ref.read(selectedPhotoProvider.notifier).set(p),
+            highlightedPhotoId: highlightedPhotoId,
           ),
         ],
       ],
@@ -511,12 +519,20 @@ class _TrailInfo extends StatelessWidget {
 /// dei collegamenti — l'apertura dell'originale (re-match locale) è un passo
 /// successivo, non ancora implementato.
 /// Tolleranza (metri lungo il percorso) per evidenziare la thumbnail di una
-/// foto mentre si scorre il grafico del profilo con il dito.
-const double _photoHighlightToleranceMeters = 25;
+/// foto mentre si scorre il grafico del profilo con il dito — generosa
+/// apposta: durante lo scrubbing è più importante "agganciare" facilmente la
+/// foto vicina che essere millimetrici.
+const double _photoHighlightToleranceMeters = 50;
 
 /// Dimensione delle thumbnail nella striscia: più piccole di prima (56px),
 /// ma non sotto il target di tocco minimo (44pt) dato che restano tappabili.
 const double _photoThumbSize = 44;
+
+/// Colore dell'evidenziazione (foto selezionata o sotto il cursore): stesso
+/// giallo del pin sul grafico, non l'accento blu del resto dell'app — qui
+/// significa "questo è il punto/la foto sotto il dito", non "selezionato"
+/// nel senso di editing.
+const Color _photoHighlightColor = Color(0xFFFFD600);
 
 class _PhotoStrip extends ConsumerStatefulWidget {
   const _PhotoStrip({required this.track, this.highlightedPhotoId});
@@ -559,16 +575,21 @@ class _PhotoStripState extends ConsumerState<_PhotoStrip> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    // In ordine lungo il percorso (distanza-lungo-percorso crescente), non
+    // nell'ordine di collegamento/importazione — più intuitivo scorrendola
+    // insieme al grafico del profilo.
+    final photos = [...widget.track.photos]
+      ..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: SizedBox(
         height: _photoThumbSize,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: widget.track.photos.length,
+          itemCount: photos.length,
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (_, i) {
-            final photo = widget.track.photos[i];
+            final photo = photos[i];
             final highlighted = photo.id == widget.highlightedPhotoId;
             return GestureDetector(
               key: _keyFor(photo.id),
@@ -580,7 +601,8 @@ class _PhotoStripState extends ConsumerState<_PhotoStrip> {
                 decoration: BoxDecoration(
                   borderRadius: AppRadii.rMd,
                   border: Border.all(
-                    color: highlighted ? palette.accent : Colors.transparent,
+                    color:
+                        highlighted ? _photoHighlightColor : Colors.transparent,
                     width: 2.5,
                   ),
                 ),
@@ -1041,36 +1063,46 @@ class PhotoDetailCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 3 righe: titolo; quota (solo i metri, senza
+                        // l'etichetta "Quota") + coordinate; data e ora.
                         Text(title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppText.value.copyWith(
                                 color: palette.label, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text(
-                          Format.coordinates(
-                              current.position.latitude, current.position.longitude),
-                          style: AppText.captionSmall.copyWith(color: palette.secondaryLabel),
+                        Row(
+                          children: [
+                            elevation.when(
+                              data: (m) => m == null
+                                  ? const SizedBox.shrink()
+                                  : Padding(
+                                      padding: const EdgeInsets.only(right: 6),
+                                      child: Text(Format.meters(m),
+                                          style: AppText.captionSmall.copyWith(
+                                              color: palette.secondaryLabel)),
+                                    ),
+                              loading: () => const Padding(
+                                padding: EdgeInsets.only(right: 6),
+                                child: SizedBox(
+                                    height: 10,
+                                    width: 10,
+                                    child: CupertinoActivityIndicator(radius: 5)),
+                              ),
+                              error: (_, __) => const SizedBox.shrink(),
+                            ),
+                            Flexible(
+                              child: Text(
+                                Format.coordinates(current.position.latitude,
+                                    current.position.longitude),
+                                overflow: TextOverflow.ellipsis,
+                                style: AppText.captionSmall
+                                    .copyWith(color: palette.secondaryLabel),
+                              ),
+                            ),
+                          ],
                         ),
-                        elevation.when(
-                          data: (m) => m == null
-                              ? const SizedBox.shrink()
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text('Quota ${Format.meters(m)}',
-                                      style: AppText.captionSmall
-                                          .copyWith(color: palette.secondaryLabel)),
-                                ),
-                          loading: () => const Padding(
-                            padding: EdgeInsets.only(top: 4),
-                            child: SizedBox(
-                                height: 10,
-                                width: 10,
-                                child: CupertinoActivityIndicator(radius: 5)),
-                          ),
-                          error: (_, __) => const SizedBox.shrink(),
-                        ),
-                        if (hasTitle && current.takenAt != null)
+                        if (current.takenAt != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(Format.dateTime(current.takenAt!),

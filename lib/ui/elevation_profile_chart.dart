@@ -25,6 +25,7 @@ class ElevationProfileChart extends StatefulWidget {
     this.steepness = false,
     this.photos = const [],
     this.onPhotoTap,
+    this.highlightedPhotoId,
   });
 
   final ElevationProfile profile;
@@ -47,6 +48,11 @@ class ElevationProfileChart extends StatefulWidget {
 
   /// Tap su un pin foto (ha priorità sullo scrubbing normale in quel punto).
   final ValueChanged<TrackPhoto>? onPhotoTap;
+
+  /// Foto selezionata o sotto il cursore durante lo scrubbing: il suo pin si
+  /// disegna più grande con un anello giallo (stessa evidenziazione della
+  /// thumbnail corrispondente nella striscia della card).
+  final String? highlightedPhotoId;
 
   final double height;
 
@@ -211,6 +217,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 cursor: widget.cursor,
                 steepness: widget.steepness,
                 photos: widget.photos,
+                highlightedPhotoId: widget.highlightedPhotoId,
               ),
               size: Size.infinite,
             ),
@@ -279,6 +286,7 @@ class _ProfilePainter extends CustomPainter {
     this.cursor,
     this.steepness = false,
     this.photos = const [],
+    this.highlightedPhotoId,
   });
 
   final ElevationProfile profile;
@@ -290,6 +298,7 @@ class _ProfilePainter extends CustomPainter {
   final ProfileSample? cursor;
   final bool steepness;
   final List<TrackPhoto> photos;
+  final String? highlightedPhotoId;
 
   static const double _bandHeight = 18;
   static const double scaleBandHeight = 16;
@@ -397,20 +406,29 @@ class _ProfilePainter extends CustomPainter {
       }
     }
 
-    // Pin delle foto collegate, alla loro distanza-lungo-percorso.
+    // Pin delle foto collegate, alla loro distanza-lungo-percorso. Quello
+    // selezionato/sotto il cursore (stessa evidenziazione della thumbnail
+    // corrispondente) è più grande, con un anello giallo invece del bianco.
     if (photos.isNotEmpty) {
       final fill = Paint()..color = const Color(0xFFFFB300);
       final stroke = Paint()
         ..color = const Color(0xFFFFFFFF)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5;
+      final highlightStroke = Paint()
+        ..color = const Color(0xFFFFD600)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3;
       for (final p in photos) {
         final sample =
             _ElevationProfileChartState._nearestByDistance(samples, p.distanceMeters);
         final x = dxFor(p.distanceMeters);
         final y = dyFor(sample.elevation);
-        canvas.drawCircle(Offset(x, y), 5, fill);
-        canvas.drawCircle(Offset(x, y), 5, stroke);
+        final isHighlighted = p.id == highlightedPhotoId;
+        final radius = isHighlighted ? 7.0 : 5.0;
+        canvas.drawCircle(Offset(x, y), radius, fill);
+        canvas.drawCircle(
+            Offset(x, y), radius, isHighlighted ? highlightStroke : stroke);
       }
     }
 
@@ -454,5 +472,6 @@ class _ProfilePainter extends CustomPainter {
       old.cursor != cursor ||
       old.steepness != steepness ||
       old.trailSegments != trailSegments ||
-      old.photos != photos;
+      old.photos != photos ||
+      old.highlightedPhotoId != highlightedPhotoId;
 }
