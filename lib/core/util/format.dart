@@ -25,4 +25,25 @@ abstract final class Format {
         '${l.month.toString().padLeft(2, '0')}/${l.year} '
         '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
   }
+
+  static const _months = [
+    'gennaio',
+    'febbraio',
+    'marzo',
+    'aprile',
+    'maggio',
+    'giugno',
+    'luglio',
+    'agosto',
+    'settembre',
+    'ottobre',
+    'novembre',
+    'dicembre',
+  ];
+
+  /// Data lunga in italiano, es. "18 agosto 2025" (giorno locale, senza ora).
+  static String longDate(DateTime d) {
+    final l = d.toLocal();
+    return '${l.day} ${_months[l.month - 1]} ${l.year}';
+  }
 }

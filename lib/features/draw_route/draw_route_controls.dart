@@ -13,7 +13,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:photo_manager/photo_manager.dart' show AssetEntity;
 
 import '../../core/util/format.dart';
+import '../../domain/models/photo_session.dart';
 import '../../domain/models/track_photo.dart';
+import '../../domain/services/photo_session_grouper.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/app_bottom_sheet.dart';
 import '../../ui/app_buttons.dart';
@@ -195,11 +197,10 @@ class _SelectedBody extends ConsumerWidget {
     final cursor = ref.watch(profileCursorProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
-    // Foto da evidenziare (bordo/pin giallo, sia sulla thumbnail nella
-    // striscia sia sul pin nel grafico): quella **selezionata** (tap su
-    // thumbnail/pin, `PhotoDetailCard` aperta) ha priorità; altrimenti quella
-    // la cui distanza-lungo-percorso è più vicina al cursore corrente durante
-    // lo scrubbing. Se fuori vista, la striscia scorre per mostrarla.
+    // Foto da evidenziare col pin giallo sul grafico: quella **selezionata**
+    // (tap su una thumbnail/pin, `PhotoDetailCard` aperta) ha priorità;
+    // altrimenti quella la cui distanza-lungo-percorso è più vicina al
+    // cursore corrente durante lo scrubbing.
     final selectedPhoto = ref.watch(selectedPhotoProvider);
     String? highlightedPhotoId;
     if (track != null &&
@@ -319,14 +320,6 @@ class _SelectedBody extends ConsumerWidget {
               ),
               const Spacer(),
               AppIconButton(
-                tooltip: 'Trova foto vicine',
-                onPressed: (!hasMetrics || saving || track == null)
-                    ? null
-                    : () => findNearbyPhotos(context, ref, track),
-                icon: CupertinoIcons.photo,
-              ),
-              const SizedBox(width: 6),
-              AppIconButton(
                 tooltip: 'Modifica',
                 onPressed: saving
                     ? null
@@ -343,8 +336,8 @@ class _SelectedBody extends ConsumerWidget {
               ),
             ],
           ),
-          if (!saving && track != null && track.photos.isNotEmpty)
-            _PhotoStrip(track: track, highlightedPhotoId: highlightedPhotoId),
+          if (!saving && track != null)
+            _PhotoSection(track: track, enabled: hasMetrics),
           if (showingChart) ...[
             const SizedBox(height: 4),
             // Slot fisso per la quota al cursore (spazio riservato sempre, così la
@@ -524,112 +517,255 @@ class _TrailInfo extends StatelessWidget {
   }
 }
 
-/// Striscia orizzontale delle foto collegate alla traccia (§"Sync album
-/// fotografico"): miniatura + rimozione con conferma. Sola lettura/gestione
-/// dei collegamenti — l'apertura dell'originale (re-match locale) è un passo
-/// successivo, non ancora implementato.
-/// Tolleranza (metri lungo il percorso) per evidenziare la thumbnail di una
-/// foto mentre si scorre il grafico del profilo con il dito — generosa
-/// apposta: durante lo scrubbing è più importante "agganciare" facilmente la
-/// foto vicina che essere millimetrici.
+/// Tolleranza (metri lungo il percorso) per evidenziare col pin giallo sul
+/// grafico del profilo la foto sotto il dito durante lo scrubbing —
+/// generosa apposta: durante lo scrubbing è più importante "agganciare"
+/// facilmente la foto vicina che essere millimetrici.
 const double _photoHighlightToleranceMeters = 50;
 
-/// Dimensione delle thumbnail nella striscia: più piccole di prima (56px),
-/// ma non sotto il target di tocco minimo (44pt) dato che restano tappabili.
-const double _photoThumbSize = 44;
-
-/// Colore dell'evidenziazione (foto selezionata o sotto il cursore): stesso
-/// giallo del pin sul grafico, non l'accento blu del resto dell'app — qui
-/// significa "questo è il punto/la foto sotto il dito", non "selezionato"
-/// nel senso di editing.
-const Color _photoHighlightColor = Color(0xFFFFD600);
-
-class _PhotoStrip extends ConsumerStatefulWidget {
-  const _PhotoStrip({required this.track, this.highlightedPhotoId});
+/// Sezione "FOTO" della card traccia (§"Sync album fotografico"): elenco
+/// delle foto collegate raggruppate per escursione ([PhotoSessionGrouper]),
+/// collassata di default. Il pulsante "+" avvia sempre la ricerca di nuove
+/// foto vicine, anche quando la traccia non ne ha ancora nessuna collegata
+/// (in quel caso l'intestazione non ha né conteggio né freccia, dato che non
+/// c'è nulla da espandere).
+class _PhotoSection extends ConsumerStatefulWidget {
+  const _PhotoSection({required this.track, required this.enabled});
 
   final DrawnTrack track;
 
-  /// Foto il cui pin sul grafico è sotto il dito durante lo scrubbing: la sua
-  /// thumbnail si evidenzia e, se fuori vista, la striscia scorre per mostrarla.
-  final String? highlightedPhotoId;
+  /// `false` finché le metriche della traccia non sono pronte: replica la
+  /// condizione che prima disabilitava l'icona "Trova foto vicine" nella
+  /// riga strumenti (ora spostata qui, vedi decisione UX 28 lug 2026).
+  final bool enabled;
 
   @override
-  ConsumerState<_PhotoStrip> createState() => _PhotoStripState();
+  ConsumerState<_PhotoSection> createState() => _PhotoSectionState();
 }
 
-class _PhotoStripState extends ConsumerState<_PhotoStrip> {
-  final Map<String, GlobalKey> _keys = {};
-
-  GlobalKey _keyFor(String photoId) =>
-      _keys.putIfAbsent(photoId, () => GlobalKey());
-
-  @override
-  void didUpdateWidget(covariant _PhotoStrip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final id = widget.highlightedPhotoId;
-    if (id != null && id != oldWidget.highlightedPhotoId) {
-      // Post-frame: la thumbnail deve già essere nell'albero (con la sua
-      // GlobalKey) prima di poterla far scorrere in vista.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final ctx = _keys[id]?.currentContext;
-        if (ctx != null) {
-          Scrollable.ensureVisible(ctx,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              alignment: 0.5);
-        }
-      });
-    }
-  }
+class _PhotoSectionState extends ConsumerState<_PhotoSection> {
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    // In ordine lungo il percorso (distanza-lungo-percorso crescente), non
-    // nell'ordine di collegamento/importazione — più intuitivo scorrendola
-    // insieme al grafico del profilo.
-    final photos = [...widget.track.photos]
-      ..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    final photos = widget.track.photos;
+    final hasPhotos = photos.isNotEmpty;
+    final sessions = hasPhotos
+        ? const PhotoSessionGrouper().group(photos)
+        : const <PhotoSession>[];
+
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: SizedBox(
-        height: _photoThumbSize,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: photos.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 6),
-          itemBuilder: (_, i) {
-            final photo = photos[i];
-            final highlighted = photo.id == widget.highlightedPhotoId;
-            return GestureDetector(
-              key: _keyFor(photo.id),
-              onTap: () => ref.read(selectedPhotoProvider.notifier).set(photo),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: _photoThumbSize,
-                height: _photoThumbSize,
-                decoration: BoxDecoration(
-                  borderRadius: AppRadii.rMd,
-                  border: Border.all(
-                    color:
-                        highlighted ? _photoHighlightColor : Colors.transparent,
-                    width: 2.5,
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: hasPhotos
+                      ? () => setState(() => _expanded = !_expanded)
+                      : null,
+                  child: Text(
+                    hasPhotos
+                        ? 'FOTO · ${photos.length} FOTO'
+                        : 'Nessuna foto collegata',
+                    style: AppText.caption.copyWith(
+                      color: palette.secondaryLabel,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: hasPhotos ? 0.4 : 0,
+                    ),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius: AppRadii.rMd,
-                  child: photo.thumbnail != null
-                      ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
-                      : ColoredBox(
-                          color: palette.hairline.withValues(alpha: 0.08),
-                          child: Icon(CupertinoIcons.photo,
-                              color: palette.tertiaryIcon),
-                        ),
+              ),
+              // Sempre accesa (non è uno stato "attivo/disattivo" ma
+              // l'azione principale della sezione): stesso trattamento
+              // visivo del toggle "Profilo altimetrico" attivo.
+              AppIconButton(
+                tooltip: 'Trova foto vicine',
+                icon: CupertinoIcons.add,
+                active: true,
+                size: 32,
+                onPressed: widget.enabled
+                    ? () => findNearbyPhotos(context, ref, widget.track)
+                    : null,
+              ),
+              if (hasPhotos) ...[
+                const SizedBox(width: 2),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(
+                      _expanded
+                          ? CupertinoIcons.chevron_down
+                          : CupertinoIcons.chevron_up,
+                      size: 16,
+                      color: palette.tertiaryIcon,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (hasPhotos && _expanded) ...[
+            const SizedBox(height: 8),
+            for (var i = 0; i < sessions.length; i++) ...[
+              _PhotoSessionRow(
+                session: sessions[i],
+                onTap: () => showAppBottomSheet<void>(
+                  context: context,
+                  builder: (_) => _PhotoSessionSheet(
+                    session: sessions[i],
+                    onSelect: (p) =>
+                        ref.read(selectedPhotoProvider.notifier).set(p),
+                  ),
                 ),
               ),
-            );
-          },
+              if (i < sessions.length - 1) const SizedBox(height: 6),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Riga di un'escursione nella sezione FOTO espansa: copertina (prima foto
+/// del gruppo o icona generica), titolo con la data, conteggio, freccia →
+/// verso il foglio con la griglia del gruppo ([_PhotoSessionSheet]).
+class _PhotoSessionRow extends StatelessWidget {
+  const _PhotoSessionRow({required this.session, required this.onTap});
+
+  final PhotoSession session;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final cover = session.photos.first.thumbnail;
+    final count = session.photos.length;
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(0, 0),
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: palette.hairline.withValues(alpha: 0.1),
+          borderRadius: AppRadii.rMd,
         ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: AppRadii.rMd,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: cover != null
+                    ? Image.memory(cover, fit: BoxFit.cover)
+                    : ColoredBox(
+                        color: palette.hairline.withValues(alpha: 0.08),
+                        child: Icon(CupertinoIcons.photo,
+                            color: palette.tertiaryIcon),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    session.date != null
+                        ? 'Escursione del ${Format.longDate(session.date!)}'
+                        : 'Foto senza data',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: palette.label,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    count == 1 ? '1 foto' : '$count foto',
+                    style: AppText.captionSmall
+                        .copyWith(color: palette.secondaryLabel),
+                  ),
+                ],
+              ),
+            ),
+            Icon(CupertinoIcons.chevron_right,
+                size: 16, color: palette.tertiaryIcon),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Foglio con la griglia delle foto di un'escursione: tap su una thumbnail
+/// chiude il foglio e mostra [PhotoDetailCard] (stessa via di selezione
+/// della thumbnail nel grafico del profilo — un solo punto di dettaglio).
+class _PhotoSessionSheet extends StatelessWidget {
+  const _PhotoSessionSheet({required this.session, required this.onSelect});
+
+  final PhotoSession session;
+  final ValueChanged<TrackPhoto> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final photos = session.photos;
+    return ConstrainedBox(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSheetHeader(
+            title: session.date != null
+                ? 'Escursione del ${Format.longDate(session.date!)}'
+                : 'Foto senza data',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 10),
+          Flexible(
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              itemCount: photos.length,
+              itemBuilder: (_, i) {
+                final photo = photos[i];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onSelect(photo);
+                  },
+                  child: ClipRRect(
+                    borderRadius: AppRadii.rMd,
+                    child: photo.thumbnail != null
+                        ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
+                        : ColoredBox(
+                            color: palette.hairline.withValues(alpha: 0.08),
+                            child: Icon(CupertinoIcons.photo,
+                                color: palette.tertiaryIcon),
+                          ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -912,8 +1048,8 @@ class _GainLoss extends StatelessWidget {
 }
 
 /// Card **unificata** per i dettagli di una foto collegata: stessa vista sia
-/// toccando una thumbnail nella striscia della card traccia sia un pin foto
-/// in mappa (entrambi passano da `selectedPhotoProvider`, mostrata sopra
+/// toccando una thumbnail nella sezione FOTO/nel grafico del profilo sia un
+/// pin foto in mappa (tutti passano da `selectedPhotoProvider`, mostrata sopra
 /// `DrawRouteControls` in `map_gl_screen.dart`). Mostra thumbnail (tap → foto
 /// a schermo intero se ancora reperibile sul device), titolo (o data/ora come
 /// default), coordinate + quota del punto di scatto, data/ora, e le azioni

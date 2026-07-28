@@ -11,6 +11,44 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Sezione "FOTO" a gruppi nella card traccia (redesign UX)
+
+**Perché**: con il fix del cap di scansione (voce sotto), "Trova foto" ora restituisce
+correttamente tutte le foto vicine al percorso — ma per una traccia percorsa più volte negli
+anni, la vecchia striscia orizzontale (`_PhotoStrip`) le mostrava tutte mischiate, senza modo
+di distinguere a quale escursione appartenesse ciascuna. Serviva un raggruppamento.
+
+**Nuovo modello/servizio di dominio** (puri, testati, nessuna dipendenza da UI — §9):
+- `PhotoSession` (`lib/domain/models/photo_session.dart`): un gruppo di `TrackPhoto` più una
+  data rappresentativa (`null` se nessuna foto del gruppo ha `takenAt`).
+- `PhotoSessionGrouper` (`lib/domain/services/photo_session_grouper.dart`): raggruppa le foto
+  di una traccia per "escursione" deducendola dai timestamp EXIF (non esiste un concetto
+  esplicito di "visita" sulla traccia, vedi domanda aperta #1 in `docs/eval-photo-sync.md`).
+  Gap massimo tra scatti consecutivi = **30h** (non 24h, per non spezzare in due un'uscita con
+  pernottamento in bivacco/rifugio solo perché attraversa la mezzanotte). Le foto senza data
+  finiscono in un unico gruppo finale (`date: null`), non una ciascuna. Test:
+  `test/domain/photo_session_grouper_test.dart`.
+- `Format.longDate` (`lib/core/util/format.dart`): data in italiano esteso ("18 agosto 2025"),
+  nomi mese hardcoded come il resto del progetto (nessuna dipendenza `intl` mai aggiunta).
+
+**UI** (`lib/features/draw_route/draw_route_controls.dart`): `_PhotoStrip` rimossa e sostituita
+da `_PhotoSection`, collassata di default:
+- Intestazione "FOTO · N FOTO" (tap per espandere/riducere) + pulsante "+" (avvia "Trova foto
+  vicine", spostato qui dalla riga strumenti in alto — non più ridondante in due posti).
+- **Traccia senza foto**: l'intestazione diventa "Nessuna foto collegata" senza conteggio né
+  freccia (niente da espandere), ma il "+" resta sempre presente e attivo — altrimenti non ci
+  sarebbe più alcun modo di avviare la prima ricerca foto su una traccia.
+- **Espansa**: una riga per escursione (`_PhotoSessionRow`, copertina + titolo con data +
+  conteggio + freccia), tap → foglio con la griglia delle foto del gruppo
+  (`_PhotoSessionSheet`); tap su una foto nel foglio apre `PhotoDetailCard` come già avveniva
+  dalla vecchia striscia.
+- **Non toccato**: i pin foto sul grafico del profilo altimetrico (`ElevationProfileChart`) e
+  l'evidenziazione durante lo scrubbing — restano l'unico punto di ingresso "spaziale" alle
+  foto, la nuova sezione è quello "per data/escursione". Persa l'auto-scroll-to-thumbnail della
+  vecchia striscia durante lo scrubbing (non aveva un equivalente sensato nella vista a gruppi).
+
+---
+
 ## 28 luglio 2026 — Fix "Trova foto" che non trovava nessuna foto
 
 **Causa radice**: `PhotoManagerLibraryService.photoLocations()` limitava la scansione alle
