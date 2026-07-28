@@ -131,8 +131,8 @@ class AppButton extends StatelessWidget {
 /// cerchio con sfondo neutro di default, tinta d'accento quando [active].
 ///
 /// **Quando usarlo vs [AppButton]**: righe dense con **3+ azioni** (es. la
-/// barra della card traccia: profilo, colori dislivelli, foto vicine,
-/// modifica, salva offline) usano solo [AppIconButton] — con testo per
+/// barra della card traccia: profilo, colori dislivelli, modifica, salva
+/// offline) usano solo [AppIconButton] — con testo per
 /// ognuna andrebbe fuori schermo o su due righe. Righe con **1-2 azioni**
 /// (barra del punto selezionato, card foto, foglio foto vicine) usano invece
 /// [AppButton], più leggibile quando c'è spazio. Non mescolare i due stili
@@ -145,6 +145,7 @@ class AppIconButton extends StatelessWidget {
     this.tooltip,
     this.active = false,
     this.size = 44,
+    this.tint,
   });
 
   final IconData icon;
@@ -152,6 +153,12 @@ class AppIconButton extends StatelessWidget {
   final String? tooltip;
   final bool active;
   final double size;
+
+  /// Tinta del glifo per le azioni **distruttive** senza etichetta (cestino
+  /// "Scollega" nella card foto): unica eccezione al grigio neutro di default
+  /// — §2 riserva il rosso alla scala difficoltà e al distruttivo. Ignorata
+  /// quando [active] (lo stato attivo resta blu, §10).
+  final Color? tint;
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +171,7 @@ class AppIconButton extends StatelessWidget {
         ? palette.tertiaryIcon
         : active
             ? palette.accent
-            : palette.secondaryLabel;
+            : (tint ?? palette.secondaryLabel);
     Widget button = CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size(size, size),

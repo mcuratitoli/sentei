@@ -11,6 +11,295 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 29 luglio 2026 — Rifiniture card foto (prima verifica a schermo) e conferme uniformi
+
+Prima sessione con l'app effettivamente in esecuzione sul simulatore dopo le tre voci qui
+sotto, tutte marcate "non verificato": revisione a schermo della card foto e delle sheet di
+conferma, in due giri di feedback.
+
+**`PhotoDetailCard` ridisegnata** (`draw_route_controls.dart`):
+- Non più impilata *sopra* la card traccia in colonna, ma **sovrapposta** e incollata al bordo
+  inferiore — `map_gl_screen.dart` avvolge il fondo schermo in uno `Stack`
+  (`alignment: bottomCenter`) invece di mettere le due card nella stessa `Column`. Prende il
+  posto della card traccia invece di spingerla su. La card si dà da sé il padding di sicurezza
+  inferiore (`SafeArea(top: false)`), essendo ora il foglio più in basso quando è a schermo.
+- Via l'header "Dettaglio foto" (non aggiungeva informazione): una riga sola — miniatura,
+  dati, e a destra le azioni **ridotte a icone** (matita + cestino rosso). Quota e coordinate
+  passano su due righe: con le icone accanto, in riga unica le coordinate si troncavano.
+- Lo spazio delle vecchie pillole a tutta larghezza ospita ora il **carosello
+  dell'escursione**: riuso di `_PhotoFilmstrip` (già scritto per il viewer a schermo intero)
+  parametrizzandone i colori — bianco su nero lì, blu accento su superficie chiara qui —
+  invece di scriverne un secondo.
+- Aprire un dettaglio foto **riduce la card traccia** (listener su `selectedPhotoProvider` in
+  `map_gl_screen.dart`, riusa `TrackCardExpanded.collapse()`): sovrapponendosi, con la traccia
+  espansa resterebbe nascosta sotto e non si vedrebbe più la mappa.
+
+**Sezione FOTO**: spostata **sotto** il profilo altimetrico (le foto approfondiscono il
+percorso già descritto sopra, non sono informazione di pari livello). Tap su un'escursione va
+**dritto alla prima foto** in `PhotoDetailCard` — rimosso `_PhotoSessionSheet`, il foglio con
+la griglia: era un passaggio in più per la stessa informazione, ora che la card ha già il
+carosello del gruppo sotto. ⚠️ L'ordinamento per distanza-lungo-percorso viveva *dentro* quel
+foglio: estratto in `_sessionsByDistance()` prima di cancellarlo, così ora vale anche per il
+carosello e per la copertina delle righe — "la prima foto" è la prima che si incontra
+camminando, non la prima collegata.
+
+**Foto a schermo intero** (`_FullPhotoPage`): era `Center(child: Image.file(file))`, cioè
+l'immagine alla sua dimensione **naturale** in mezzo al nero — su scatti piccoli restava
+minuscola. Ora `SizedBox.expand` + `BoxFit.contain`. Tolto anche l'`Opacity(0.6)` dal ripiego
+a thumbnail: il velo faceva leggere una versione a bassa risoluzione come un errore di
+caricamento.
+
+**Chiusura per trascinamento** al posto della × (card traccia e card foto): nuovo
+`AppSheetSurface.onDismiss` — la superficie diventa `StatefulWidget` e segue il dito
+(`Transform.translate`), chiude oltre 48px o con uno scatto veloce. La presa è il **solo
+handle**, non tutta la superficie: la card traccia contiene il grafico del profilo (che
+intercetta il trascinamento per muovere il cursore) e il carosello foto, un drag globale se li
+mangerebbe. Non attivo durante il **disegno** di una traccia: chiuderla per sbaglio con uno
+scorrimento farebbe perdere il percorso in corso, lì si esce da "Annulla" con conferma.
+
+**Conferme uniformate** (`showIosConfirm`, `ios_menu.dart`): erano due voci di menu impilate
+(riga rossa + riga "Annulla"), incoerenti con la sheet "Modifica titolo" accanto a cui
+comparivano. Ora stessa struttura: header titolo + ×, messaggio, e **una riga** di due bottoni
+— "Annulla" terziario a sinistra, conferma **piena** ed espansa fino al bordo destro. Essendo
+una funzione condivisa il cambio copre in un colpo tutte e 5 le conferme dell'app (scollega
+foto, elimina traccia, annulla modifiche, elimina punto, permesso libreria negato). Rimossi
+`_ConfirmHeader`/`_Sep`, ora morti. `showIosMenu` resta a righe impilate: lì le voci sono
+*scelte* omogenee, non una coppia conferma/annulla.
+
+⚠️ **Due deroghe consapevoli a `new design/DESIGN_GUIDELINES.md`**, entrambe su richiesta
+esplicita dell'utente, da riportare nel documento se confermate:
+- §4 "niente bottoni pieni rossi" — la conferma distruttiva è ora piena rossa, per coerenza di
+  impaginato con il pieno blu "Salva" di "Modifica titolo".
+- §5 non prevede un icon-button distruttivo — aggiunto `AppIconButton.tint`, documentato come
+  eccezione per le sole azioni distruttive senza etichetta (lo stato *attivo* resta blu, §10).
+
+Test: aggiornati i 4 di `draw_route_controls_test.dart` che cercavano le etichette testuali
+delle azioni foto (ora tooltip) e il foglio-griglia dell'escursione (ora rimosso).
+
+---
+
+## 28 luglio 2026 — Tolta la mini-mappa dal viewer foto, aggiunto "Vedi sulla mappa"
+
+Seguito della voce sotto (pannello Altitudine/Mappa): la mini-mappa Mapbox era stata segnalata
+esplicitamente come la parte a rischio più alto (API `mapbox_maps_flutter` usate senza un
+precedente già collaudato nel codebase) — rimossa su richiesta prima ancora di arrivare al
+test su device, non serve tenersi debito rischioso "per dopo".
+
+**`PhotoLocationPanel` semplificato**: via il selettore a due schede (`_TabSelector`), via
+`_PhotoMapPreview` e la seconda istanza Mapbox, via l'import di `mapbox_maps_flutter`/
+`latlong2` nel file. Resta solo un tasto — riga "Altitudine" + chevron, **stessa convenzione
+di espandi/riduci già in uso nell'app** (`AppSheetHeader`, sezione FOTO della card: chevron
+down quando espanso, chevron up quando ridotto) — che mostra/nasconde il profilo altimetrico
+col punto di scatto evidenziato (riuso di `ElevationProfileChart.cursor`, invariato dalla
+versione precedente). `lib/features/map_gl/map_style.dart` (estratto per la mini-mappa)
+resta: è usato comunque da `map_gl_screen.dart` dopo quella pulizia, non è tornato codice morto.
+
+**Nuovo: "Vedi sulla mappa"** (icona `location` in `_FullPhotoTopBar`, tra titolo e Modifica):
+chiude il visualizzatore, centra la mappa principale sul punto di scatto e riduce la card
+traccia — valutato prima di implementare (richiesta esplicita: procedere solo se facilmente
+realizzabile e coerente), risultato fattibile riusando quasi di peso un pattern già
+collaudato nel codebase:
+- **Nuovo provider** `mapFlyToPointProvider`/`MapFlyToTarget` (`lib/features/map/
+  map_providers.dart`), stesso schema di `mapFocusProvider`/`MapFocusTarget` già esistente
+  (usato dalla lista tracce per centrare su una traccia) ma per un singolo punto a zoom fisso
+  invece dei bounds di un'intera traccia.
+- **`map_gl_screen.dart`**: nuovo listener + `_scheduleFlyToPoint`/`_flyToPoint`, ricalcati su
+  `_scheduleFocusTrack`/`_focusTrack` esistenti (stesso differimento di 350ms se la route non
+  è ancora quella in primo piano — il visualizzatore foto sta ancora facendo il pop).
+- **`TrackCardExpanded`** (`route_editor_provider.dart`): aggiunto `collapse()` accanto al
+  `toggle()` già esistente — serviva un'operazione idempotente ("riduci sempre", non
+  "inverti") per non rischiare di espandere la card per errore se era già ridotta.
+- **Nessun'altra azione da coordinare per il thumbnail**: `selectedPhotoProvider` non viene
+  toccato da "Vedi sulla mappa" (resta quello impostato quando si è aperta la foto), quindi al
+  pop del visualizzatore `PhotoDetailCard` con la thumbnail ricompare da sola sopra la card
+  ora ridotta — comportamento già esistente, non serviva replicarlo.
+
+⚠️ Non verificato su device/simulatore, ma rischio più contenuto della mini-mappa rimossa: le
+API di `MapFocus`/`flyTo`/`cameraForCoordinatesPadding` riusate qui erano già in produzione
+nel codebase per il caso "lista tracce → centra mappa".
+
+---
+
+## 28 luglio 2026 — Pannello Altitudine/Mappa nel viewer foto, rimossi i pin dal grafico in card
+
+**Rimossi i pin foto dal profilo altimetrico della card traccia** (`troppa confusione` con
+molte foto collegate): `ElevationProfileChart` non riceve più `photos`/`onPhotoTap`/
+`highlightedPhotoId` dalla card (`draw_route_controls.dart`, `_SelectedBody`) — anche tutta
+la logica che calcolava quale foto evidenziare (priorità selezione > cursore, tolleranza 50m)
+è stata rimossa, non più usata da nessuno. Pulizia a cascata in `elevation_profile_chart.dart`:
+tolti da `ElevationProfileChart`/`_ProfilePainter` i parametri `photos`/`onPhotoTap`/
+`highlightedPhotoId`, `_photoAt`, `_chartHeight` e il blocco di disegno dei pin — confermato
+con grep che `ElevationProfileChart` non ha altri call site in tutto il repo, quindi nessuna
+funzionalità residua da preservare. Anche 2 test in `draw_route_controls_test.dart` che
+verificavano l'evidenziazione dei pin sono stati rimossi (testavano un comportamento voluto
+rimosso, non un bug).
+
+**Nuovo pannello "Altitudine/Mappa" nel visualizzatore foto a schermo intero** (come Komoot,
+da screenshot dell'utente), sotto il filmstrip: `PhotoLocationPanel`
+(`lib/features/draw_route/photo_location_panel.dart`, nuovo file — `draw_route_controls.dart`
+era già grande). Un selettore a due pillole sceglie fra:
+- **Altitudine**: `ElevationProfileChart` col punto di scatto della foto evidenziato via
+  `cursor` (non più via `photos`, rimosso sopra) — riuso diretto, nessuna modifica al
+  componente per questo. Card bianca con tema forzato `AppTheme.light()` (il grafico è
+  calibrato per stare su sfondo chiaro, non per il nero della galleria).
+- **Mappa**: mini-mappa Mapbox **sola lettura** (gesti disabilitati: competerebbero con lo
+  swipe orizzontale del carosello) col tracciato e un pin nel punto di scatto. Stile
+  chiaro/scuro coordinato con `Theme.of(context).brightness`. Istanza Mapbox **separata** da
+  quella della schermata principale (prima volta nel progetto con 2 `MapWidget` vivi insieme).
+  Estratti gli URI di stile (`outdoorsMapStyleUri`/`darkMapStyleUri`/`satelliteMapStyleUri`,
+  prima privati in `map_gl_screen.dart`) in un nuovo `lib/features/map_gl/map_style.dart`
+  condiviso, per non duplicare le costanti Mapbox tra i due file.
+- **Lazy loading della mappa**: creare una seconda istanza Mapbox è costoso (rete/GL) — non
+  costruita finché l'utente non tocca "Mappa" la prima volta, poi tenuta viva con `Offstage`
+  (non uno switch condizionale) ai toggle successivi, per non ripagare il costo ad ogni tap.
+- **Marker che segue il carosello**: siccome lo stato del pannello/della mini-mappa **non**
+  viene ricreato scorrendo tra le foto (stessa posizione nell'albero, `Offstage` non elimina
+  lo `State`), il marker va spostato esplicitamente in `didUpdateWidget` (`CircleAnnotation
+  .geometry` riassegnato + `manager.update(...)`) invece di ricreare tutta la mappa — altrimenti
+  sarebbe rimasto fermo sulla prima foto aperta.
+
+⚠️ **Rischio più alto di questa sessione**: la mini-mappa è la parte meno verificabile senza
+device/simulatore — API `GesturesSettings`/`ScaleBarSettings`/`CircleAnnotationManager.update`
+usate da conoscenza generale dell'SDK `mapbox_maps_flutter` 2.25, non da un precedente già
+presente nel codebase (a differenza di `CompassSettings`/`PolylineAnnotationOptions`/
+`cameraForCoordinatesPadding`, questi sì già usati altrove e quindi a rischio più basso). Da
+verificare per primo appena disponibile un ambiente Flutter.
+
+---
+
+## 28 luglio 2026 — Rifiniture grafiche: card ancorate, viewer foto a galleria, fix bug
+
+**Card ancorate in basso, non più fluttuanti**: `DrawRouteControls` (selezione **e**
+modifica — condividono lo stesso wrapper) e `PhotoDetailCard` passano da `AppSheetSurface
+(floating: true)` con margine su tutti i lati a `floating: false`, a tutta larghezza, angoli
+arrotondati solo sopra — stesso trattamento dei fogli modali (legenda/changelog/tema).
+`map_gl_screen.dart`: la `SafeArea` che avvolge la colonna in basso ora passa `bottom:
+!showCard`, così quando la card è a schermo lei (e l'eventuale `PhotoDetailCard` sopra)
+toccano il vero bordo inferiore invece di fermarsi al di sopra del padding di sicurezza;
+`DrawRouteControls` riapplica quel padding solo al proprio contenuto con un
+`SafeArea(top: false)` interno (stesso schema di `showAppBottomSheet`).
+
+**Viewer foto a schermo intero in stile "galleria"** (`openFullPhoto`/`_FullPhotoView`,
+riscritti): prima era una singola immagine statica con solo una × in alto a sinistra. Ora:
+titolo (o data come fallback) in alto con Modifica titolo/Scollega; `PageView` centrale che
+scorre tra **tutte le foto della stessa escursione** (non solo quella toccata), calcolata al
+volo con `PhotoSessionGrouper`; filmstrip in basso (tap per saltare a una foto, si scrolla da
+sé su quella corrente); chiusura sia con la × sia trascinando l'immagine verso il basso
+(l'opacità dello sfondo segue il trascinamento, rilascio oltre soglia chiude). Ogni pagina
+risolve il proprio asset dalla libreria in modo indipendente, con la thumbnail salvata come
+fallback onesto se l'originale non risolve più. Nota aperta: lo swipe-to-dismiss verticale
+può competere con lo zoom/pan dell'`InteractiveViewer` quando l'immagine è ingrandita — non
+verificato su device reale, da rifinire se risulta fastidioso in pratica.
+
+**Fix "Modifica titolo" che sembrava non aprire il campo di testo**: l'unica differenza
+strutturale rispetto al campo nome-traccia (che invece funzionava) era `autofocus: true` sul
+`CupertinoTextField` dentro un `showModalBottomSheet` — pattern noto per gareggiare con
+l'animazione di apertura dello sheet e perdere il focus/la tastiera. Sostituito con un
+`FocusNode` esplicito + `requestFocus()` in un `addPostFrameCallback` (a sheet già montato).
+Non riproducibile in questo ambiente (nessun device/simulatore disponibile): diagnosi basata
+sul pattern noto e sulla differenza col campo che funzionava, da confermare sul device.
+
+**Fix: chiudere la card traccia lascia orfana la card foto**: aprire una foto (pin mappa o
+dal foglio di un'escursione) mostra `PhotoDetailCard` sopra `DrawRouteControls`, ma chiudere
+la traccia (× o fine disegno) non azzerava `selectedPhotoProvider` → la card foto restava a
+schermo da sola, senza senso. `map_gl_screen.dart`: il listener su `showCard` ora chiama
+`selectedPhotoProvider.notifier.clear()` quando passa a `false`.
+
+**Debito di test scoperto e sistemato**: la sostituzione della striscia orizzontale con la
+sezione "FOTO" a gruppi (voce sotto) aveva rotto 3 test in `draw_route_controls_test.dart`
+che non erano stati verificati in quella sessione (nessun `flutter test` disponibile in
+questo ambiente) — testavano l'evidenziazione a bordo colorato della vecchia striscia durante
+lo scrubbing, l'ordine delle thumbnail per tap diretto su icona, e l'apertura della card foto
+da una thumbnail sempre visibile. Riscritti sulla via attuale (espandi sezione → tap
+escursione → tap nella griglia del foglio) più uno spostato a verificare `highlightedPhotoId`
+di `ElevationProfileChart` invece del bordo della striscia (rimossa). Aggiunto anche
+l'ordinamento per distanza-lungo-percorso delle foto **dentro** ciascun foglio-escursione
+(mancava: `PhotoSessionGrouper` raggruppa per data, non riordina per distanza), che uno dei
+test riscritti verifica.
+
+⚠️ **Nessuna di queste modifiche è stata verificata su device/simulatore** (Flutter SDK non
+disponibile in questo ambiente): solo lettura attenta del codice e bilanciamento
+parentesi/graffe. Da controllare a schermo prima di considerarle definitive, in particolare
+il gesto di swipe-to-dismiss e il comportamento del `FocusNode` sul campo titolo.
+
+---
+
+## 28 luglio 2026 — Sezione "FOTO" a gruppi nella card traccia (redesign UX)
+
+**Perché**: con il fix del cap di scansione (voce sotto), "Trova foto" ora restituisce
+correttamente tutte le foto vicine al percorso — ma per una traccia percorsa più volte negli
+anni, la vecchia striscia orizzontale (`_PhotoStrip`) le mostrava tutte mischiate, senza modo
+di distinguere a quale escursione appartenesse ciascuna. Serviva un raggruppamento.
+
+**Nuovo modello/servizio di dominio** (puri, testati, nessuna dipendenza da UI — §9):
+- `PhotoSession` (`lib/domain/models/photo_session.dart`): un gruppo di `TrackPhoto` più una
+  data rappresentativa (`null` se nessuna foto del gruppo ha `takenAt`).
+- `PhotoSessionGrouper` (`lib/domain/services/photo_session_grouper.dart`): raggruppa le foto
+  di una traccia per "escursione" deducendola dai timestamp EXIF (non esiste un concetto
+  esplicito di "visita" sulla traccia, vedi domanda aperta #1 in `docs/eval-photo-sync.md`).
+  Gap massimo tra scatti consecutivi = **30h** (non 24h, per non spezzare in due un'uscita con
+  pernottamento in bivacco/rifugio solo perché attraversa la mezzanotte). Le foto senza data
+  finiscono in un unico gruppo finale (`date: null`), non una ciascuna. Test:
+  `test/domain/photo_session_grouper_test.dart`.
+- `Format.longDate` (`lib/core/util/format.dart`): data in italiano esteso ("18 agosto 2025"),
+  nomi mese hardcoded come il resto del progetto (nessuna dipendenza `intl` mai aggiunta).
+
+**UI** (`lib/features/draw_route/draw_route_controls.dart`): `_PhotoStrip` rimossa e sostituita
+da `_PhotoSection`, collassata di default:
+- Intestazione "FOTO · N FOTO" (tap per espandere/riducere) + pulsante "+" (avvia "Trova foto
+  vicine", spostato qui dalla riga strumenti in alto — non più ridondante in due posti).
+- **Traccia senza foto**: l'intestazione diventa "Nessuna foto collegata" senza conteggio né
+  freccia (niente da espandere), ma il "+" resta sempre presente e attivo — altrimenti non ci
+  sarebbe più alcun modo di avviare la prima ricerca foto su una traccia.
+- **Espansa**: una riga per escursione (`_PhotoSessionRow`, copertina + titolo con data +
+  conteggio + freccia), tap → foglio con la griglia delle foto del gruppo
+  (`_PhotoSessionSheet`); tap su una foto nel foglio apre `PhotoDetailCard` come già avveniva
+  dalla vecchia striscia.
+- **Non toccato**: i pin foto sul grafico del profilo altimetrico (`ElevationProfileChart`) e
+  l'evidenziazione durante lo scrubbing — restano l'unico punto di ingresso "spaziale" alle
+  foto, la nuova sezione è quello "per data/escursione". Persa l'auto-scroll-to-thumbnail della
+  vecchia striscia durante lo scrubbing (non aveva un equivalente sensato nella vista a gruppi).
+
+---
+
+## 28 luglio 2026 — Fix "Trova foto" che non trovava nessuna foto
+
+**Causa radice**: `PhotoManagerLibraryService.photoLocations()` limitava la scansione alle
+`_maxAssetsScanned = 3000` foto più recenti dell'intera libreria (ordinamento per data di
+scatto decrescente, nessun filtro data passato dalla UI). Per un utente con più di 3000 foto
+scattate *dopo* un'escursione, le foto dell'escursione restavano fuori dalla finestra
+scandita e non arrivavano mai al matcher spaziale — zero risultati nonostante permesso pieno
+e foto con GPS valido. Segnalato dallo sviluppatore dopo il rilascio di stamattina: traccia
+percorsa più volte, "Trova foto" restituiva sempre 0 foto.
+
+**Fix**: rimosso il tetto — `photoLocations()` ora scandisce l'intera libreria, in blocchi da
+500 asset (`_batchSize`) con le chiamate `latlngAsync()` di ogni blocco in parallelo
+(`Future.wait`), per restare comunque ragionevole su librerie molto grandi senza bloccare
+l'esecuzione su un singolo asset lento. File: `lib/data/photos/photo_manager_library_service.dart`.
+
+**UX**: `findNearbyPhotos` (`lib/features/draw_route/nearby_photos_action.dart`) già
+escludeva dall'elenco le foto già collegate alla traccia (`alreadyLinked`), ma mostrava lo
+stesso messaggio generico "Nessuna foto trovata" sia quando non c'era nessuna foto vicina sia
+quando ce n'erano ma erano già tutte collegate — messaggio ora distinto ("Le foto vicine a
+questo percorso sono già tutte collegate").
+
+**Verificato ma non un bug**: foto senza coordinate GPS nell'EXIF vengono scartate a monte
+(comportamento voluto, non tutte le foto hanno il tag posizione). Foto iCloud "ottimizzate"
+(non scaricate per intero sul device, solo proxy locale): la posizione GPS è metadato del
+database Foto, disponibile anche per asset non scaricati — dovrebbero quindi essere trovate
+comunque; da confermare con un test reale su un asset in questo stato. Su Android, foto
+"liberate" da Google Photos (originale rimosso dal device dopo il backup) escono dal
+`MediaStore` e non sono raggiungibili da `photo_manager` — limite di piattaforma, nessuna
+soluzione lato app senza integrare l'API Google Photos (già scartata in
+`docs/eval-photo-sync.md` per altri motivi).
+
+**Fuori scope di questo fix** (rimandato: se ne occupa lo sviluppatore con istruzioni
+dedicate): redesign della UI di ricerca per il caso "stessa traccia percorsa più volte" (oggi
+tutte le foto di tutte le occasioni compaiono mischiate in un'unica griglia) — vedi domanda
+aperta #1 in `docs/eval-photo-sync.md`.
+
+---
+
 ## 28 luglio 2026 — Fix overflow testo bottoni compressi + icona ripidità (confluito in `1.0.0+6`)
 
 Regressione dal round di rifiniture precedente: nella barra del punto selezionato

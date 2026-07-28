@@ -29,35 +29,13 @@ import '../map/map_providers.dart';
 import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
 import 'inspected_point_provider.dart';
+import 'map_style.dart';
 import '../tracks_list/tracks_list_screen.dart';
-
-/// Stile della mappa. Default: Mapbox **Outdoors** (topo stock migliore).
-/// Sovrascrivibile con uno stile Mapbox Studio dedicato (simil-GaiaGPS) senza
-/// toccare il codice: `--dart-define=MAP_STYLE_URI=mapbox://styles/<user>/<id>`.
-const String _envMapStyle = String.fromEnvironment('MAP_STYLE_URI');
-
-/// Stile "mappa" (topografico). L'override d'ambiente vince se presente.
-String get _outdoorsStyleUri =>
-    _envMapStyle.isEmpty ? MapboxStyles.OUTDOORS : _envMapStyle;
-
-/// Stile **satellite** con strade/etichette (utile in escursione: si vedono
-/// nomi e sentieri sopra l'ortofoto). **Invariato** col tema app (l'ortofoto
-/// non ha un "verso scuro" sensato, per decisione utente).
-const String _satelliteStyleUri =
-    'mapbox://styles/mapbox/satellite-streets-v12';
-
-/// Stile **scuro** usato al posto di Outdoors quando il tema dell'app è scuro
-/// (automatico, coordinato col tema — non una scelta separata dell'utente).
-/// `dark-v11` è uno stile Mapbox generico ("data visualization"), non tarato
-/// per l'escursionismo: buona parte del carattere outdoor di Sentèi resta
-/// comunque nei layer nostri sopra (hillshade, terreno 3D, sentieri CAI).
-/// Vedi `docs/eval-dark-map.md`.
-const String _darkStyleUri = MapboxStyles.DARK;
 
 /// Vista mappa selezionabile dal tasto "livelli" nella barra (Outdoors ↔
 /// Satellite). Ortogonale al **tema** (chiaro/scuro): Outdoors risolve a
-/// `_outdoorsStyleUri` o `_darkStyleUri` in base al tema; Satellite resta
-/// sempre `_satelliteStyleUri`.
+/// `outdoorsMapStyleUri` o `darkMapStyleUri` in base al tema; Satellite resta
+/// sempre `satelliteMapStyleUri` (vedi `map_style.dart`).
 enum MapStyleChoice { outdoors, satellite }
 
 /// Mappa principale su **Mapbox GL** (migrazione, Fase 4): base Outdoors +
@@ -112,8 +90,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // prop del widget non cambia e non innesca ricariche doppie.
   MapStyleChoice _styleChoice = MapStyleChoice.outdoors;
   // Tema **mappa** (chiaro/scuro), coordinato automaticamente col tema app:
-  // quando true, la vista Outdoors risolve a `_darkStyleUri` invece di
-  // `_outdoorsStyleUri` (Satellite resta invariata). Calcolato una volta in
+  // quando true, la vista Outdoors risolve a `darkMapStyleUri` invece di
+  // `outdoorsMapStyleUri` (Satellite resta invariata). Calcolato una volta in
   // `initState` (per lo stile iniziale del MapWidget) e poi tenuto sincro da
   // `_syncMapTheme` (cambio Tema nelle Impostazioni) e da
   // `didChangePlatformBrightness` (cambio del sistema mentre si è in Automatico).
@@ -979,6 +957,32 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     await map.flyTo(cam, MapAnimationOptions(duration: 800));
   }
 
+  /// Centra la mappa su un singolo punto ("Vedi sulla mappa" dal
+  /// visualizzatore foto), differendo l'operazione con lo stesso schema di
+  /// [_scheduleFocusTrack] se questa route non è ancora quella in primo piano
+  /// (il visualizzatore foto sta ancora facendo il pop).
+  void _scheduleFlyToPoint(ll.LatLng point) {
+    if (ModalRoute.of(context)?.isCurrent ?? true) {
+      _flyToPoint(point);
+    } else {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) _flyToPoint(point);
+      });
+    }
+  }
+
+  Future<void> _flyToPoint(ll.LatLng point) async {
+    final map = _map;
+    if (map == null) return;
+    await map.flyTo(
+      CameraOptions(
+        center: Point(coordinates: Position(point.longitude, point.latitude)),
+        zoom: 16,
+      ),
+      MapAnimationOptions(duration: 700),
+    );
+  }
+
   // ---- Ricerca luoghi -----------------------------------------------------
 
   void _openSearch() => setState(() => _searchOpen = true);
@@ -992,11 +996,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   }
 
   /// Risolve l'URI di stile per la vista [choice]: Outdoors segue il **tema
-  /// mappa** (chiaro→`_outdoorsStyleUri`, scuro→`_darkStyleUri`); Satellite è
-  /// sempre `_satelliteStyleUri` (invariata col tema, per decisione utente).
+  /// mappa** (chiaro→`outdoorsMapStyleUri`, scuro→`darkMapStyleUri`);
+  /// Satellite è sempre `satelliteMapStyleUri` (invariata col tema).
   String _resolveStyleUri(MapStyleChoice choice) => switch (choice) {
-        MapStyleChoice.outdoors => _mapIsDark ? _darkStyleUri : _outdoorsStyleUri,
-        MapStyleChoice.satellite => _satelliteStyleUri,
+        MapStyleChoice.outdoors =>
+          _mapIsDark ? darkMapStyleUri : outdoorsMapStyleUri,
+        MapStyleChoice.satellite => satelliteMapStyleUri,
       };
 
   /// Cambia la vista mappa: ricarica lo stile e ri-esegue il setup (terreno,
@@ -1088,9 +1093,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     final showPointCard = inspected != null && !showCard && !importing;
     // Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico").
     final selectedPhoto = ref.watch(selectedPhotoProvider);
-    // La card traccia (selezione/disegno) ha priorità: azzera il punto ispezionato.
+    // La card traccia (selezione/disegno) ha priorità: azzera il punto
+    // ispezionato. Alla chiusura (X, deselect/annulla disegno) chiude anche
+    // il dettaglio foto — non ha senso lasciarlo aperto senza la card sotto
+    // (era possibile chiudere la traccia e restare con `PhotoDetailCard`
+    // orfana in mezzo allo schermo).
     ref.listen(tracksProvider.select((s) => s.showCard), (_, show) {
-      if (show) ref.read(inspectedPointProvider.notifier).clear();
+      if (show) {
+        ref.read(inspectedPointProvider.notifier).clear();
+      } else {
+        ref.read(selectedPhotoProvider.notifier).clear();
+      }
     });
     // Ridisegna solo su cambi di GEOMETRIA (waypoint/percorso/colore/lista tracce),
     // non su modifiche di puri metadati (nome) → evita il flickering al typing.
@@ -1118,10 +1131,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
-    ref.listen(selectedPhotoProvider, (_, __) => _renderPhotos());
+    ref.listen(selectedPhotoProvider, (_, next) {
+      _renderPhotos();
+      // La card foto si sovrappone a quella traccia: con la traccia espansa
+      // resterebbe nascosta sotto e non si vedrebbe più la mappa. Aprire un
+      // dettaglio foto riduce quindi la card traccia — stesso effetto di
+      // "Vedi sulla mappa" dal visualizzatore a schermo intero.
+      if (next != null) {
+        ref.read(trackCardExpandedProvider.notifier).collapse();
+      }
+    });
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _scheduleFocusTrack(next.trackId);
+    });
+    ref.listen(mapFlyToPointProvider, (_, next) {
+      if (next != null) _scheduleFlyToPoint(next.point);
     });
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());
@@ -1160,79 +1185,100 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Dettagli della foto selezionata (tap su un pin mappa o su
-                  // una thumbnail nella card traccia, stesso provider), sopra
-                  // la card traccia.
-                  if (selectedPhoto != null) ...[
-                    PhotoDetailCard(
-                      photo: selectedPhoto,
-                      onClose: () =>
-                          ref.read(selectedPhotoProvider.notifier).clear(),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  const DrawRouteControls(),
-                  // Caricamento import (annullabile): riallineamento in corso.
-                  if (importing)
-                    _ImportLoadingCard(
-                      onCancel: () =>
-                          ref.read(tracksProvider.notifier).cancelImport(),
-                    ),
-                  // Pannello di ricerca luoghi (dalla lente): sopra la menubar,
-                  // con i risultati che crescono verso l'alto.
-                  if (_searchOpen)
-                    _SearchPanel(
-                      controller: _searchCtrl,
-                      searching: _searching,
-                      results: _searchResults,
-                      onChanged: _onSearchChanged,
-                      onSubmitted: (_) {
-                        if (_searchResults.isNotEmpty) {
-                          _goToResult(_searchResults.first);
-                        }
-                      },
-                      onPick: _goToResult,
-                      onClose: _closeSearch,
-                    ),
-                  // Respiro tra la ricerca e la menubar.
-                  if (_searchOpen) const SizedBox(height: 12),
-                  // Mini-card info punto (esplorazione): sopra la barra, come la
-                  // ricerca (stessa posizione + piccolo margine).
-                  if (showPointCard) ...[
-                    _PointInfoCard(
-                      data: inspected,
-                      onClose: () =>
-                          ref.read(inspectedPointProvider.notifier).clear(),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  // La toolbar c'è quando NON è mostrata la card traccia (che
-                  // occupa il fondo dello schermo) né il caricamento import.
-                  if (!showCard && !importing)
-                    _BottomBar(
-                      onSearch: _openSearch,
-                      onLayers: _onLayers,
-                      // In Mappa mostro il mondo (→ satellite); in Satellite
-                      // mostro l'icona a strati (→ torna a Mappa).
-                      layersIcon: _styleChoice == MapStyleChoice.outdoors
-                          ? CupertinoIcons.globe
-                          : CupertinoIcons.map,
-                      layersTooltip: _styleChoice == MapStyleChoice.outdoors
-                          ? 'Vista satellite'
-                          : 'Vista mappa',
-                      onNewTrack: () {
-                        ref.read(inspectedPointProvider.notifier).clear();
-                        ref.read(tracksProvider.notifier).startNewDrawing();
-                      },
-                      onTracks: () => context.push(TracksListScreen.routePath),
-                      onSettings: () => context.push(SettingsScreen.routePath),
-                    ),
-                ],
-              ),
+            // `bottom: false` quando la card traccia è a schermo: lei (e
+            // l'eventuale `PhotoDetailCard` sopra) sono ancorate al bordo
+            // vero dello schermo, come i fogli modali (legenda/changelog/
+            // tema) — non più "fluttuanti" con un margine di sicurezza
+            // sotto. Gestiscono da sole il padding di sicurezza inferiore
+            // (vedi `SafeArea(top: false)` in `DrawRouteControls`): il resto
+            // (ricerca, punto ispezionato, barra in basso) resta invece
+            // inset come prima.
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                SafeArea(
+                  bottom: !showCard,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const DrawRouteControls(),
+                      // Caricamento import (annullabile): riallineamento in
+                      // corso.
+                      if (importing)
+                        _ImportLoadingCard(
+                          onCancel: () =>
+                              ref.read(tracksProvider.notifier).cancelImport(),
+                        ),
+                      // Pannello di ricerca luoghi (dalla lente): sopra la
+                      // menubar, con i risultati che crescono verso l'alto.
+                      if (_searchOpen)
+                        _SearchPanel(
+                          controller: _searchCtrl,
+                          searching: _searching,
+                          results: _searchResults,
+                          onChanged: _onSearchChanged,
+                          onSubmitted: (_) {
+                            if (_searchResults.isNotEmpty) {
+                              _goToResult(_searchResults.first);
+                            }
+                          },
+                          onPick: _goToResult,
+                          onClose: _closeSearch,
+                        ),
+                      // Respiro tra la ricerca e la menubar.
+                      if (_searchOpen) const SizedBox(height: 12),
+                      // Mini-card info punto (esplorazione): sopra la barra,
+                      // come la ricerca (stessa posizione + piccolo margine).
+                      if (showPointCard) ...[
+                        _PointInfoCard(
+                          data: inspected,
+                          onClose: () =>
+                              ref.read(inspectedPointProvider.notifier).clear(),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      // La toolbar c'è quando NON è mostrata la card traccia
+                      // (che occupa il fondo dello schermo) né l'import.
+                      if (!showCard && !importing)
+                        _BottomBar(
+                          onSearch: _openSearch,
+                          onLayers: _onLayers,
+                          // In Mappa mostro il mondo (→ satellite); in
+                          // Satellite l'icona a strati (→ torna a Mappa).
+                          layersIcon: _styleChoice == MapStyleChoice.outdoors
+                              ? CupertinoIcons.globe
+                              : CupertinoIcons.map,
+                          layersTooltip: _styleChoice == MapStyleChoice.outdoors
+                              ? 'Vista satellite'
+                              : 'Vista mappa',
+                          onNewTrack: () {
+                            ref.read(inspectedPointProvider.notifier).clear();
+                            ref
+                                .read(tracksProvider.notifier)
+                                .startNewDrawing();
+                          },
+                          onTracks: () =>
+                              context.push(TracksListScreen.routePath),
+                          onSettings: () =>
+                              context.push(SettingsScreen.routePath),
+                        ),
+                    ],
+                  ),
+                ),
+                // Dettagli della foto selezionata (tap su un pin mappa, su una
+                // thumbnail della card traccia o sul carosello della card
+                // stessa): **sovrapposta** alla card traccia e incollata al
+                // bordo inferiore, non impilata sopra di lei — prende il suo
+                // posto invece di spingerla fuori schermo. Gestisce da sé il
+                // padding di sicurezza inferiore, essendo ora il foglio più in
+                // basso quando è a schermo.
+                if (selectedPhoto != null)
+                  PhotoDetailCard(
+                    photo: selectedPhoto,
+                    onClose: () =>
+                        ref.read(selectedPhotoProvider.notifier).clear(),
+                  ),
+              ],
             ),
           ),
           // Splash esteso: copre la mappa finché la camera iniziale non è pronta
