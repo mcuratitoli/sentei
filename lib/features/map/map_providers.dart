@@ -40,6 +40,29 @@ class MapFocus extends Notifier<MapFocusTarget?> {
 final mapFocusProvider =
     NotifierProvider<MapFocus, MapFocusTarget?>(MapFocus.new);
 
+/// Richiesta di **centrare la mappa su un punto** (es. "Vedi sulla mappa" dal
+/// visualizzatore foto a schermo intero, §"Sync album fotografico") — a
+/// differenza di [MapFocus] non inquadra i bounds di un'intera traccia, solo
+/// un singolo punto a zoom fisso. Stesso schema del `nonce` per rifare il fly
+/// anche riselezionando lo stesso punto.
+class MapFlyToTarget {
+  const MapFlyToTarget(this.point, this.nonce);
+  final LatLng point;
+  final int nonce;
+}
+
+class MapFlyToPoint extends Notifier<MapFlyToTarget?> {
+  int _n = 0;
+
+  @override
+  MapFlyToTarget? build() => null;
+
+  void flyTo(LatLng point) => state = MapFlyToTarget(point, _n++);
+}
+
+final mapFlyToPointProvider =
+    NotifierProvider<MapFlyToPoint, MapFlyToTarget?>(MapFlyToPoint.new);
+
 /// Posizione GPS dell'utente. `null` finché non si attiva la localizzazione.
 /// `locate()` richiede i permessi e avvia lo stream; rilancia in caso di errore.
 class UserLocation extends Notifier<LatLng?> {

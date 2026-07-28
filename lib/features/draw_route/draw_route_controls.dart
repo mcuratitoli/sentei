@@ -24,6 +24,7 @@ import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
+import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'nearby_photos_action.dart';
 import 'photo_location_panel.dart';
@@ -1384,6 +1385,19 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
                 _FullPhotoTopBar(
                   photo: current,
                   onClose: () => Navigator.of(context).maybePop(),
+                  // Chiude il visualizzatore, riduce la card traccia (più
+                  // mappa visibile) e centra la mappa sul punto di scatto:
+                  // `selectedPhotoProvider` resta impostato (non lo tocca
+                  // nessuno qui), quindi `PhotoDetailCard` con la thumbnail
+                  // riappare già sopra la card ridotta — nessun'altra azione
+                  // da coordinare.
+                  onShowOnMap: () {
+                    ref
+                        .read(mapFlyToPointProvider.notifier)
+                        .flyTo(current.position);
+                    ref.read(trackCardExpandedProvider.notifier).collapse();
+                    Navigator.of(context).maybePop();
+                  },
                   onEdit: widget.trackId == null
                       ? null
                       : () => _promptEditPhotoTitle(
@@ -1430,12 +1444,14 @@ class _FullPhotoTopBar extends StatelessWidget {
   const _FullPhotoTopBar({
     required this.photo,
     required this.onClose,
+    required this.onShowOnMap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final TrackPhoto photo;
   final VoidCallback onClose;
+  final VoidCallback? onShowOnMap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -1465,6 +1481,8 @@ class _FullPhotoTopBar extends StatelessWidget {
               ),
             ),
           ),
+          _FullPhotoIconButton(
+              icon: CupertinoIcons.location, onPressed: onShowOnMap),
           _FullPhotoIconButton(icon: CupertinoIcons.pencil, onPressed: onEdit),
           _FullPhotoIconButton(
               icon: CupertinoIcons.delete, onPressed: onDelete),

@@ -957,6 +957,32 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     await map.flyTo(cam, MapAnimationOptions(duration: 800));
   }
 
+  /// Centra la mappa su un singolo punto ("Vedi sulla mappa" dal
+  /// visualizzatore foto), differendo l'operazione con lo stesso schema di
+  /// [_scheduleFocusTrack] se questa route non è ancora quella in primo piano
+  /// (il visualizzatore foto sta ancora facendo il pop).
+  void _scheduleFlyToPoint(ll.LatLng point) {
+    if (ModalRoute.of(context)?.isCurrent ?? true) {
+      _flyToPoint(point);
+    } else {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted) _flyToPoint(point);
+      });
+    }
+  }
+
+  Future<void> _flyToPoint(ll.LatLng point) async {
+    final map = _map;
+    if (map == null) return;
+    await map.flyTo(
+      CameraOptions(
+        center: Point(coordinates: Position(point.longitude, point.latitude)),
+        zoom: 16,
+      ),
+      MapAnimationOptions(duration: 700),
+    );
+  }
+
   // ---- Ricerca luoghi -----------------------------------------------------
 
   void _openSearch() => setState(() => _searchOpen = true);
@@ -1109,6 +1135,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _scheduleFocusTrack(next.trackId);
+    });
+    ref.listen(mapFlyToPointProvider, (_, next) {
+      if (next != null) _scheduleFlyToPoint(next.point);
     });
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());

@@ -1051,6 +1051,12 @@ class TrackCardExpanded extends Notifier<bool> {
   }
 
   void toggle() => state = !state;
+
+  /// Forza la riduzione (a differenza di [toggle], idempotente): usato da
+  /// "Vedi sulla mappa" nel visualizzatore foto, che deve sempre ridurre la
+  /// card per lasciare più mappa visibile, mai espanderla per errore se era
+  /// già ridotta.
+  void collapse() => state = false;
 }
 
 final trackCardExpandedProvider =

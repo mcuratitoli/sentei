@@ -11,6 +11,48 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Tolta la mini-mappa dal viewer foto, aggiunto "Vedi sulla mappa"
+
+Seguito della voce sotto (pannello Altitudine/Mappa): la mini-mappa Mapbox era stata segnalata
+esplicitamente come la parte a rischio più alto (API `mapbox_maps_flutter` usate senza un
+precedente già collaudato nel codebase) — rimossa su richiesta prima ancora di arrivare al
+test su device, non serve tenersi debito rischioso "per dopo".
+
+**`PhotoLocationPanel` semplificato**: via il selettore a due schede (`_TabSelector`), via
+`_PhotoMapPreview` e la seconda istanza Mapbox, via l'import di `mapbox_maps_flutter`/
+`latlong2` nel file. Resta solo un tasto — riga "Altitudine" + chevron, **stessa convenzione
+di espandi/riduci già in uso nell'app** (`AppSheetHeader`, sezione FOTO della card: chevron
+down quando espanso, chevron up quando ridotto) — che mostra/nasconde il profilo altimetrico
+col punto di scatto evidenziato (riuso di `ElevationProfileChart.cursor`, invariato dalla
+versione precedente). `lib/features/map_gl/map_style.dart` (estratto per la mini-mappa)
+resta: è usato comunque da `map_gl_screen.dart` dopo quella pulizia, non è tornato codice morto.
+
+**Nuovo: "Vedi sulla mappa"** (icona `location` in `_FullPhotoTopBar`, tra titolo e Modifica):
+chiude il visualizzatore, centra la mappa principale sul punto di scatto e riduce la card
+traccia — valutato prima di implementare (richiesta esplicita: procedere solo se facilmente
+realizzabile e coerente), risultato fattibile riusando quasi di peso un pattern già
+collaudato nel codebase:
+- **Nuovo provider** `mapFlyToPointProvider`/`MapFlyToTarget` (`lib/features/map/
+  map_providers.dart`), stesso schema di `mapFocusProvider`/`MapFocusTarget` già esistente
+  (usato dalla lista tracce per centrare su una traccia) ma per un singolo punto a zoom fisso
+  invece dei bounds di un'intera traccia.
+- **`map_gl_screen.dart`**: nuovo listener + `_scheduleFlyToPoint`/`_flyToPoint`, ricalcati su
+  `_scheduleFocusTrack`/`_focusTrack` esistenti (stesso differimento di 350ms se la route non
+  è ancora quella in primo piano — il visualizzatore foto sta ancora facendo il pop).
+- **`TrackCardExpanded`** (`route_editor_provider.dart`): aggiunto `collapse()` accanto al
+  `toggle()` già esistente — serviva un'operazione idempotente ("riduci sempre", non
+  "inverti") per non rischiare di espandere la card per errore se era già ridotta.
+- **Nessun'altra azione da coordinare per il thumbnail**: `selectedPhotoProvider` non viene
+  toccato da "Vedi sulla mappa" (resta quello impostato quando si è aperta la foto), quindi al
+  pop del visualizzatore `PhotoDetailCard` con la thumbnail ricompare da sola sopra la card
+  ora ridotta — comportamento già esistente, non serviva replicarlo.
+
+⚠️ Non verificato su device/simulatore, ma rischio più contenuto della mini-mappa rimossa: le
+API di `MapFocus`/`flyTo`/`cameraForCoordinatesPadding` riusate qui erano già in produzione
+nel codebase per il caso "lista tracce → centra mappa".
+
+---
+
 ## 28 luglio 2026 — Pannello Altitudine/Mappa nel viewer foto, rimossi i pin dal grafico in card
 
 **Rimossi i pin foto dal profilo altimetrico della card traccia** (`troppa confusione` con
