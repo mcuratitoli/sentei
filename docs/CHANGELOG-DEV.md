@@ -11,6 +11,73 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 29 luglio 2026 — Rifiniture card foto (prima verifica a schermo) e conferme uniformi
+
+Prima sessione con l'app effettivamente in esecuzione sul simulatore dopo le tre voci qui
+sotto, tutte marcate "non verificato": revisione a schermo della card foto e delle sheet di
+conferma, in due giri di feedback.
+
+**`PhotoDetailCard` ridisegnata** (`draw_route_controls.dart`):
+- Non più impilata *sopra* la card traccia in colonna, ma **sovrapposta** e incollata al bordo
+  inferiore — `map_gl_screen.dart` avvolge il fondo schermo in uno `Stack`
+  (`alignment: bottomCenter`) invece di mettere le due card nella stessa `Column`. Prende il
+  posto della card traccia invece di spingerla su. La card si dà da sé il padding di sicurezza
+  inferiore (`SafeArea(top: false)`), essendo ora il foglio più in basso quando è a schermo.
+- Via l'header "Dettaglio foto" (non aggiungeva informazione): una riga sola — miniatura,
+  dati, e a destra le azioni **ridotte a icone** (matita + cestino rosso). Quota e coordinate
+  passano su due righe: con le icone accanto, in riga unica le coordinate si troncavano.
+- Lo spazio delle vecchie pillole a tutta larghezza ospita ora il **carosello
+  dell'escursione**: riuso di `_PhotoFilmstrip` (già scritto per il viewer a schermo intero)
+  parametrizzandone i colori — bianco su nero lì, blu accento su superficie chiara qui —
+  invece di scriverne un secondo.
+- Aprire un dettaglio foto **riduce la card traccia** (listener su `selectedPhotoProvider` in
+  `map_gl_screen.dart`, riusa `TrackCardExpanded.collapse()`): sovrapponendosi, con la traccia
+  espansa resterebbe nascosta sotto e non si vedrebbe più la mappa.
+
+**Sezione FOTO**: spostata **sotto** il profilo altimetrico (le foto approfondiscono il
+percorso già descritto sopra, non sono informazione di pari livello). Tap su un'escursione va
+**dritto alla prima foto** in `PhotoDetailCard` — rimosso `_PhotoSessionSheet`, il foglio con
+la griglia: era un passaggio in più per la stessa informazione, ora che la card ha già il
+carosello del gruppo sotto. ⚠️ L'ordinamento per distanza-lungo-percorso viveva *dentro* quel
+foglio: estratto in `_sessionsByDistance()` prima di cancellarlo, così ora vale anche per il
+carosello e per la copertina delle righe — "la prima foto" è la prima che si incontra
+camminando, non la prima collegata.
+
+**Foto a schermo intero** (`_FullPhotoPage`): era `Center(child: Image.file(file))`, cioè
+l'immagine alla sua dimensione **naturale** in mezzo al nero — su scatti piccoli restava
+minuscola. Ora `SizedBox.expand` + `BoxFit.contain`. Tolto anche l'`Opacity(0.6)` dal ripiego
+a thumbnail: il velo faceva leggere una versione a bassa risoluzione come un errore di
+caricamento.
+
+**Chiusura per trascinamento** al posto della × (card traccia e card foto): nuovo
+`AppSheetSurface.onDismiss` — la superficie diventa `StatefulWidget` e segue il dito
+(`Transform.translate`), chiude oltre 48px o con uno scatto veloce. La presa è il **solo
+handle**, non tutta la superficie: la card traccia contiene il grafico del profilo (che
+intercetta il trascinamento per muovere il cursore) e il carosello foto, un drag globale se li
+mangerebbe. Non attivo durante il **disegno** di una traccia: chiuderla per sbaglio con uno
+scorrimento farebbe perdere il percorso in corso, lì si esce da "Annulla" con conferma.
+
+**Conferme uniformate** (`showIosConfirm`, `ios_menu.dart`): erano due voci di menu impilate
+(riga rossa + riga "Annulla"), incoerenti con la sheet "Modifica titolo" accanto a cui
+comparivano. Ora stessa struttura: header titolo + ×, messaggio, e **una riga** di due bottoni
+— "Annulla" terziario a sinistra, conferma **piena** ed espansa fino al bordo destro. Essendo
+una funzione condivisa il cambio copre in un colpo tutte e 5 le conferme dell'app (scollega
+foto, elimina traccia, annulla modifiche, elimina punto, permesso libreria negato). Rimossi
+`_ConfirmHeader`/`_Sep`, ora morti. `showIosMenu` resta a righe impilate: lì le voci sono
+*scelte* omogenee, non una coppia conferma/annulla.
+
+⚠️ **Due deroghe consapevoli a `new design/DESIGN_GUIDELINES.md`**, entrambe su richiesta
+esplicita dell'utente, da riportare nel documento se confermate:
+- §4 "niente bottoni pieni rossi" — la conferma distruttiva è ora piena rossa, per coerenza di
+  impaginato con il pieno blu "Salva" di "Modifica titolo".
+- §5 non prevede un icon-button distruttivo — aggiunto `AppIconButton.tint`, documentato come
+  eccezione per le sole azioni distruttive senza etichetta (lo stato *attivo* resta blu, §10).
+
+Test: aggiornati i 4 di `draw_route_controls_test.dart` che cercavano le etichette testuali
+delle azioni foto (ora tooltip) e il foglio-griglia dell'escursione (ora rimosso).
+
+---
+
 ## 28 luglio 2026 — Tolta la mini-mappa dal viewer foto, aggiunto "Vedi sulla mappa"
 
 Seguito della voce sotto (pannello Altitudine/Mappa): la mini-mappa Mapbox era stata segnalata

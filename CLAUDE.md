@@ -131,7 +131,10 @@ lib/
     tracks_list/          # libreria tracciati salvati (ordinamento, ricerca)
     offline_maps/         # gestione mappe/elevazione scaricate
     settings/             # tema, sorgente cloud, legende, changelog/roadmap in-app
-  ui/                     # widget condivisi (vetro iOS, toast/menu, profilo altimetrico, token di design)
+  ui/                     # widget condivisi: chrome in "vetro" iOS (menubar/ricerca/punto
+                          # ispezionato) + sistema di design opaco per le card di contenuto
+                          # (app_buttons/app_bottom_sheet/badges, da `new design/`), toast/menu,
+                          # profilo altimetrico, token di design
 test/
 ```
 

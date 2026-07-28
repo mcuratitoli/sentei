@@ -290,9 +290,8 @@ void main() {
   });
 
   testWidgets(
-      'il foglio di un\'escursione mostra le foto in ordine di distanza '
-      'lungo il percorso, non nell\'ordine in cui sono state collegate',
-      (tester) async {
+      'tap su un\'escursione apre la sua prima foto per distanza lungo il '
+      'percorso, non nell\'ordine in cui sono state collegate', (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     final notifier = container.read(tracksProvider.notifier);
@@ -315,18 +314,13 @@ void main() {
     await tester.tap(find.text('Foto senza data'));
     await tester.pumpAndSettle();
 
-    // Nella griglia del foglio, la prima cella (ordine di lista) deve
-    // corrispondere a "near" (500m), non a "far" (5000m, collegata prima).
-    final tiles = find.descendant(
-        of: find.byType(GridView), matching: find.byType(GestureDetector));
-    await tester.tap(tiles.first);
-    await tester.pumpAndSettle();
+    // La foto aperta è "near" (500 m), non "far" (5000 m, collegata prima).
     expect(container.read(selectedPhotoProvider)?.id, 'near');
   });
 
   testWidgets(
-      'tap su una thumbnail nel foglio di un\'escursione apre la stessa '
-      'PhotoDetailCard del pin in mappa (selectedPhotoProvider condiviso)',
+      'tap su un\'escursione va dritto alla PhotoDetailCard (nessuna griglia '
+      'intermedia), stesso selectedPhotoProvider del pin in mappa',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
@@ -348,11 +342,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Foto senza data'));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(
-        of: find.byType(GridView), matching: find.byType(GestureDetector)));
-    await tester.pumpAndSettle();
 
     expect(container.read(selectedPhotoProvider)?.id, 'ph1');
+    expect(find.byType(GridView), findsNothing);
   });
 
   testWidgets(
@@ -401,13 +393,16 @@ void main() {
     expect(find.text(Format.meters(_FakeElevation.fixedElevation)),
         findsOneWidget);
     expect(find.textContaining('Quota'), findsNothing);
-    expect(find.text('Modifica titolo'), findsOneWidget);
-    expect(find.text('Scollega'), findsOneWidget);
+    // Azioni ridotte a sole icone in linea (niente più pillole con etichetta):
+    // si trovano dal tooltip, non dal testo.
+    expect(find.byTooltip('Modifica titolo'), findsOneWidget);
+    expect(find.byTooltip('Scollega'), findsOneWidget);
+    expect(find.text('Scollega'), findsNothing);
 
     // Modifica titolo: il dialog precompilato salva il nuovo valore. Il
     // titolo ora differisce dalla data: la riga data/ora resta comunque
     // visibile (sempre mostrata, non solo come fallback del titolo).
-    await tester.tap(find.text('Modifica titolo'));
+    await tester.tap(find.byTooltip('Modifica titolo'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(CupertinoTextField), 'Bivacco Ravelli');
     await tester.tap(find.text('Salva'));
@@ -459,11 +454,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Scollega'));
+    await tester.tap(find.byTooltip('Scollega'));
     await tester.pumpAndSettle();
     expect(find.text('Scollegare la foto?'), findsOneWidget);
 
-    await tester.tap(find.text('Scollega').last);
+    // La conferma ha ora la stessa forma di "Modifica titolo": riga di due
+    // bottoni (Annulla terziario + azione distruttiva), non due voci di menu
+    // impilate.
+    expect(find.text('Annulla'), findsOneWidget);
+    await tester.tap(find.text('Scollega'));
     await tester.pumpAndSettle();
 
     expect(container2.read(tracksProvider).tracks.first.photos, isEmpty);

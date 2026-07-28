@@ -1131,7 +1131,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
-    ref.listen(selectedPhotoProvider, (_, __) => _renderPhotos());
+    ref.listen(selectedPhotoProvider, (_, next) {
+      _renderPhotos();
+      // La card foto si sovrappone a quella traccia: con la traccia espansa
+      // resterebbe nascosta sotto e non si vedrebbe più la mappa. Aprire un
+      // dettaglio foto riduce quindi la card traccia — stesso effetto di
+      // "Vedi sulla mappa" dal visualizzatore a schermo intero.
+      if (next != null) {
+        ref.read(trackCardExpandedProvider.notifier).collapse();
+      }
+    });
     ref.listen(tracksHiddenProvider, (_, __) => _renderAll());
     ref.listen(mapFocusProvider, (_, next) {
       if (next != null) _scheduleFocusTrack(next.trackId);
@@ -1184,80 +1193,92 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
             // (vedi `SafeArea(top: false)` in `DrawRouteControls`): il resto
             // (ricerca, punto ispezionato, barra in basso) resta invece
             // inset come prima.
-            child: SafeArea(
-              bottom: !showCard,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Dettagli della foto selezionata (tap su un pin mappa o su
-                  // una thumbnail nella card traccia, stesso provider), sopra
-                  // la card traccia.
-                  if (selectedPhoto != null) ...[
-                    PhotoDetailCard(
-                      photo: selectedPhoto,
-                      onClose: () =>
-                          ref.read(selectedPhotoProvider.notifier).clear(),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  const DrawRouteControls(),
-                  // Caricamento import (annullabile): riallineamento in corso.
-                  if (importing)
-                    _ImportLoadingCard(
-                      onCancel: () =>
-                          ref.read(tracksProvider.notifier).cancelImport(),
-                    ),
-                  // Pannello di ricerca luoghi (dalla lente): sopra la menubar,
-                  // con i risultati che crescono verso l'alto.
-                  if (_searchOpen)
-                    _SearchPanel(
-                      controller: _searchCtrl,
-                      searching: _searching,
-                      results: _searchResults,
-                      onChanged: _onSearchChanged,
-                      onSubmitted: (_) {
-                        if (_searchResults.isNotEmpty) {
-                          _goToResult(_searchResults.first);
-                        }
-                      },
-                      onPick: _goToResult,
-                      onClose: _closeSearch,
-                    ),
-                  // Respiro tra la ricerca e la menubar.
-                  if (_searchOpen) const SizedBox(height: 12),
-                  // Mini-card info punto (esplorazione): sopra la barra, come la
-                  // ricerca (stessa posizione + piccolo margine).
-                  if (showPointCard) ...[
-                    _PointInfoCard(
-                      data: inspected,
-                      onClose: () =>
-                          ref.read(inspectedPointProvider.notifier).clear(),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  // La toolbar c'è quando NON è mostrata la card traccia (che
-                  // occupa il fondo dello schermo) né il caricamento import.
-                  if (!showCard && !importing)
-                    _BottomBar(
-                      onSearch: _openSearch,
-                      onLayers: _onLayers,
-                      // In Mappa mostro il mondo (→ satellite); in Satellite
-                      // mostro l'icona a strati (→ torna a Mappa).
-                      layersIcon: _styleChoice == MapStyleChoice.outdoors
-                          ? CupertinoIcons.globe
-                          : CupertinoIcons.map,
-                      layersTooltip: _styleChoice == MapStyleChoice.outdoors
-                          ? 'Vista satellite'
-                          : 'Vista mappa',
-                      onNewTrack: () {
-                        ref.read(inspectedPointProvider.notifier).clear();
-                        ref.read(tracksProvider.notifier).startNewDrawing();
-                      },
-                      onTracks: () => context.push(TracksListScreen.routePath),
-                      onSettings: () => context.push(SettingsScreen.routePath),
-                    ),
-                ],
-              ),
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                SafeArea(
+                  bottom: !showCard,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const DrawRouteControls(),
+                      // Caricamento import (annullabile): riallineamento in
+                      // corso.
+                      if (importing)
+                        _ImportLoadingCard(
+                          onCancel: () =>
+                              ref.read(tracksProvider.notifier).cancelImport(),
+                        ),
+                      // Pannello di ricerca luoghi (dalla lente): sopra la
+                      // menubar, con i risultati che crescono verso l'alto.
+                      if (_searchOpen)
+                        _SearchPanel(
+                          controller: _searchCtrl,
+                          searching: _searching,
+                          results: _searchResults,
+                          onChanged: _onSearchChanged,
+                          onSubmitted: (_) {
+                            if (_searchResults.isNotEmpty) {
+                              _goToResult(_searchResults.first);
+                            }
+                          },
+                          onPick: _goToResult,
+                          onClose: _closeSearch,
+                        ),
+                      // Respiro tra la ricerca e la menubar.
+                      if (_searchOpen) const SizedBox(height: 12),
+                      // Mini-card info punto (esplorazione): sopra la barra,
+                      // come la ricerca (stessa posizione + piccolo margine).
+                      if (showPointCard) ...[
+                        _PointInfoCard(
+                          data: inspected,
+                          onClose: () =>
+                              ref.read(inspectedPointProvider.notifier).clear(),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      // La toolbar c'è quando NON è mostrata la card traccia
+                      // (che occupa il fondo dello schermo) né l'import.
+                      if (!showCard && !importing)
+                        _BottomBar(
+                          onSearch: _openSearch,
+                          onLayers: _onLayers,
+                          // In Mappa mostro il mondo (→ satellite); in
+                          // Satellite l'icona a strati (→ torna a Mappa).
+                          layersIcon: _styleChoice == MapStyleChoice.outdoors
+                              ? CupertinoIcons.globe
+                              : CupertinoIcons.map,
+                          layersTooltip: _styleChoice == MapStyleChoice.outdoors
+                              ? 'Vista satellite'
+                              : 'Vista mappa',
+                          onNewTrack: () {
+                            ref.read(inspectedPointProvider.notifier).clear();
+                            ref
+                                .read(tracksProvider.notifier)
+                                .startNewDrawing();
+                          },
+                          onTracks: () =>
+                              context.push(TracksListScreen.routePath),
+                          onSettings: () =>
+                              context.push(SettingsScreen.routePath),
+                        ),
+                    ],
+                  ),
+                ),
+                // Dettagli della foto selezionata (tap su un pin mappa, su una
+                // thumbnail della card traccia o sul carosello della card
+                // stessa): **sovrapposta** alla card traccia e incollata al
+                // bordo inferiore, non impilata sopra di lei — prende il suo
+                // posto invece di spingerla fuori schermo. Gestisce da sé il
+                // padding di sicurezza inferiore, essendo ora il foglio più in
+                // basso quando è a schermo.
+                if (selectedPhoto != null)
+                  PhotoDetailCard(
+                    photo: selectedPhoto,
+                    onClose: () =>
+                        ref.read(selectedPhotoProvider.notifier).clear(),
+                  ),
+              ],
             ),
           ),
           // Splash esteso: copre la mappa finché la camera iniziale non è pronta
