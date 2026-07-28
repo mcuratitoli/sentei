@@ -54,6 +54,9 @@ class DrawRouteControls extends ConsumerWidget {
       // ispezionato in esplorazione) non è coperta da questo redesign e
       // resta col vecchio linguaggio `GlassSurface`.
       child: AppSheetSurface(
+        // Fluttua sopra la mappa con un margine sotto (non è a filo del
+        // bordo schermo): arrotondata su tutti i lati, non solo sopra.
+        floating: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: drawing ? const _DrawingBody() : const _SelectedBody(),
@@ -298,7 +301,9 @@ class _SelectedBody extends ConsumerWidget {
                 onPressed: (!hasMetrics || saving)
                     ? null
                     : () => ref.read(profileVisibleProvider.notifier).toggle(),
-                icon: CupertinoIcons.waveform_path,
+                // Grafico a linee (non più `waveform_path`, che leggeva
+                // troppo come forma d'onda audio).
+                icon: CupertinoIcons.graph_square,
               ),
               const SizedBox(width: 6),
               AppIconButton(
@@ -308,7 +313,9 @@ class _SelectedBody extends ConsumerWidget {
                     ? null
                     : () =>
                         ref.read(steepnessVisibleProvider.notifier).toggle(),
-                icon: CupertinoIcons.graph_square,
+                // Pennello (non più `graph_square`, ora usata dal profilo
+                // altimetrico accanto — le due icone non devono coincidere).
+                icon: CupertinoIcons.paintbrush,
               ),
               const Spacer(),
               AppIconButton(
@@ -318,6 +325,7 @@ class _SelectedBody extends ConsumerWidget {
                     : () => findNearbyPhotos(context, ref, track),
                 icon: CupertinoIcons.photo,
               ),
+              const SizedBox(width: 6),
               AppIconButton(
                 tooltip: 'Modifica',
                 onPressed: saving
@@ -325,6 +333,7 @@ class _SelectedBody extends ConsumerWidget {
                     : () => ref.read(tracksProvider.notifier).editSelected(),
                 icon: CupertinoIcons.pencil,
               ),
+              const SizedBox(width: 6),
               AppIconButton(
                 tooltip: 'Salva offline',
                 onPressed: saving || track == null
@@ -948,6 +957,7 @@ class PhotoDetailCard extends ConsumerWidget {
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
       child: AppSheetSurface(
+        floating: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Column(
@@ -964,8 +974,8 @@ class PhotoDetailCard extends ConsumerWidget {
                     child: ClipRRect(
                       borderRadius: AppRadii.rMd,
                       child: SizedBox(
-                        width: 88,
-                        height: 88,
+                        width: 64,
+                        height: 64,
                         child: current.thumbnail != null
                             ? Image.memory(current.thumbnail!,
                                 fit: BoxFit.cover)

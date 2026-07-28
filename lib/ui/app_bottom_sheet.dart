@@ -16,24 +16,37 @@ class AppSheetSurface extends StatelessWidget {
     super.key,
     required this.child,
     this.showHandle = true,
+    this.floating = false,
   });
 
   final Widget child;
   final bool showHandle;
 
+  /// `true` per le card **non** attaccate al bordo inferiore dello schermo
+  /// (card traccia/foto, che restano fluttuanti sopra la mappa con un
+  /// margine sotto): arrotonda tutti e 4 gli angoli, non solo quelli sopra.
+  /// Le vere bottom sheet modali ([showAppBottomSheet]), a filo del bordo
+  /// inferiore, restano con l'angolo sotto squadrato (default `false`).
+  final bool floating;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final radius = floating
+        ? const BorderRadius.all(Radius.circular(AppRadii.sheet))
+        : const BorderRadius.vertical(top: Radius.circular(AppRadii.sheet));
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.glassFill,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),
+        borderRadius: radius,
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF000000).withValues(alpha: 0.14),
             blurRadius: 16,
-            offset: const Offset(0, -4),
+            // Sheet a filo del bordo inferiore: ombra verso l'alto (l'unico
+            // lato visibile). Card fluttuante: ombra centrata, visibile su
+            // tutti i lati.
+            offset: Offset(0, floating ? 2 : -4),
           ),
         ],
       ),
@@ -129,6 +142,10 @@ Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isDismissible = true,
+  // Righe azione full-bleed (menu/conferme, `ios_menu.dart`) passano
+  // `EdgeInsets.zero` e gestiscono da sé il padding orizzontale di titolo/
+  // messaggio, per poter disegnare divisori a tutta larghezza.
+  EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(20, 0, 20, 14),
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -144,7 +161,7 @@ Future<T?> showAppBottomSheet<T>({
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          padding: padding,
           child: builder(sheetContext),
         ),
       ),

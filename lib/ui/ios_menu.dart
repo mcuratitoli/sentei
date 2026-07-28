@@ -1,23 +1,17 @@
-import 'dart:ui';
-
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Divider;
 
+import 'app_bottom_sheet.dart';
 import 'tokens.dart';
 
-/// Menu contestuale / conferma in stile **iOS** (à la Apple Photos): un unico
-/// riquadro in vetro con righe *icona + testo* separate da divisori sottili, con
-/// l'azione distruttiva in rosso. Sostituisce action sheet / alert dialog.
+/// Menu contestuale / conferma **incollati al bordo inferiore** dello
+/// schermo, come ogni altro pannello modale dell'app (`new
+/// design/DESIGN_GUIDELINES.md` §7 — coerenza esplicitamente richiesta
+/// dall'utente con la sheet "Selezione tema"): righe *icona + testo*
+/// separate da divisori sottili, azione distruttiva in rosso. Sostituisce
+/// action sheet / alert dialog centrati o ancorati al punto di tocco.
 
-const double _kMenuWidth = 250;
-const double _kConfirmMaxWidth = 270;
-const double _kRadius = 14;
 const Color _kDestructive = AppColors.destructive; // systemRed, non theme-aware
-
-/// Riempimento del riquadro menu/conferma: quasi opaco, dal tema corrente.
-Color _fillOf(BuildContext c) => c.palette.glassFill.withValues(alpha: 0.96);
-
-/// Separatore hairline dal tema corrente.
-Color _sepOf(BuildContext c) => c.palette.hairline.withValues(alpha: 0.14);
 
 /// Una voce del menu.
 class IosMenuItem {
@@ -44,18 +38,19 @@ class IosMenuItem {
   final bool selected;
 }
 
-/// Mostra un **menu contestuale** ancorato al widget [anchorContext] (di solito
-/// il `context` del bottone che lo apre). Le voci sono righe icona+testo.
+/// Mostra un **menu contestuale** con le voci passate. [title] opzionale
+/// (mostrato in testa, stile [AppSheetHeader] senza ×: si chiude scegliendo
+/// una voce o toccando il backdrop).
 Future<void> showIosMenu({
   required BuildContext context,
-  required BuildContext anchorContext,
+  String? title,
   required List<IosMenuItem> items,
 }) {
-  return _show(context: context, anchorContext: anchorContext, items: items);
+  return _show(context: context, title: title, items: items);
 }
 
-/// Mostra una **conferma** centrata (testo esplicativo + azione, di norma rossa),
-/// stile Apple Photos. Tap fuori = annulla.
+/// Mostra una **conferma** (testo esplicativo + azione, di norma rossa) più
+/// la voce [cancelLabel]. Tap sul backdrop = annulla.
 Future<void> showIosConfirm({
   required BuildContext context,
   String? title,
@@ -65,11 +60,9 @@ Future<void> showIosConfirm({
   bool destructive = true,
   String cancelLabel = 'Annulla',
 }) {
-  final header = _ConfirmHeader(title: title, message: message);
   return _show(
     context: context,
-    anchorContext: null,
-    header: header,
+    header: _ConfirmHeader(title: title, message: message),
     items: [
       IosMenuItem(
         label: confirmLabel,
@@ -83,140 +76,38 @@ Future<void> showIosConfirm({
 
 Future<void> _show({
   required BuildContext context,
-  required BuildContext? anchorContext,
+  String? title,
   Widget? header,
   required List<IosMenuItem> items,
 }) {
-  Rect? anchor;
-  final overlay =
-      Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
-  final box = anchorContext?.findRenderObject() as RenderBox?;
-  if (box != null && box.hasSize && overlay != null) {
-    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
-    anchor = topLeft & box.size;
-  }
-  final centered = anchor == null;
-  return showGeneralDialog<void>(
+  return showAppBottomSheet<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'menu',
-    barrierColor: const Color(0x14000000),
-    transitionDuration: const Duration(milliseconds: 160),
-    pageBuilder: (_, __, ___) =>
-        _MenuLayer(anchor: anchor, header: header, items: items),
-    transitionBuilder: (_, anim, __, child) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: centered ? 0.96 : 0.9, end: 1)
-              .animate(curved),
-          alignment: centered ? Alignment.center : Alignment.topRight,
-          child: child,
-        ),
-      );
-    },
+    padding: EdgeInsets.zero,
+    builder: (_) => _MenuBody(title: title, header: header, items: items),
   );
 }
 
-class _MenuLayer extends StatelessWidget {
-  const _MenuLayer({
-    required this.anchor,
-    required this.header,
-    required this.items,
-  });
+class _MenuBody extends StatelessWidget {
+  const _MenuBody({this.title, this.header, required this.items});
 
-  final Rect? anchor;
+  final String? title;
   final Widget? header;
   final List<IosMenuItem> items;
 
   @override
   Widget build(BuildContext context) {
-    final centered = anchor == null;
-    final card = _MenuCard(header: header, items: items, centered: centered);
-    if (centered) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _kConfirmMaxWidth),
-          child: card,
-        ),
-      );
-    }
-    final size = MediaQuery.of(context).size;
-    final a = anchor!;
-    final left =
-        (a.right - _kMenuWidth).clamp(8.0, size.width - 8 - _kMenuWidth);
-    final openBelow = (size.height - a.bottom) > 320;
-    return Stack(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Positioned(
-          left: left,
-          width: _kMenuWidth,
-          top: openBelow ? a.bottom + 6 : null,
-          bottom: openBelow ? null : (size.height - a.top + 6),
-          child: card,
-        ),
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+            child: Text(title!, style: AppText.sheetTitle),
+          ),
+        if (header != null) ...[header!, const _Sep()],
+        for (final item in items) _MenuRow(item: item),
       ],
-    );
-  }
-}
-
-class _MenuCard extends StatelessWidget {
-  const _MenuCard({
-    required this.header,
-    required this.items,
-    required this.centered,
-  });
-
-  final Widget? header;
-  final List<IosMenuItem> items;
-  final bool centered;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(_kRadius);
-    final children = <Widget>[];
-    if (header != null) {
-      children.add(header!);
-      children.add(const _Sep());
-    }
-    for (var i = 0; i < items.length; i++) {
-      children.add(_MenuRow(item: items[i], centered: centered));
-      if (i != items.length - 1) children.add(const _Sep());
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x24000000),
-            blurRadius: 24,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-          child: DecoratedBox(
-            decoration: BoxDecoration(color: _fillOf(context), borderRadius: radius),
-            // Dentro showGeneralDialog non c'è un DefaultTextStyle "buono":
-            // senza questo il testo mostra la doppia sottolineatura di debug.
-            child: DefaultTextStyle(
-              style: AppText.menuItem.copyWith(
-                decoration: TextDecoration.none,
-                color: context.palette.label,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -224,55 +115,43 @@ class _MenuCard extends StatelessWidget {
 class _Sep extends StatelessWidget {
   const _Sep();
   @override
-  Widget build(BuildContext context) =>
-      SizedBox(height: 0.5, child: ColoredBox(color: _sepOf(context)));
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Divider(color: context.palette.borderDivider, height: 1),
+      );
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({required this.item, required this.centered});
+  const _MenuRow({required this.item});
 
   final IosMenuItem item;
-  final bool centered;
 
   @override
   Widget build(BuildContext context) {
-    final color = item.isDestructive ? _kDestructive : context.palette.label;
-    final label = Text(
-      item.label,
-      textAlign: centered ? TextAlign.center : TextAlign.start,
-      style: AppText.menuItem.copyWith(
-        color: color,
-        fontWeight: (centered && item.isDestructive)
-            ? FontWeight.w600
-            : FontWeight.w400,
-      ),
-    );
-    final Widget content;
-    if (centered) {
-      content = Center(child: label);
-    } else {
-      content = Row(
-        children: [
-          if (item.icon != null) ...[
-            Icon(item.icon, size: 20, color: color),
-            const SizedBox(width: 12),
-          ],
-          Expanded(child: label),
-          if (item.selected)
-            Icon(CupertinoIcons.check_mark,
-                size: 18, color: context.palette.accent),
-        ],
-      );
-    }
+    final palette = context.palette;
+    final color = item.isDestructive ? _kDestructive : palette.label;
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      minimumSize: const Size.fromHeight(50),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      minimumSize: const Size.fromHeight(0),
       borderRadius: BorderRadius.zero,
       onPressed: () {
         Navigator.of(context).pop();
         item.onPressed?.call();
       },
-      child: content,
+      child: Row(
+        children: [
+          if (item.icon != null) ...[
+            Icon(item.icon, size: 20, color: color),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(item.label,
+                style: AppText.menuItem.copyWith(color: color)),
+          ),
+          if (item.selected)
+            Icon(CupertinoIcons.checkmark, size: 18, color: palette.accent),
+        ],
+      ),
     );
   }
 }
@@ -287,21 +166,17 @@ class _ConfirmHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (title != null && title!.isNotEmpty) ...[
-            Text(
-              title!,
-              textAlign: TextAlign.center,
-              style: AppText.value.copyWith(color: palette.label),
-            ),
-            const SizedBox(height: 5),
+            Text(title!, style: AppText.sheetTitle),
+            const SizedBox(height: 6),
           ],
           Text(
             message,
-            textAlign: TextAlign.center,
             style: AppText.footnote
                 .copyWith(height: 1.35, color: palette.secondaryLabel),
           ),

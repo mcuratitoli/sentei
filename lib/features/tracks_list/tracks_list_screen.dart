@@ -76,12 +76,10 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0.4,
         actions: [
-          Builder(
-            builder: (btnCtx) => IconButton(
-              tooltip: 'Ordina',
-              icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
-              onPressed: () => _showSortSheet(btnCtx),
-            ),
+          IconButton(
+            tooltip: 'Ordina',
+            icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
+            onPressed: _showSortSheet,
           ),
           IconButton(
             tooltip: 'Importa GPX',
@@ -143,13 +141,11 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         if (gain != null) 'D+ ${Format.meters(gain)}',
         if (t.trailRefs.isNotEmpty) t.trailRefs.join(", "),
       ].join(' · ')),
-      trailing: Builder(
-        builder: (btnCtx) => AppIconButton(
-          tooltip: 'Altre azioni',
-          icon: CupertinoIcons.ellipsis,
-          size: 36,
-          onPressed: () => _showTrackActions(btnCtx, t),
-        ),
+      trailing: AppIconButton(
+        tooltip: 'Altre azioni',
+        icon: CupertinoIcons.ellipsis,
+        size: 36,
+        onPressed: () => _showTrackActions(t),
       ),
       onTap: () {
         ref.read(tracksProvider.notifier).select(t.id);
@@ -160,12 +156,12 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     );
   }
 
-  Future<void> _showSortSheet(BuildContext anchor) async {
+  Future<void> _showSortSheet() async {
     final sort = ref.read(tracksSortProvider);
     final notifier = ref.read(tracksSortProvider.notifier);
     await showIosMenu(
       context: context,
-      anchorContext: anchor,
+      title: 'Ordina per',
       items: [
         IosMenuItem(
           label: 'Alfabetico',
@@ -195,10 +191,10 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     );
   }
 
-  Future<void> _showTrackActions(BuildContext anchor, DrawnTrack t) async {
+  Future<void> _showTrackActions(DrawnTrack t) async {
     await showIosMenu(
       context: context,
-      anchorContext: anchor,
+      title: t.name.isNotEmpty ? t.name : 'Senza nome',
       items: [
         IosMenuItem(
           label: 'Esporta GPX',

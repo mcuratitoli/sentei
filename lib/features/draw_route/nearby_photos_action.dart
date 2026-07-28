@@ -8,7 +8,8 @@ import '../../data/photos/nearby_photos_finder.dart';
 import '../../data/photos/photo_library_service.dart';
 import '../../data/photos/photo_manager_library_service.dart';
 import '../../domain/models/track_photo.dart';
-import '../../ui/glass.dart';
+import '../../ui/app_bottom_sheet.dart';
+import '../../ui/app_buttons.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_progress.dart';
 import '../../ui/ios_toast.dart';
@@ -72,9 +73,8 @@ Future<void> findNearbyPhotos(
     return;
   }
 
-  final chosen = await showCupertinoModalPopup<List<TrackPhoto>>(
+  final chosen = await showAppBottomSheet<List<TrackPhoto>>(
     context: context,
-    barrierDismissible: true,
     builder: (_) => _NearbyPhotosSheet(
       photos: fresh,
       limited: result.permission == PhotoLibraryPermission.limited,
@@ -133,103 +133,72 @@ class _NearbyPhotosSheetState extends State<_NearbyPhotosSheet> {
     final media = MediaQuery.of(context);
     final count = widget.photos.length;
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: media.size.height * 0.7),
-          child: GlassSurface(
-            // Token condiviso con le altre card di contenuto (traccia, foto,
-            // import): vedi `AppPalette.contentGlassOpacity/Blur`. Era 0.94,
-            // un valore isolato senza un motivo per differire.
-            opacity: palette.contentGlassOpacity,
-            blur: palette.contentGlassBlur,
-            borderRadius: AppRadii.rCard,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    count == 1
-                        ? 'Trovata 1 foto vicino al percorso'
-                        : 'Trovate $count foto vicino al percorso',
-                    style: AppText.value.copyWith(color: palette.label),
-                  ),
-                  if (widget.limited) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Accesso limitato ad alcune foto: potrebbero essercene '
-                      'altre nella libreria.',
-                      style: AppText.captionSmall
-                          .copyWith(color: palette.secondaryLabel),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Flexible(
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                      ),
-                      itemCount: widget.photos.length,
-                      itemBuilder: (_, i) {
-                        final p = widget.photos[i];
-                        return _PhotoTile(
-                          thumbnail: p.thumbnail,
-                          selected: _selected.contains(p.id),
-                          onTap: () => _toggle(p.id),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          color: palette.glassFill.withValues(alpha: 0.5),
-                          borderRadius: AppRadii.rPill,
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Text('Annulla',
-                              style: AppText.pillLabel
-                                  .copyWith(color: palette.label)),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          color: AppColors.primary
-                              .withValues(alpha: _selected.isEmpty ? 0.4 : 1),
-                          borderRadius: AppRadii.rPill,
-                          onPressed: _selected.isEmpty
-                              ? null
-                              : () => Navigator.of(context).pop([
-                                    for (final p in widget.photos)
-                                      if (_selected.contains(p.id)) p,
-                                  ]),
-                          child: Text(
-                            'Aggiungi (${_selected.length})',
-                            style: AppText.pillLabel
-                                .copyWith(color: const Color(0xFFFFFFFF)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: media.size.height * 0.7),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSheetHeader(
+            title: count == 1
+                ? 'Trovata 1 foto vicino al percorso'
+                : 'Trovate $count foto vicino al percorso',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          if (widget.limited) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Accesso limitato ad alcune foto: potrebbero essercene '
+              'altre nella libreria.',
+              style:
+                  AppText.captionSmall.copyWith(color: palette.secondaryLabel),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Flexible(
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
               ),
+              itemCount: widget.photos.length,
+              itemBuilder: (_, i) {
+                final p = widget.photos[i];
+                return _PhotoTile(
+                  thumbnail: p.thumbnail,
+                  selected: _selected.contains(p.id),
+                  onTap: () => _toggle(p.id),
+                );
+              },
             ),
           ),
-        ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              AppButton(
+                label: 'Annulla',
+                variant: AppButtonVariant.tertiary,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AppButton(
+                  label: 'Aggiungi (${_selected.length})',
+                  variant: AppButtonVariant.primary,
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop([
+                            for (final p in widget.photos)
+                              if (_selected.contains(p.id)) p,
+                          ]),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
