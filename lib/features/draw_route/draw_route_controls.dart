@@ -313,9 +313,9 @@ class _SelectedBody extends ConsumerWidget {
                     ? null
                     : () =>
                         ref.read(steepnessVisibleProvider.notifier).toggle(),
-                // Pennello (non più `graph_square`, ora usata dal profilo
-                // altimetrico accanto — le due icone non devono coincidere).
-                icon: CupertinoIcons.paintbrush,
+                // Fiamma: intensità/difficoltà della pendenza, non un
+                // pennello (colore in sé non è il concetto — la ripidità sì).
+                icon: CupertinoIcons.flame,
               ),
               const Spacer(),
               AppIconButton(

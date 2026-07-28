@@ -83,7 +83,8 @@ class AppButton extends StatelessWidget {
     }
 
     Widget button = CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       minimumSize: const Size(0, _height),
       borderRadius: BorderRadius.circular(_height / 2),
       color: bg,
@@ -95,9 +96,19 @@ class AppButton extends StatelessWidget {
             Icon(icon, size: 18, color: fg),
             const SizedBox(width: 8),
           ],
-          Text(label,
+          // `Flexible` (non solo `Text`): quando il bottone è compresso da un
+          // `Expanded` esterno (es. due pillole affiancate, `_SelectedWaypointBar`)
+          // un'etichetta lunga come "Aggiungi punto prima" va su due righe
+          // invece di uscire dai bordi della pillola (overflow).
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: AppText.pillLabel
-                  .copyWith(color: fg, fontWeight: FontWeight.w600)),
+                  .copyWith(color: fg, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
