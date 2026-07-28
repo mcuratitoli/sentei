@@ -7,6 +7,51 @@ per cosa resta da fare vedi **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 Il numero fra parentesi è il **build** (`CFBundleVersion`/`versionCode`); la app in
 Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
+## 1.0.0 (7) — 29 luglio 2026
+
+- 📸 **"Trova foto vicine" ora trova davvero le foto.** Prima cercava solo
+  fra i 3000 scatti più recenti dell'intera libreria: se dopo l'escursione
+  avevi fatto più foto di così, quelle del percorso restavano fuori e non
+  compariva mai nulla — nonostante permesso concesso e GPS nelle foto. Ora
+  cerca in tutta la libreria. Il messaggio distingue anche "nessuna foto
+  trovata" da "trovate, ma già tutte collegate a questa traccia".
+- 📸 **Le foto di una traccia sono raggruppate per escursione**, in una
+  sezione "FOTO" che si apre e chiude nella card: gli scatti vicini nel
+  tempo finiscono nello stesso gruppo, con copertina, data e conteggio (una
+  pausa di oltre 30 ore apre un gruppo nuovo, così un'uscita con
+  pernottamento non viene spezzata in due). Toccare un gruppo apre
+  direttamente la sua prima foto, in ordine di percorso.
+- 📸 **Visualizzatore foto a schermo intero in stile galleria**: scorri fra
+  tutte le foto della stessa escursione, con la striscia di miniature in
+  basso, e chiudi trascinando verso il basso. Sotto la foto un pannello
+  mostra il **profilo altimetrico con il punto di scatto evidenziato**, e
+  "Vedi sulla mappa" chiude la foto e centra la mappa in quel punto.
+- 📸 **Card della foto ridisegnata**: niente più titolo "Dettaglio foto",
+  ora è una riga sola — miniatura, data, quota e coordinate, con Modifica
+  titolo e Scollega ridotti a icone — e sotto il **carosello delle altre
+  foto della stessa escursione**, per passare da una all'altra senza uscire.
+  Si sovrappone alla card della traccia, che si riduce da sé per lasciare
+  vedere la mappa.
+- 🐛 **Import GPX su iPhone**: nella schermata File il tracciato `.gpx`
+  appariva in grigio e non era selezionabile. iOS non conosce il formato
+  GPX e lo trattava come un file generico; ora l'app glielo dichiara.
+- 🎨 **Le card di traccia e foto si chiudono trascinandole verso il basso**
+  dalla maniglia in alto, come i pannelli di sistema: la "X" non serve più
+  ed è stata tolta. Durante il disegno di un percorso resta il tasto
+  "Annulla" con conferma, per non perdere il lavoro con uno scorrimento.
+- 🎨 **Tutte le richieste di conferma hanno ora la stessa forma** (elimina
+  traccia, elimina punto, scollega foto, annulla modifiche): testo
+  esplicativo e una riga con "Annulla" a sinistra e l'azione a destra, come
+  la finestra "Modifica titolo". Prima erano due voci in elenco.
+- 🐛 In "Modifica titolo" la tastiera a volte non si apriva e il campo
+  restava senza cursore: sembrava non ci fosse niente da scrivere.
+- 🐛 Chiudendo la card di una traccia, la card della foto non resta più
+  orfana a mezz'aria.
+- 🐛 La foto a schermo intero non è più minuscola in mezzo al nero: ora
+  riempie lo schermo. Se lo scatto originale non è più nella libreria di
+  questo dispositivo si vede la miniatura salvata, non più velata di grigio
+  (sembrava un errore di caricamento).
+
 ## 1.0.0 (6) — 28 luglio 2026
 
 - 🎨 **Redesign grafico** di percorso/foto/impostazioni: card e pannelli

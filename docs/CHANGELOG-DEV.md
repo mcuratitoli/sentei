@@ -11,6 +11,30 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 29 luglio 2026 — Import GPX su iOS: il file .gpx non era selezionabile
+
+Nel selettore file di iOS il tracciato `.gpx` compariva in grigio, non selezionabile. Causa
+radice: `openFile` (`file_selector`) su iOS usa `UIDocumentPickerViewController`, che filtra
+**solo** per `uniformTypeIdentifiers` — il campo `extensions: ['gpx']` di `XTypeGroup` vale su
+desktop e lì viene ignorato. Dei due UTI richiesti in `tracks_list_screen.dart`, nessuno
+corrispondeva:
+- `com.topografix.gpx` non è un tipo di sistema: esiste solo se un'app installata lo dichiara,
+  e nessuna lo faceva;
+- `public.xml` neanche, perché iOS deriva l'UTI dall'estensione e `.gpx` non è nel suo
+  database — il file finiva classificato `public.data` generico.
+
+**Fix**: `UTImportedTypeDeclarations` in `ios/Runner/Info.plist` — dichiara
+`com.topografix.gpx` conforme a `public.xml`, con estensione `gpx` e MIME
+`application/gpx+xml`. *Imported* e non *Exported*: il formato non è nostro, lo sappiamo solo
+leggere. Il legame Dart↔plist è annotato in `_importGpx()`, perché è il tipo di dipendenza che
+si rompe in silenzio.
+
+⚠️ Essendo un cambio nativo, LaunchServices registra i tipi **all'installazione**: serve
+disinstallare e reinstallare l'app (`xcrun simctl uninstall` + `flutter run`), un hot restart
+non basta.
+
+---
+
 ## 29 luglio 2026 — Rifiniture card foto (prima verifica a schermo) e conferme uniformi
 
 Prima sessione con l'app effettivamente in esecuzione sul simulatore dopo le tre voci qui

@@ -32,6 +32,17 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 7,
+    date: '29 luglio 2026',
+    highlights: [
+      '"Trova foto vicine" cerca in tutta la libreria: prima si fermava alle 3000 più recenti',
+      'Foto raggruppate per escursione, con visualizzatore a schermo intero e profilo altimetrico',
+      'Card di traccia e foto: si chiudono trascinandole verso il basso, conferme tutte uguali',
+      'Corretto l\'import GPX su iPhone: il file non era selezionabile',
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 6,
     date: '28 luglio 2026',
     highlights: [

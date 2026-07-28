@@ -228,6 +228,11 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   }
 
   Future<void> _importGpx() async {
+    // Su iOS il selettore file filtra **solo** per `uniformTypeIdentifiers`
+    // (`extensions` vale su desktop): perché un .gpx risulti conforme a questi
+    // UTI serve la dichiarazione `UTImportedTypeDeclarations` in
+    // `ios/Runner/Info.plist` — senza, il sistema lo classifica `public.data`
+    // generico e il file appare in grigio, non selezionabile.
     const group = XTypeGroup(
       label: 'GPX',
       extensions: ['gpx'],
