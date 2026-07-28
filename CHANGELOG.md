@@ -7,7 +7,7 @@ per cosa resta da fare vedi **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 Il numero fra parentesi è il **build** (`CFBundleVersion`/`versionCode`); la app in
 Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
-## In lavorazione (non ancora rilasciato)
+## 1.0.0 (6) — 28 luglio 2026
 
 - 🎨 **Redesign grafico** di percorso/foto/impostazioni: card e pannelli
   ora hanno uno sfondo **pieno** (non più "vetro" semitrasparente),

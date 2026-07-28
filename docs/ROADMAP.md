@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 27 luglio 2026 · **Stato:** beta `1.0.0+5` rilasciata ai tester.
+**Aggiornato:** 28 luglio 2026 · **Stato:** beta `1.0.0+6` in rilascio ai tester.
 
 ## Come leggere questo documento
 
@@ -38,11 +38,7 @@
    è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
    visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
    sovrapposte.
-5. [ ] **[FEATURE] Coerenza tasto ripidità ↔ tasto immagini** — *SP 2*. Nella card di
-    editing, il toggle on/off della banda ripidità/pendenza e il toggle on/off delle
-    immagini devono avere lo stesso linguaggio visivo (stessa forma, stesso stato
-    attivo/disattivo) — oggi incoerenti.
-6. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+5. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 8* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`). **Fatto** (27 luglio 2026, vedi
     `docs/CHANGELOG-DEV.md`): card di dettaglio foto unificata (stessa sia dal pin mappa sia
@@ -61,7 +57,7 @@
     - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
       in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
       altrove con `DefaultTextStyle(decoration:none)`).
-7. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+6. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
 *Totale indicativo: ~20 story point — riferimento per pianificare, non un vincolo rigido.*

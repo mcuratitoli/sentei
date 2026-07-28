@@ -32,6 +32,17 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 6,
+    date: '28 luglio 2026',
+    highlights: [
+      'Redesign grafico: card e pannelli con sfondo pieno, bottoni e badge coerenti',
+      'Tutti i pannelli a comparsa ora incollati al bordo inferiore, come la selezione tema',
+      'Foto lungo il percorso: card di dettaglio unificata, thumbnail evidenziate sul grafico',
+      'Tema chiaro/scuro coerente fin dall\'apertura dell\'app',
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 5,
     date: '24 luglio 2026',
     highlights: [
@@ -92,11 +103,9 @@ const List<ReleaseNote> kReleaseNotes = [
 /// stessa sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa
 /// convenzione di [kReleaseNotes], vedi anche `CLAUDE.md` §9).
 const List<String> kUpcomingHighlights = [
-  'Tema chiaro/scuro sempre coerente con quello scelto, fin dall\'apertura',
   'Tasto per eliminare una traccia direttamente dalla sua scheda',
   'Traccia selezionata più in evidenza, le altre più trasparenti',
-  'Foto lungo il percorso: galleria, titoli e dettagli per ogni scatto',
-  'Modifica dei punti di un tracciato più semplice e intuitiva',
+  'Foto lungo il percorso: vista a griglia, importazione dalla card, zoom sul punto di scatto',
 ];
 
 enum _NotesTab { changelog, roadmap }

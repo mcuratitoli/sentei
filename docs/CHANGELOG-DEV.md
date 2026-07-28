@@ -11,7 +11,7 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
-## 28 luglio 2026 — Fix overflow testo bottoni compressi + icona ripidità (in lavorazione, non ancora rilasciato)
+## 28 luglio 2026 — Fix overflow testo bottoni compressi + icona ripidità (confluito in `1.0.0+6`)
 
 Regressione dal round di rifiniture precedente: nella barra del punto selezionato
 (`_SelectedWaypointBar`), "Aggiungi punto prima" e "Elimina" sono due `AppButton` avvolti
@@ -32,7 +32,7 @@ con `CupertinoIcons.flame`.
 
 ---
 
-## 28 luglio 2026 — Rifiniture redesign: bordi, margini, icone, sotto-menu incollati in basso (in lavorazione, non ancora rilasciato)
+## 28 luglio 2026 — Rifiniture redesign: bordi, margini, icone, sotto-menu incollati in basso (confluito in `1.0.0+6`)
 
 Seguito diretto del redesign completo sotto, con feedback puntuale dell'utente su uno
 screenshot della card foto + card traccia impilate:
@@ -90,7 +90,7 @@ verificato con `flutter analyze` + `flutter test` (122 test) dopo ogni blocco di
 
 ---
 
-## 28 luglio 2026 — Redesign grafico completo secondo `new design/DESIGN_GUIDELINES.md` (in lavorazione, non ancora rilasciato)
+## 28 luglio 2026 — Redesign grafico completo secondo `new design/DESIGN_GUIDELINES.md` (confluito in `1.0.0+6`)
 
 L'utente ha preparato un intero sistema di design (`new design/DESIGN_GUIDELINES.md` + 9
 mockup PNG, non versionati) partendo dalla revisione grafica di un prototipo HTML di
@@ -196,7 +196,7 @@ data/ora nella card foto corretta a singola). Nessuna modifica ai test di
 
 ---
 
-## 27 luglio 2026 — Regola a due livelli per le azioni delle card: pillola vs icona (in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Regola a due livelli per le azioni delle card: pillola vs icona (confluito in `1.0.0+6`)
 
 Domanda diretta dell'utente su uno screenshot con card foto + card traccia affiancate: "sono
 coerenti tutti i bottoni?" — la risposta onesta, dopo lettura del codice, era no. La riga azioni
@@ -226,7 +226,7 @@ Test: sostituiti i `find.text('Percorso')` con `find.byTooltip('Profilo altimetr
 
 ---
 
-## 27 luglio 2026 — Token `contentGlassOpacity`/`contentGlassBlur`, card più trasparenti (in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Token `contentGlassOpacity`/`contentGlassBlur`, card più trasparenti (confluito in `1.0.0+6`)
 
 Seguito diretto dell'audit di coerenza grafica sotto: l'utente ha chiesto più trasparenza per
 `DrawRouteControls`/`PhotoDetailCard` (che l'audit aveva appena reso coerenti a 0.92/30, un
@@ -253,7 +253,7 @@ può cambiare.
 
 ---
 
-## 27 luglio 2026 — Audit coerenza grafica (opacità, icone, pesi visivi) (in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Audit coerenza grafica (opacità, icone, pesi visivi) (confluito in `1.0.0+6`)
 
 Prima revisione grafica trasversale dell'app (non un fix puntuale come le voci precedenti):
 partita da 4 problemi concreti indicati su uno screenshot (card foto vs card traccia con
@@ -318,7 +318,7 @@ Cupertino, opacità di `PhotoDetailCard` allineata a `DrawRouteControls`).
 
 ---
 
-## 27 luglio 2026 — Pin foto in mappa evidenziato + card traccia riducibile (feedback utente diretto, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Pin foto in mappa evidenziato + card traccia riducibile (feedback utente diretto, confluito in `1.0.0+6`)
 
 Sesto e ultimo giro di feedback diretto sul tema foto (stesso giorno), più una richiesta
 indipendente sulla card della traccia selezionata.
@@ -339,7 +339,7 @@ indipendente sulla card della traccia selezionata.
 
 ---
 
-## 27 luglio 2026 — Rifinitura card foto: 3 righe, ordine, evidenziazione gialla (feedback utente diretto su screenshot, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Rifinitura card foto: 3 righe, ordine, evidenziazione gialla (feedback utente diretto su screenshot, confluito in `1.0.0+6`)
 
 Quinto giro di feedback diretto (stesso giorno) sulla card foto appena introdotta.
 
@@ -371,7 +371,7 @@ ordine "sbagliato", verificato tappando la prima da sinistra), colore esatto
 
 ---
 
-## 27 luglio 2026 — Foto lungo il percorso: card unificata + titolo + evidenziazione (feedback utente diretto, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Foto lungo il percorso: card unificata + titolo + evidenziazione (feedback utente diretto, confluito in `1.0.0+6`)
 
 Quarto giro di feedback diretto (stesso giorno), questa volta sull'epica "Foto lungo il
 percorso" (P1, analisi in `docs/eval-photo-sync.md`) e su un dettaglio residuo della card
@@ -426,7 +426,7 @@ su un'anteprima, fix del testo sottolineato "Trovate X immagini".
 
 ---
 
-## 27 luglio 2026 — Rifinitura design su screenshot (skill mobile-app-design-mastery, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Rifinitura design su screenshot (skill mobile-app-design-mastery, confluito in `1.0.0+6`)
 
 Terzo giro di feedback diretto sulla stessa card (stesso giorno), questa volta caricando
 la skill `mobile-app-design-mastery` per applicare linee guida UX/UI esplicite invece di
@@ -460,7 +460,7 @@ stabilito nella stessa card, non la linea guida generica isolata.
 
 ---
 
-## 27 luglio 2026 — Impostazioni avanzate, quota sul punto, aggiungi punto prima (feedback utente diretto su screenshot della card, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Impostazioni avanzate, quota sul punto, aggiungi punto prima (feedback utente diretto su screenshot della card, confluito in `1.0.0+6`)
 
 Seguito diretto della voce precedente (stesso giorno): altro giro di feedback puntuale
 sulla stessa card di disegno/editing (`lib/features/draw_route/draw_route_controls.dart`),
@@ -502,7 +502,7 @@ Aggiornati `docs/eval-waypoint-editing.md` (Step 4 superato) e i test
 
 ---
 
-## 27 luglio 2026 — Rifinitura card di disegno (feedback utente diretto, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Rifinitura card di disegno (feedback utente diretto, confluito in `1.0.0+6`)
 
 Tre richieste puntuali sulla card di creazione/modifica (`_DrawingBody` in
 `lib/features/draw_route/draw_route_controls.dart`), non ancora in `ROADMAP.md` P1
@@ -538,7 +538,7 @@ gesto sulla mappa.
 
 ---
 
-## 27 luglio 2026 — Testo pulsante conferma annulla editing (P1, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Testo pulsante conferma annulla editing (P1, confluito in `1.0.0+6`)
 
 `_confirmCancel` (`lib/features/draw_route/draw_route_controls.dart`) è condiviso tra la
 creazione di un nuovo percorso e la modifica di una traccia esistente (`cancelEditing`
@@ -549,7 +549,7 @@ una riga: `confirmLabel: 'Annulla modifiche'`.
 
 ---
 
-## 27 luglio 2026 — Traccia "fantasma" dopo import GPX (P1, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Traccia "fantasma" dopo import GPX (P1, confluito in `1.0.0+6`)
 
 **Sintomo segnalato testando `1.0.0+4`:** nel flusso di import a 2 fasi (grezza tratteggiata
 → editing → Salva), la traccia grezza originale poteva restare visibile in mappa per sempre,
@@ -578,7 +578,7 @@ fase 1 e fase 2 dell'import) che avrebbero fallito prima del fix.
 
 ---
 
-## 27 luglio 2026 — Tema rispettato fin dal primo frame (P1 #1, in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Tema rispettato fin dal primo frame (P1 #1, confluito in `1.0.0+6`)
 
 **Sintomo segnalato testando `1.0.0+4`:** con il tema impostato manualmente (es. Chiaro) su
 un telefono col sistema in Dark Mode, all'avvio l'app mostrava per un istante lo Scuro di
@@ -602,7 +602,7 @@ aggiunti due test per il nuovo percorso sincrono.
 
 ---
 
-## 27 luglio 2026 — Altezza fissa per la card Novità/Roadmap (in lavorazione, non ancora rilasciato)
+## 27 luglio 2026 — Altezza fissa per la card Novità/Roadmap (confluito in `1.0.0+6`)
 
 Il bottom sheet di Impostazioni → Informazioni → Sentèi (`showReleaseNotes`,
 `lib/ui/release_notes.dart`) si dimensionava sul contenuto: `constraints` impostava solo un
@@ -618,7 +618,7 @@ simulatore (screenshot + tap automatizzati, vedi anche `CLAUDE.md`/memoria di se
 
 ---
 
-## 24 luglio 2026 — Icone provider cloud distinte (in lavorazione, non ancora rilasciato)
+## 24 luglio 2026 — Icone provider cloud distinte (confluito in `1.0.0+6`)
 
 In Impostazioni → Sincronizzazione cloud, la riga di accesso/account mostrava sempre
 `CupertinoIcons.cloud`/`cloud_fill` sia per iCloud sia per Google Drive — a colpo d'occhio
@@ -631,7 +631,7 @@ toccato: il problema segnalato era specificamente l'icona della riga account.
 
 ---
 
-## 24 luglio 2026 — Roadmap sintetica in-app (in lavorazione, non ancora rilasciato)
+## 24 luglio 2026 — Roadmap sintetica in-app (confluito in `1.0.0+6`)
 
 Impostazioni → Informazioni → Sentèi mostrava solo il changelog (`kReleaseNotes`,
 `lib/ui/release_notes.dart`). Aggiunta una nuova costante `kUpcomingHighlights` (3-6 voci,
