@@ -16,6 +16,8 @@ Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
   i sentieri" blu invece che verde. *(Sostituisce le voci più sotto su
   trasparenza/coerenza grafica della sessione precedente, mai rilasciate:
   qui lo sfondo torna pieno.)*
+- 🐛 Corretto un testo che usciva dai bordi del pulsante "Aggiungi punto
+  prima" nella modifica di un punto del percorso.
 - 🎨 **Tutti i pannelli a comparsa** (modifica titolo foto, selezione
   tema, ordina tracciati, azioni su una traccia, conferme di eliminazione,
   foto vicine al percorso) ora si aprono allo stesso modo: incollati al

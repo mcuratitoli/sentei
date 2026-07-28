@@ -11,6 +11,27 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Fix overflow testo bottoni compressi + icona ripidità (in lavorazione, non ancora rilasciato)
+
+Regressione dal round di rifiniture precedente: nella barra del punto selezionato
+(`_SelectedWaypointBar`), "Aggiungi punto prima" e "Elimina" sono due `AppButton` avvolti
+ciascuno in un `Expanded` (per dividersi la riga a metà). `AppButton` renderizzava
+l'etichetta con un `Text` nudo dentro una `Row` — in una `Row`, un figlio non-flex riceve
+larghezza principale **non vincolata**, quindi il testo si dimensiona alla sua larghezza
+naturale su una riga sola: se più largo dello spazio compresso dall'`Expanded` esterno, il
+risultato è un overflow orizzontale (visibile in debug come banda gialla/nera "RIGHT
+OVERFLOWED BY N PIXELS"), non un a-capo automatico. Fix: l'etichetta è ora dentro un
+`Flexible` (`maxLines: 2`, `overflow: TextOverflow.ellipsis` come rete di sicurezza) — va a
+capo su due righe quando il bottone è compresso, il pulsante cresce in altezza
+(`minimumSize` è un minimo, non un massimo) invece di traboccare in larghezza.
+
+Icona "Colori dislivelli": il pennello scelto nel round precedente (per liberare
+`graph_square`, passata al profilo altimetrico) non comunicava il concetto giusto — il
+bottone non riguarda "il colore" in sé ma l'**intensità/difficoltà della pendenza**. Sostituito
+con `CupertinoIcons.flame`.
+
+---
+
 ## 28 luglio 2026 — Rifiniture redesign: bordi, margini, icone, sotto-menu incollati in basso (in lavorazione, non ancora rilasciato)
 
 Seguito diretto del redesign completo sotto, con feedback puntuale dell'utente su uno
