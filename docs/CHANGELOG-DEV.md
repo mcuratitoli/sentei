@@ -11,6 +11,63 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Rifiniture grafiche: card ancorate, viewer foto a galleria, fix bug
+
+**Card ancorate in basso, non più fluttuanti**: `DrawRouteControls` (selezione **e**
+modifica — condividono lo stesso wrapper) e `PhotoDetailCard` passano da `AppSheetSurface
+(floating: true)` con margine su tutti i lati a `floating: false`, a tutta larghezza, angoli
+arrotondati solo sopra — stesso trattamento dei fogli modali (legenda/changelog/tema).
+`map_gl_screen.dart`: la `SafeArea` che avvolge la colonna in basso ora passa `bottom:
+!showCard`, così quando la card è a schermo lei (e l'eventuale `PhotoDetailCard` sopra)
+toccano il vero bordo inferiore invece di fermarsi al di sopra del padding di sicurezza;
+`DrawRouteControls` riapplica quel padding solo al proprio contenuto con un
+`SafeArea(top: false)` interno (stesso schema di `showAppBottomSheet`).
+
+**Viewer foto a schermo intero in stile "galleria"** (`openFullPhoto`/`_FullPhotoView`,
+riscritti): prima era una singola immagine statica con solo una × in alto a sinistra. Ora:
+titolo (o data come fallback) in alto con Modifica titolo/Scollega; `PageView` centrale che
+scorre tra **tutte le foto della stessa escursione** (non solo quella toccata), calcolata al
+volo con `PhotoSessionGrouper`; filmstrip in basso (tap per saltare a una foto, si scrolla da
+sé su quella corrente); chiusura sia con la × sia trascinando l'immagine verso il basso
+(l'opacità dello sfondo segue il trascinamento, rilascio oltre soglia chiude). Ogni pagina
+risolve il proprio asset dalla libreria in modo indipendente, con la thumbnail salvata come
+fallback onesto se l'originale non risolve più. Nota aperta: lo swipe-to-dismiss verticale
+può competere con lo zoom/pan dell'`InteractiveViewer` quando l'immagine è ingrandita — non
+verificato su device reale, da rifinire se risulta fastidioso in pratica.
+
+**Fix "Modifica titolo" che sembrava non aprire il campo di testo**: l'unica differenza
+strutturale rispetto al campo nome-traccia (che invece funzionava) era `autofocus: true` sul
+`CupertinoTextField` dentro un `showModalBottomSheet` — pattern noto per gareggiare con
+l'animazione di apertura dello sheet e perdere il focus/la tastiera. Sostituito con un
+`FocusNode` esplicito + `requestFocus()` in un `addPostFrameCallback` (a sheet già montato).
+Non riproducibile in questo ambiente (nessun device/simulatore disponibile): diagnosi basata
+sul pattern noto e sulla differenza col campo che funzionava, da confermare sul device.
+
+**Fix: chiudere la card traccia lascia orfana la card foto**: aprire una foto (pin mappa o
+dal foglio di un'escursione) mostra `PhotoDetailCard` sopra `DrawRouteControls`, ma chiudere
+la traccia (× o fine disegno) non azzerava `selectedPhotoProvider` → la card foto restava a
+schermo da sola, senza senso. `map_gl_screen.dart`: il listener su `showCard` ora chiama
+`selectedPhotoProvider.notifier.clear()` quando passa a `false`.
+
+**Debito di test scoperto e sistemato**: la sostituzione della striscia orizzontale con la
+sezione "FOTO" a gruppi (voce sotto) aveva rotto 3 test in `draw_route_controls_test.dart`
+che non erano stati verificati in quella sessione (nessun `flutter test` disponibile in
+questo ambiente) — testavano l'evidenziazione a bordo colorato della vecchia striscia durante
+lo scrubbing, l'ordine delle thumbnail per tap diretto su icona, e l'apertura della card foto
+da una thumbnail sempre visibile. Riscritti sulla via attuale (espandi sezione → tap
+escursione → tap nella griglia del foglio) più uno spostato a verificare `highlightedPhotoId`
+di `ElevationProfileChart` invece del bordo della striscia (rimossa). Aggiunto anche
+l'ordinamento per distanza-lungo-percorso delle foto **dentro** ciascun foglio-escursione
+(mancava: `PhotoSessionGrouper` raggruppa per data, non riordina per distanza), che uno dei
+test riscritti verifica.
+
+⚠️ **Nessuna di queste modifiche è stata verificata su device/simulatore** (Flutter SDK non
+disponibile in questo ambiente): solo lettura attenta del codice e bilanciamento
+parentesi/graffe. Da controllare a schermo prima di considerarle definitive, in particolare
+il gesto di swipe-to-dismiss e il comportamento del `FocusNode` sul campo titolo.
+
+---
+
 ## 28 luglio 2026 — Sezione "FOTO" a gruppi nella card traccia (redesign UX)
 
 **Perché**: con il fix del cap di scansione (voce sotto), "Trova foto" ora restituisce

@@ -292,7 +292,7 @@ void main() {
   });
 
   testWidgets(
-      'scorrendo il grafico, la thumbnail della foto vicina al cursore si evidenzia',
+      'scorrendo il grafico, il pin della foto vicina al cursore si evidenzia',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
@@ -309,30 +309,31 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    List<Color> borderColors() => [
-          for (final w in tester.widgetList<AnimatedContainer>(
-              find.byType(AnimatedContainer)))
-            ((w.decoration as BoxDecoration).border as Border).top.color,
-        ];
+    // Il grafico è collassato di default: aprirlo per farlo comparire.
+    await tester.tap(find.byTooltip('Profilo altimetrico'));
+    await tester.pumpAndSettle();
 
-    // Nessun cursore: nessuna thumbnail evidenziata (bordo trasparente).
-    expect(borderColors().every((c) => c == Colors.transparent), isTrue);
+    Object? highlighted() => tester
+        .widget<ElevationProfileChart>(find.byType(ElevationProfileChart))
+        .highlightedPhotoId;
+
+    // Nessun cursore: nessuna foto evidenziata.
+    expect(highlighted(), isNull);
 
     // Cursore a 540m: entro la tolleranza generosa (50m) dalla foto "near"
-    // (500m), non dalla foto "far" (5000m). Bordo giallo, non l'accento blu.
+    // (500m), non dalla foto "far" (5000m).
     container.read(profileCursorProvider.notifier).set(
         const ProfileSample(
             distanceMeters: 540, elevation: 1000, position: LatLng(45.005, 7)));
     await tester.pumpAndSettle();
 
-    final colors = borderColors();
-    expect(colors[0], const Color(0xFFFFD600)); // "near": evidenziata, gialla
-    expect(colors[1], Colors.transparent); // "far": non evidenziata
+    expect(highlighted(), 'near');
   });
 
   testWidgets(
-      'la striscia mostra le foto in ordine di distanza lungo il percorso, '
-      'non nell\'ordine in cui sono state collegate', (tester) async {
+      'il foglio di un\'escursione mostra le foto in ordine di distanza '
+      'lungo il percorso, non nell\'ordine in cui sono state collegate',
+      (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     final notifier = container.read(tracksProvider.notifier);
@@ -342,26 +343,24 @@ void main() {
       ..addPoint(const LatLng(45.05, 7.0));
     await notifier.finishDrawing();
     final id = container.read(tracksProvider).tracks.first.id;
-    // Collegate in ordine "sbagliato" (la più lontana prima).
+    // Collegate in ordine "sbagliato" (la più lontana prima); nessuna delle
+    // due ha `takenAt` → finiscono nello stesso gruppo "Foto senza data".
     await notifier.addPhotos(id, const [
       TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
       TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
     ]);
     await tester.pumpAndSettle();
 
-    // Le uniche GestureDetector con GlobalKey sono le thumbnail della
-    // striscia: la prima da sinistra (x minore) deve corrispondere a "near"
-    // (500m), non a "far" (5000m, collegata per prima) — verificato
-    // tappandola e controllando quale foto seleziona.
-    final detectors = tester
-        .widgetList<GestureDetector>(find.byType(GestureDetector))
-        .where((w) => w.key is GlobalKey)
-        .toList();
-    expect(detectors.length, 2);
-    detectors.sort((a, b) =>
-        tester.getTopLeft(find.byWidget(a)).dx.compareTo(tester.getTopLeft(find.byWidget(b)).dx));
+    await tester.tap(find.text('FOTO · 2 FOTO'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Foto senza data'));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byWidget(detectors.first));
+    // Nella griglia del foglio, la prima cella (ordine di lista) deve
+    // corrispondere a "near" (500m), non a "far" (5000m, collegata prima).
+    final tiles = find.descendant(
+        of: find.byType(GridView), matching: find.byType(GestureDetector));
+    await tester.tap(tiles.first);
     await tester.pumpAndSettle();
     expect(container.read(selectedPhotoProvider)?.id, 'near');
   });
@@ -407,8 +406,9 @@ void main() {
   });
 
   testWidgets(
-      'tap su una thumbnail nella striscia apre la stessa PhotoDetailCard '
-      'del pin in mappa (selectedPhotoProvider condiviso)', (tester) async {
+      'tap su una thumbnail nel foglio di un\'escursione apre la stessa '
+      'PhotoDetailCard del pin in mappa (selectedPhotoProvider condiviso)',
+      (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     final notifier = container.read(tracksProvider.notifier);
@@ -424,10 +424,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(container.read(selectedPhotoProvider), isNull);
-    // La foto finta non ha bytes di thumbnail: la striscia mostra la stessa
-    // icona segnaposto (CupertinoIcons.photo) usata anche dal tasto "Trova
-    // foto vicine" nella riga sopra — quest'ultima viene prima nell'albero.
-    await tester.tap(find.byIcon(CupertinoIcons.photo).last);
+
+    await tester.tap(find.text('FOTO · 1 FOTO'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Foto senza data'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(GridView), matching: find.byType(GestureDetector)));
     await tester.pumpAndSettle();
 
     expect(container.read(selectedPhotoProvider)?.id, 'ph1');

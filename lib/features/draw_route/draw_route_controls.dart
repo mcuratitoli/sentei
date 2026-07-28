@@ -47,18 +47,21 @@ class DrawRouteControls extends ConsumerWidget {
     if (!showCard) return const SizedBox.shrink();
     final drawing = ref.watch(tracksProvider.select((s) => s.drawing));
 
-    return Padding(
-      // Vicino alla toolbar in basso (poco margine sotto).
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
-      // Superficie **opaca** (`new design/DESIGN_GUIDELINES.md` §7), non più
-      // "vetro": card di contenuto, non chrome di navigazione — leggibilità
-      // di testo/grafico prima di tutto. La chrome (menubar/ricerca/punto
-      // ispezionato in esplorazione) non è coperta da questo redesign e
-      // resta col vecchio linguaggio `GlassSurface`.
-      child: AppSheetSurface(
-        // Fluttua sopra la mappa con un margine sotto (non è a filo del
-        // bordo schermo): arrotondata su tutti i lati, non solo sopra.
-        floating: true,
+    // Superficie **opaca** (`new design/DESIGN_GUIDELINES.md` §7), non più
+    // "vetro": card di contenuto, non chrome di navigazione — leggibilità di
+    // testo/grafico prima di tutto. La chrome (menubar/ricerca/punto
+    // ispezionato in esplorazione) non è coperta da questo redesign e resta
+    // col vecchio linguaggio `GlassSurface`.
+    //
+    // Ancorata al bordo inferiore, a tutta larghezza (angoli arrotondati solo
+    // sopra), come i fogli modali (legenda/changelog/tema): non più
+    // "fluttuante" con margine su tutti i lati — `map_gl_screen.dart` toglie
+    // il padding di sicurezza inferiore quando questa card è visibile, e
+    // `SafeArea(top: false)` qui sotto lo riapplica solo al contenuto.
+    return AppSheetSurface(
+      floating: false,
+      child: SafeArea(
+        top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: drawing ? const _DrawingBody() : const _SelectedBody(),
@@ -719,7 +722,11 @@ class _PhotoSessionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final photos = session.photos;
+    // Per distanza-lungo-percorso crescente, non nell'ordine di
+    // collegamento: più intuitivo da sfogliare insieme al grafico del
+    // profilo (stesso criterio della vecchia striscia).
+    final photos = [...session.photos]
+      ..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
     return ConstrainedBox(
       constraints:
           BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
@@ -1089,24 +1096,36 @@ class PhotoDetailCard extends ConsumerWidget {
     // nuovo sotto sarebbe una duplicazione.
     final showExtraDateRow = hasTitle && current.takenAt != null;
 
-    return ConstrainedBox(
-      constraints:
-          BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 16),
-      child: AppSheetSurface(
-        floating: true,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    // Ancorata a tutta larghezza sopra `DrawRouteControls` (che gestisce da
+    // sé il padding di sicurezza inferiore, essendo lei il foglio più in
+    // basso): stesso trattamento "non più fluttuante" della card traccia.
+    return AppSheetSurface(
+      floating: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
               AppSheetHeader(title: 'Dettaglio foto', onClose: onClose),
               const SizedBox(height: 14),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   GestureDetector(
-                    onTap: () => openFullPhoto(context, current.id),
+                    onTap: () {
+                      // Il carosello a schermo intero mostra tutta la stessa
+                      // escursione di `current`, non solo lei sola.
+                      final sessions =
+                          const PhotoSessionGrouper().group(photos);
+                      final session = sessions.firstWhere(
+                        (s) => s.photos.any((p) => p.id == current.id),
+                        orElse: () => PhotoSession(
+                            photos: [current], date: current.takenAt),
+                      );
+                      openFullPhoto(
+                          context, trackId, session.photos, current);
+                    },
                     child: ClipRRect(
                       borderRadius: AppRadii.rMd,
                       child: SizedBox(
@@ -1214,8 +1233,7 @@ class PhotoDetailCard extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -1225,11 +1243,19 @@ class PhotoDetailCard extends ConsumerWidget {
 Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
     String trackId, TrackPhoto photo) async {
   final controller = TextEditingController(text: photo.title ?? '');
+  // `FocusNode` + richiesta di focus a un frame già disegnato, non
+  // `autofocus: true`: sullo sheet modale il focus automatico gareggiava con
+  // l'animazione di apertura e il campo restava senza fuoco/tastiera — dal
+  // dito dell'utente sembrava che il testo da scrivere non ci fosse.
+  final focusNode = FocusNode();
   // Bottom sheet, non più dialog centrato (`new design/DESIGN_GUIDELINES.md`
   // §7/§10: "Modifica titolo" era l'esempio esplicito da convertire).
   final result = await showAppBottomSheet<bool>(
     context: context,
     builder: (sheetContext) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (sheetContext.mounted) focusNode.requestFocus();
+      });
       final palette = sheetContext.palette;
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -1242,7 +1268,7 @@ Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
           const SizedBox(height: 14),
           CupertinoTextField(
             controller: controller,
-            autofocus: true,
+            focusNode: focusNode,
             placeholder: 'Titolo della foto',
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => Navigator.of(sheetContext).pop(true),
@@ -1274,6 +1300,7 @@ Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
       );
     },
   );
+  focusNode.dispose();
   if (result == true) {
     await ref
         .read(tracksProvider.notifier)
@@ -1282,67 +1309,365 @@ Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
   controller.dispose();
 }
 
-/// Apre la foto **a schermo intero** riaprendo l'asset dalla libreria del
-/// dispositivo tramite [photoId] (`TrackPhoto.id`, l'id `photo_manager` di
-/// **questo** device). Se l'asset non risolve (es. la traccia è stata
-/// sincronizzata da un altro dispositivo, dove quell'id non esiste) non fa
-/// nulla — nessun errore, nessun re-match per posizione/orario (non richiesto
-/// qui): l'originale resta comunque sempre reperibile a mano nella libreria.
-Future<void> openFullPhoto(BuildContext context, String photoId) async {
-  AssetEntity? asset;
-  try {
-    asset = await AssetEntity.fromId(photoId);
-  } catch (_) {
-    asset = null;
-  }
-  if (asset == null || !context.mounted) return;
-  final file = await asset.file;
-  if (file == null || !context.mounted) return;
+/// Apre la foto **a schermo intero** in stile galleria (§"Sync album
+/// fotografico"): titolo + azioni Modifica/Scollega in alto, carosello
+/// orizzontale (con filmstrip) tra tutte le foto di [carousel] — la stessa
+/// escursione di [initial], non solo lei sola — a partire da [initial].
+/// [trackId] `null` disabilita Modifica/Scollega (traccia non risolvibile,
+/// caso difensivo). Ogni pagina riapre il proprio asset dalla libreria del
+/// dispositivo tramite l'id `photo_manager` di **questo** device: se non
+/// risolve (es. traccia sincronizzata da un altro dispositivo) mostra la
+/// thumbnail salvata nei metadati invece di un errore muto — degrado onesto.
+Future<void> openFullPhoto(
+  BuildContext context,
+  String? trackId,
+  List<TrackPhoto> carousel,
+  TrackPhoto initial,
+) async {
+  final startIndex = carousel.indexWhere((p) => p.id == initial.id);
   await Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: true,
       barrierColor: const Color(0xFF000000),
-      pageBuilder: (_, __, ___) => _FullPhotoView(file: file),
+      pageBuilder: (_, __, ___) => _FullPhotoView(
+        trackId: trackId,
+        photoIds: [for (final p in carousel) p.id],
+        initialIndex: startIndex < 0 ? 0 : startIndex,
+      ),
     ),
   );
 }
 
-class _FullPhotoView extends StatelessWidget {
-  const _FullPhotoView({required this.file});
+class _FullPhotoView extends ConsumerStatefulWidget {
+  const _FullPhotoView({
+    required this.trackId,
+    required this.photoIds,
+    required this.initialIndex,
+  });
 
-  final File file;
+  final String? trackId;
+  final List<String> photoIds;
+  final int initialIndex;
+
+  @override
+  ConsumerState<_FullPhotoView> createState() => _FullPhotoViewState();
+}
+
+class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
+  late final PageController _pageController =
+      PageController(initialPage: widget.initialIndex);
+  late int _page = widget.initialIndex;
+
+  // Swipe verticale per chiudere (come la galleria Foto di Apple): l'offset
+  // corrente del trascinamento, usato per far seguire l'immagine al dito e
+  // sfumare lo sfondo, e la soglia oltre la quale rilasciare chiude davvero.
+  double _dragDy = 0;
+  static const double _dismissDistance = 120;
+  static const double _dismissVelocity = 800;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFF000000),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 5,
-                child: Center(child: Image.file(file)),
+    final allPhotos =
+        ref.watch(tracksProvider.select((s) => s.active?.photos)) ??
+            const <TrackPhoto>[];
+    // Solo le foto ancora collegate, nello stesso ordine con cui il
+    // carosello è stato aperto: se una viene scollegata (anche da qui, col
+    // cestino) sparisce dalla vista invece di restare "fantasma".
+    final photos = [
+      for (final id in widget.photoIds)
+        for (final p in allPhotos)
+          if (p.id == id) p,
+    ];
+    if (photos.isEmpty) {
+      // Tutte scollegate nel frattempo: non c'è più nulla da mostrare qui.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+      return const ColoredBox(color: Color(0xFF000000));
+    }
+    final index = _page.clamp(0, photos.length - 1);
+    final current = photos[index];
+
+    final dragProgress = (_dragDy.abs() / 400).clamp(0.0, 1.0);
+    final backdropAlpha = 1 - dragProgress * 0.7;
+
+    return GestureDetector(
+      onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
+      onVerticalDragEnd: (d) {
+        final fling = (d.primaryVelocity ?? 0).abs() > _dismissVelocity;
+        if (_dragDy.abs() > _dismissDistance || fling) {
+          Navigator.of(context).maybePop();
+        } else {
+          setState(() => _dragDy = 0);
+        }
+      },
+      child: ColoredBox(
+        color: const Color(0xFF000000).withValues(alpha: backdropAlpha),
+        child: Transform.translate(
+          offset: Offset(0, _dragDy),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _FullPhotoTopBar(
+                  photo: current,
+                  onClose: () => Navigator.of(context).maybePop(),
+                  onEdit: widget.trackId == null
+                      ? null
+                      : () => _promptEditPhotoTitle(
+                          context, ref, widget.trackId!, current),
+                  onDelete: widget.trackId == null
+                      ? null
+                      : () => _confirmRemovePhoto(
+                          context, ref, widget.trackId!, current.id),
+                ),
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: photos.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (_, i) => _FullPhotoPage(photo: photos[i]),
+                  ),
+                ),
+                if (photos.length > 1)
+                  _PhotoFilmstrip(
+                    photos: photos,
+                    selectedIndex: index,
+                    onSelect: (i) => _pageController.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Barra superiore del visualizzatore: chiudi, titolo (o data come
+/// fallback, stessa logica di [PhotoDetailCard]), Modifica/Scollega.
+class _FullPhotoTopBar extends StatelessWidget {
+  const _FullPhotoTopBar({
+    required this.photo,
+    required this.onClose,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final TrackPhoto photo;
+  final VoidCallback onClose;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTitle = photo.title != null && photo.title!.isNotEmpty;
+    final title = hasTitle
+        ? photo.title!
+        : (photo.takenAt != null
+            ? Format.dateTime(photo.takenAt!)
+            : 'Foto collegata');
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          _FullPhotoIconButton(icon: CupertinoIcons.xmark, onPressed: onClose),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFFFFFFF),
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
               ),
             ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(44, 44),
-                onPressed: () => Navigator.of(context).pop(),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                      color: Color(0x66000000), shape: BoxShape.circle),
-                  child: const Icon(CupertinoIcons.xmark,
-                      color: Color(0xFFFFFFFF), size: 20),
+          ),
+          _FullPhotoIconButton(icon: CupertinoIcons.pencil, onPressed: onEdit),
+          _FullPhotoIconButton(
+              icon: CupertinoIcons.delete, onPressed: onDelete),
+        ],
+      ),
+    );
+  }
+}
+
+class _FullPhotoIconButton extends StatelessWidget {
+  const _FullPhotoIconButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(44, 44),
+      onPressed: onPressed,
+      child: Icon(
+        icon,
+        color:
+            onPressed == null ? const Color(0x66FFFFFF) : const Color(0xFFFFFFFF),
+        size: 22,
+      ),
+    );
+  }
+}
+
+/// Una pagina del carosello: risolve l'asset **a schermo intero** dalla
+/// libreria del dispositivo in modo indipendente (non tutte insieme, solo
+/// quando la pagina entra nell'albero) mostrando la thumbnail già disponibile
+/// nel frattempo o come fallback onesto se l'originale non risolve più.
+class _FullPhotoPage extends StatefulWidget {
+  const _FullPhotoPage({required this.photo});
+
+  final TrackPhoto photo;
+
+  @override
+  State<_FullPhotoPage> createState() => _FullPhotoPageState();
+}
+
+class _FullPhotoPageState extends State<_FullPhotoPage> {
+  late Future<File?> _fileFuture = _load(widget.photo.id);
+
+  Future<File?> _load(String photoId) async {
+    try {
+      final asset = await AssetEntity.fromId(photoId);
+      return await asset?.file;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FullPhotoPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.photo.id != widget.photo.id) {
+      _fileFuture = _load(widget.photo.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<File?>(
+      future: _fileFuture,
+      builder: (_, snapshot) {
+        final file = snapshot.data;
+        if (file != null) {
+          return InteractiveViewer(
+            minScale: 1,
+            maxScale: 5,
+            child: Center(child: Image.file(file)),
+          );
+        }
+        final thumb = widget.photo.thumbnail;
+        return Center(
+          child: thumb != null
+              ? Opacity(
+                  opacity: 0.6,
+                  child: Image.memory(thumb, fit: BoxFit.contain),
+                )
+              : const Icon(CupertinoIcons.photo,
+                  color: Color(0x66FFFFFF), size: 64),
+        );
+      },
+    );
+  }
+}
+
+/// Filmstrip in basso (come la galleria Foto di Apple): tocca una miniatura
+/// per saltare a quella pagina; la miniatura selezionata scorre in vista da
+/// sé quando cambia (swipe sull'immagine principale o tap altrove).
+class _PhotoFilmstrip extends StatefulWidget {
+  const _PhotoFilmstrip({
+    required this.photos,
+    required this.selectedIndex,
+    required this.onSelect,
+  });
+
+  final List<TrackPhoto> photos;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+
+  @override
+  State<_PhotoFilmstrip> createState() => _PhotoFilmstripState();
+}
+
+class _PhotoFilmstripState extends State<_PhotoFilmstrip> {
+  final Map<String, GlobalKey> _keys = {};
+
+  GlobalKey _keyFor(String id) => _keys.putIfAbsent(id, () => GlobalKey());
+
+  @override
+  void didUpdateWidget(covariant _PhotoFilmstrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedIndex != oldWidget.selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final id = widget.photos[widget.selectedIndex].id;
+        final ctx = _keys[id]?.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(ctx,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              alignment: 0.5);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: SizedBox(
+        height: 52,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          scrollDirection: Axis.horizontal,
+          itemCount: widget.photos.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) {
+            final photo = widget.photos[i];
+            final selected = i == widget.selectedIndex;
+            return GestureDetector(
+              key: _keyFor(photo.id),
+              onTap: () => widget.onSelect(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: AppRadii.rMd,
+                  border: Border.all(
+                    color:
+                        selected ? const Color(0xFFFFFFFF) : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: AppRadii.rMd,
+                  child: photo.thumbnail != null
+                      ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
+                      : const ColoredBox(
+                          color: Color(0x33FFFFFF),
+                          child: Icon(CupertinoIcons.photo,
+                              color: Color(0x88FFFFFF)),
+                        ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

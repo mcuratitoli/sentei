@@ -1088,9 +1088,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     final showPointCard = inspected != null && !showCard && !importing;
     // Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico").
     final selectedPhoto = ref.watch(selectedPhotoProvider);
-    // La card traccia (selezione/disegno) ha priorità: azzera il punto ispezionato.
+    // La card traccia (selezione/disegno) ha priorità: azzera il punto
+    // ispezionato. Alla chiusura (X, deselect/annulla disegno) chiude anche
+    // il dettaglio foto — non ha senso lasciarlo aperto senza la card sotto
+    // (era possibile chiudere la traccia e restare con `PhotoDetailCard`
+    // orfana in mezzo allo schermo).
     ref.listen(tracksProvider.select((s) => s.showCard), (_, show) {
-      if (show) ref.read(inspectedPointProvider.notifier).clear();
+      if (show) {
+        ref.read(inspectedPointProvider.notifier).clear();
+      } else {
+        ref.read(selectedPhotoProvider.notifier).clear();
+      }
     });
     // Ridisegna solo su cambi di GEOMETRIA (waypoint/percorso/colore/lista tracce),
     // non su modifiche di puri metadati (nome) → evita il flickering al typing.
@@ -1160,7 +1168,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           ),
           Align(
             alignment: Alignment.bottomCenter,
+            // `bottom: false` quando la card traccia è a schermo: lei (e
+            // l'eventuale `PhotoDetailCard` sopra) sono ancorate al bordo
+            // vero dello schermo, come i fogli modali (legenda/changelog/
+            // tema) — non più "fluttuanti" con un margine di sicurezza
+            // sotto. Gestiscono da sole il padding di sicurezza inferiore
+            // (vedi `SafeArea(top: false)` in `DrawRouteControls`): il resto
+            // (ricerca, punto ispezionato, barra in basso) resta invece
+            // inset come prima.
             child: SafeArea(
+              bottom: !showCard,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1173,7 +1190,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
                       onClose: () =>
                           ref.read(selectedPhotoProvider.notifier).clear(),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                   const DrawRouteControls(),
                   // Caricamento import (annullabile): riallineamento in corso.
