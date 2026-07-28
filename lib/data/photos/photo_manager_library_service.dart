@@ -9,16 +9,16 @@ import 'photo_library_service.dart';
 /// Implementazione di [PhotoLibraryService] su `photo_manager`
 /// (§"Sync album fotografico", `docs/eval-photo-sync.md`).
 ///
-/// Limite [_maxAssetsScanned]: la ricerca è avviata manualmente dall'utente
-/// ("Trova foto" sulla card, non automatica — vedi decisione nel doc) e
-/// scandisce solo le foto più recenti per evitare di caricare l'intera
-/// libreria di un utente con anni di scatti; con l'ordinamento per data
-/// decrescente e l'eventuale filtro [after]/[before] resta comunque coerente
-/// con l'uso reale (foto di un'escursione recente).
+/// Scandisce **l'intera libreria** (nessun tetto sul numero di asset): la
+/// ricerca è avviata manualmente dall'utente ("Trova foto" sulla card, non
+/// automatica — vedi decisione nel doc), quindi il costo è accettabile anche
+/// per librerie grandi. Legge in blocchi di [_batchSize] con le richieste
+/// `latlngAsync` di ogni blocco in parallelo, per non caricare tutto in
+/// memoria né bloccare l'esecuzione su un singolo asset lento.
 class PhotoManagerLibraryService extends PhotoLibraryService {
   const PhotoManagerLibraryService();
 
-  static const int _maxAssetsScanned = 3000;
+  static const int _batchSize = 500;
 
   @override
   Future<PhotoLibraryPermission> requestPermission() async {
@@ -63,22 +63,30 @@ class PhotoManagerLibraryService extends PhotoLibraryService {
 
     final root = paths.first;
     final count = await root.assetCountAsync;
-    final end = count < _maxAssetsScanned ? count : _maxAssetsScanned;
-    if (end == 0) return const [];
-    final assets = await root.getAssetListRange(start: 0, end: end);
+    if (count == 0) return const [];
 
     final result = <RawPhotoLocation>[];
-    for (final asset in assets) {
-      final latLng = await asset.latlngAsync();
-      if (latLng == null) continue;
-      if (latLng.latitude == 0 && latLng.longitude == 0) continue;
-      result.add(RawPhotoLocation(
-        id: asset.id,
-        position: ll.LatLng(latLng.latitude, latLng.longitude),
-        takenAt: asset.createDateTime,
-      ));
+    for (var start = 0; start < count; start += _batchSize) {
+      final end = (start + _batchSize < count) ? start + _batchSize : count;
+      final assets = await root.getAssetListRange(start: start, end: end);
+      final located = await Future.wait(assets.map(_toLocationOrNull));
+      result.addAll(located.whereType<RawPhotoLocation>());
     }
     return result;
+  }
+
+  /// `null` se l'asset non ha coordinate GPS valide nell'EXIF (nessuna
+  /// posizione, o `(0, 0)` — valore placeholder di molte fotocamere quando il
+  /// permesso di localizzazione era disattivato allo scatto).
+  Future<RawPhotoLocation?> _toLocationOrNull(AssetEntity asset) async {
+    final latLng = await asset.latlngAsync();
+    if (latLng == null) return null;
+    if (latLng.latitude == 0 && latLng.longitude == 0) return null;
+    return RawPhotoLocation(
+      id: asset.id,
+      position: ll.LatLng(latLng.latitude, latLng.longitude),
+      takenAt: asset.createDateTime,
+    );
   }
 
   @override

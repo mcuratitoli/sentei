@@ -11,6 +11,44 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Fix "Trova foto" che non trovava nessuna foto
+
+**Causa radice**: `PhotoManagerLibraryService.photoLocations()` limitava la scansione alle
+`_maxAssetsScanned = 3000` foto più recenti dell'intera libreria (ordinamento per data di
+scatto decrescente, nessun filtro data passato dalla UI). Per un utente con più di 3000 foto
+scattate *dopo* un'escursione, le foto dell'escursione restavano fuori dalla finestra
+scandita e non arrivavano mai al matcher spaziale — zero risultati nonostante permesso pieno
+e foto con GPS valido. Segnalato dallo sviluppatore dopo il rilascio di stamattina: traccia
+percorsa più volte, "Trova foto" restituiva sempre 0 foto.
+
+**Fix**: rimosso il tetto — `photoLocations()` ora scandisce l'intera libreria, in blocchi da
+500 asset (`_batchSize`) con le chiamate `latlngAsync()` di ogni blocco in parallelo
+(`Future.wait`), per restare comunque ragionevole su librerie molto grandi senza bloccare
+l'esecuzione su un singolo asset lento. File: `lib/data/photos/photo_manager_library_service.dart`.
+
+**UX**: `findNearbyPhotos` (`lib/features/draw_route/nearby_photos_action.dart`) già
+escludeva dall'elenco le foto già collegate alla traccia (`alreadyLinked`), ma mostrava lo
+stesso messaggio generico "Nessuna foto trovata" sia quando non c'era nessuna foto vicina sia
+quando ce n'erano ma erano già tutte collegate — messaggio ora distinto ("Le foto vicine a
+questo percorso sono già tutte collegate").
+
+**Verificato ma non un bug**: foto senza coordinate GPS nell'EXIF vengono scartate a monte
+(comportamento voluto, non tutte le foto hanno il tag posizione). Foto iCloud "ottimizzate"
+(non scaricate per intero sul device, solo proxy locale): la posizione GPS è metadato del
+database Foto, disponibile anche per asset non scaricati — dovrebbero quindi essere trovate
+comunque; da confermare con un test reale su un asset in questo stato. Su Android, foto
+"liberate" da Google Photos (originale rimosso dal device dopo il backup) escono dal
+`MediaStore` e non sono raggiungibili da `photo_manager` — limite di piattaforma, nessuna
+soluzione lato app senza integrare l'API Google Photos (già scartata in
+`docs/eval-photo-sync.md` per altri motivi).
+
+**Fuori scope di questo fix** (rimandato: se ne occupa lo sviluppatore con istruzioni
+dedicate): redesign della UI di ricerca per il caso "stessa traccia percorsa più volte" (oggi
+tutte le foto di tutte le occasioni compaiono mischiate in un'unica griglia) — vedi domanda
+aperta #1 in `docs/eval-photo-sync.md`.
+
+---
+
 ## 28 luglio 2026 — Fix overflow testo bottoni compressi + icona ripidità (confluito in `1.0.0+6`)
 
 Regressione dal round di rifiniture precedente: nella barra del punto selezionato

@@ -69,7 +69,12 @@ Future<void> findNearbyPhotos(
       result.photos.where((p) => !alreadyLinked.contains(p.id)).toList();
 
   if (fresh.isEmpty) {
-    showIosToast(context, 'Nessuna foto trovata vicino a questo percorso');
+    showIosToast(
+      context,
+      result.photos.isEmpty
+          ? 'Nessuna foto trovata vicino a questo percorso'
+          : 'Le foto vicine a questo percorso sono già tutte collegate',
+    );
     return;
   }
 
