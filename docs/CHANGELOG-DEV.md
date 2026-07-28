@@ -11,6 +11,64 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Rifiniture redesign: bordi, margini, icone, sotto-menu incollati in basso (in lavorazione, non ancora rilasciato)
+
+Seguito diretto del redesign completo sotto, con feedback puntuale dell'utente su uno
+screenshot della card foto + card traccia impilate:
+
+- **`AppSheetSurface`** (`app_bottom_sheet.dart`): nuovo flag `floating` — di default `false`
+  (bottom sheet vere, a filo del bordo inferiore, angoli arrotondati solo sopra); `true` per
+  le card **fluttuanti** sopra la mappa con un margine tutto attorno (card traccia/foto:
+  `DrawRouteControls`, `PhotoDetailCard`), che ora arrotondano tutti e 4 gli angoli — prima
+  ereditavano lo stesso taglio "sheet vera" (fondo squadrato) pur non essendo a filo schermo,
+  quindi il fondo squadrato "galleggiava" in modo innaturale sopra la mappa. Ombra anche
+  differenziata: verso l'alto per le sheet vere (l'unico lato visibile), centrata per le card
+  fluttuanti (visibile su tutti i lati).
+- `PhotoDetailCard`: thumbnail 88px → 64px (bumped a 88 nella sessione precedente, feedback
+  esplicito "troppo grande").
+- `_SelectedBody` (card traccia): margine 6px aggiunto tra tutti gli icon-button della riga
+  azioni — "Trova foto vicine"/"Modifica"/"Salva offline" erano attaccati senza `SizedBox` di
+  separazione (l'unico gap esistente era tra le prime due icone a sinistra).
+- Icona "Profilo altimetrico": `CupertinoIcons.waveform_path` (introdotta nella sessione
+  precedente per sostituire la vecchia pillola "Percorso") → `CupertinoIcons.graph_square`
+  ("meglio un'icona di un grafico a linee", feedback utente). "Colori dislivelli" liberata su
+  `CupertinoIcons.paintbrush` per non avere due bottoni con la stessa icona nella stessa riga.
+
+**Unificazione di tutti i sotto-menu di azione come bottom sheet incollate al bordo
+inferiore** — richiesta esplicita e generale ("tutti i sotto-menu... non solo quello"),
+prendendo la sheet "Selezione tema" (già così) come riferimento:
+
+- `ios_menu.dart` (`showIosMenu`/`showIosConfirm`): riscritto da zero. Prima: popup
+  posizionato vicino al punto di tocco (via `anchorContext`, con logica di apertura sopra/
+  sotto in base allo spazio disponibile) per i menu, dialog centrato con `BackdropFilter`
+  proprio per le conferme — due meccanismi diversi, nessuno dei due una vera bottom sheet.
+  Ora entrambi passano da `showAppBottomSheet` (stesso `AppSheetSurface` di ogni altro
+  pannello), con un titolo opzionale in testa. `showIosMenu` non richiede più
+  `anchorContext` — i 2 call site in `tracks_list_screen.dart` ("Ordina per", "Azioni
+  traccia") non hanno più bisogno del wrapper `Builder` per catturare un `BuildContext`
+  ancora, e ora mostrano un titolo (rispettivamente "Ordina per" e il nome della traccia).
+- `showAppBottomSheet` (`app_bottom_sheet.dart`): aggiunto un parametro `padding` (default
+  invariato, `EdgeInsets.fromLTRB(20,0,20,14)`) — i menu/conferme di `ios_menu.dart` passano
+  `EdgeInsets.zero` e gestiscono da sé il padding orizzontale di titolo/righe, per poter
+  disegnare righe e divisori a tutta larghezza (stile action sheet nativo), diversamente
+  dalle sheet "a modulo" (impostazioni avanzate, selezione tema) che hanno contenuto sempre
+  inset di 20px.
+- `nearby_photos_action.dart` (`_NearbyPhotosSheet`, "Trova foto vicine"): passata da
+  `GlassSurface` (ultimo angolo ancora "vetro" dell'app, con `showCupertinoModalPopup`) a
+  `AppSheetSurface`/`AppSheetHeader`/`AppButton` via `showAppBottomSheet` — non era tra le 9
+  schermate esplicitamente coperte dai mockup, ma lasciarla "vetro" in mezzo a un'app ormai
+  tutta opaca sarebbe stata l'incoerenza più vistosa rimasta, aperta proprio dal bottone
+  "Trova foto vicine" appena ridisegnato.
+
+**Deliberatamente non toccati** (non sono menu/scelte d'azione): `legends.dart`/
+`release_notes.dart` (sheet informative, già bottom sheet con chrome ragionevolmente
+coerente) e `ios_progress.dart` (overlay di attesa/spinner, nessuna scelta da fare).
+
+Test: nessuna asserzione rotta (icone/testo dei menu non erano coperte da test dedicati);
+verificato con `flutter analyze` + `flutter test` (122 test) dopo ogni blocco di modifiche.
+
+---
+
 ## 28 luglio 2026 — Redesign grafico completo secondo `new design/DESIGN_GUIDELINES.md` (in lavorazione, non ancora rilasciato)
 
 L'utente ha preparato un intero sistema di design (`new design/DESIGN_GUIDELINES.md` + 9
