@@ -89,8 +89,21 @@
 Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
 su un telefono fisico:
 
+- [ ] **"Trova foto vicine" su una libreria reale e grande** — è il bug che ha originato
+  tutto il lavoro sulle foto (1.0.0+7): `photoLocations()` scandiva solo le 3000 foto più
+  recenti dell'intera libreria, quindi con più di 3000 scatti *dopo* l'escursione quelle
+  del percorso restavano fuori dalla finestra e non ne trovava mai nessuna. Ora scandisce
+  tutta la libreria a blocchi di 500. **Non verificabile sul simulatore** (serve una
+  libreria vera, con GPS negli EXIF): provare al rilascio sul dispositivo reale, con un
+  rullino da più di 3000 foto e una traccia vecchia.
 - [ ] Import GPX riallineato (flusso a 2 fasi: caricamento annullabile → editing →
-  Salva) — comportamento atteso descritto in `docs/CHANGELOG-DEV.md`.
+  Salva) — comportamento atteso descritto in `docs/CHANGELOG-DEV.md`. *(Selettore file su
+  iOS, focus mappa e nome della traccia corretti e provati sul simulatore in 1.0.0+8;
+  resta da validare il **riallineamento** vero su tracce reali — vedi anche la nota sui
+  fallimenti BRouter in P7.)*
+- [ ] Card **Novità** al primo avvio dopo un aggiornamento — provata sul simulatore
+  forzando la build precedente nelle preferenze; da vedere in un aggiornamento vero
+  (TestFlight/Play), dove il salto di versione arriva dallo store e non da un `flutter run`.
 - [ ] Dark mode, le 3 varianti (Standard/Notturno/Risparmio energetico) su schermate
   reali — leggibilità testo/vetro/hairline; **Automatico** deve seguire il cambio di Dark
   Mode di sistema mentre l'app è aperta.
@@ -146,6 +159,13 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 
 ## P7 — Backlog tecnico (bassa priorità)
 
+- [ ] **Affidabilità del BRouter pubblico**: durante l'import di una traccia alpina reale
+  (29 lug 2026) il server ha rifiutato molti segmenti con `HTTP 400: operation killed by
+  thread-priority-watchdog`, su **entrambi** i profili della catena (`hiking-mountain` e
+  `trekking`), degradando parecchi tratti a linea retta. Il fallback funziona come
+  progettato, ma la resa sulla singola traccia ne risente: se il fenomeno si ripete,
+  riconsiderare le alternative con API key già valutate (GraphHopper/Valhalla/ORS, vedi
+  `CLAUDE.md` §6.2) o un retry più paziente.
 - [ ] Densificazione del path: passo fisso 15 m di default — valutare passo adattivo alla
   pendenza.
 - [ ] Precisione D+/D-: campionamento DEM Terrarium a z13 di default — verificare contro

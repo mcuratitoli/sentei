@@ -344,6 +344,31 @@ void main() {
     expect(container.read(importPreviewProvider), isNull);
   });
 
+  test('importGpx: il nome del file vince sul <name> interno al GPX', () async {
+    // Il GPX di prova dichiara `<name>Import</name>`, ma quello che l'utente
+    // ha appena letto nel selettore file è il nome del file: è con quello che
+    // si aspetta di ritrovare la traccia.
+    await notifier().importGpx(importXml, fileName: 'Bivacco Ravelli.gpx');
+    expect(state().tracks.single.name, 'Bivacco Ravelli');
+    // Chiude il caricamento in volo: senza, `_runImport` prosegue oltre la
+    // fine del test e tocca un container ormai disposto.
+    notifier().cancelImport();
+  });
+
+  test('importGpx: senza nome file resta il <name> del GPX', () async {
+    await notifier().importGpx(importXml);
+    expect(state().tracks.single.name, 'Import');
+    notifier().cancelImport();
+  });
+
+  test('importGpx: nome file di sola estensione resta tutto nome', () async {
+    // ".gpx" non è un'estensione con basename vuoto: senza questo caso limite
+    // la traccia finirebbe senza nome.
+    await notifier().importGpx(importXml, fileName: '.gpx');
+    expect(state().tracks.single.name, '.gpx');
+    notifier().cancelImport();
+  });
+
   test('importGpx: Annulla durante il caricamento scarta la traccia', () async {
     await notifier().importGpx(importXml);
     expect(state().tracks.length, 1);

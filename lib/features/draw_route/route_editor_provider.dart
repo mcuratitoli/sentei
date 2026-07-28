@@ -584,7 +584,13 @@ class Tracks extends Notifier<TracksState> {
   /// 2) **revisione/editing**: si entra in modifica sulla traccia ricalcolata, con
   ///    la grezza ancora **tratteggiata** come riferimento; si persiste **solo al
   ///    Salva**. Ritorna `null` se l'import è **avviato**, o un messaggio d'errore.
-  Future<String?> importGpx(String xml) async {
+  ///
+  /// [fileName] è il nome del file scelto (con o senza estensione) e ha la
+  /// **precedenza** sul `<name>` interno al GPX: è quello che l'utente ha
+  /// appena letto nel selettore file, quindi è il nome con cui si aspetta di
+  /// ritrovare la traccia. Il tag interno resta come ripiego quando il nome
+  /// del file non è disponibile.
+  Future<String?> importGpx(String xml, {String? fileName}) async {
     final ({String name, List<LatLng> path}) parsed;
     try {
       parsed = const GpxService().parseTrack(xml);
@@ -600,7 +606,7 @@ class Tracks extends Notifier<TracksState> {
     final waypoints = [for (final i in idxs) parsed.path[i]];
     final track = DrawnTrack(
       id: id,
-      name: parsed.name.isNotEmpty ? parsed.name : 'Importato',
+      name: _importName(fileName, parsed.name),
       snapToTrail: true,
       waypoints: waypoints,
       createdAt: DateTime.now(),
@@ -672,6 +678,18 @@ class Tracks extends Notifier<TracksState> {
       editingId: id,
       geometryNonce: state.geometryNonce + 1,
     );
+  }
+
+  /// Nome della traccia importata: nome del file (senza estensione) se c'è,
+  /// altrimenti il `<name>` dentro il GPX, altrimenti un default.
+  static String _importName(String? fileName, String gpxName) {
+    final base = (fileName ?? '').split('/').last;
+    final dot = base.lastIndexOf('.');
+    // `dot > 0` e non `>= 0`: un file che *inizia* con un punto è tutto nome
+    // (".gpx" non è un'estensione vuota).
+    final stripped = (dot > 0 ? base.substring(0, dot) : base).trim();
+    if (stripped.isNotEmpty) return stripped;
+    return gpxName.isNotEmpty ? gpxName : 'Importato';
   }
 
   /// Annulla l'import in corso (dalla card di caricamento): scarta la traccia e

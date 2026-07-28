@@ -23,6 +23,7 @@ import '../../app/theme_provider.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
+import '../../ui/whats_new.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
@@ -869,6 +870,20 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     _splashTimeout?.cancel();
     if (!mounted || !_splashVisible) return;
     setState(() => _splashVisible = false);
+    _maybeShowWhatsNew();
+  }
+
+  /// Card "Novità" al primo avvio dopo un aggiornamento. Agganciata alla fine
+  /// dello splash e non a `initState`: prima di allora lo splash coprirebbe la
+  /// sheet (e il suo backdrop), facendola comparire e scomparire a vuoto.
+  Future<void> _maybeShowWhatsNew() async {
+    final note = await pendingWhatsNew();
+    if (note == null || !mounted) return;
+    // Attende la dissolvenza dello splash, così la card entra sulla mappa già
+    // visibile invece che a metà transizione.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    await showWhatsNew(context, note);
   }
 
   /// Alterna 2D (pitch 0) e 3D (pitch 65). L'etichetta del bottone mostra la
@@ -909,21 +924,40 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     );
   }
 
-  /// Centra la mappa su una traccia, differendo l'operazione se la mappa non è
-  /// la route attiva (es. lista tracciati è ancora in primo piano durante il pop).
+  /// Esegue [action] quando la mappa è **davvero** in primo piano, cioè quando
+  /// sopra non c'è più nessuna route, nemmeno in uscita.
+  ///
+  /// Non basta `ModalRoute.isCurrent`: diventa `true` appena il `pop` è
+  /// *avviato*, mentre la route sopra sta ancora scorrendo via e copre la
+  /// mappa. Un `flyTo` lanciato in quella finestra viene **perso** — la vista
+  /// nativa non sta animando — e la camera resta dov'era: era il motivo per
+  /// cui l'import GPX non inquadrava mai la traccia importata (chiama il focus
+  /// *dopo* il pop, quindi cadeva sempre nel ramo "immediato"), mentre il tap
+  /// dalla lista funzionava solo perché chiama il focus *prima* del pop.
+  ///
+  /// La `secondaryAnimation` della route della mappa è invece `dismissed`
+  /// esattamente quando la transizione è finita, in entrambi gli ordini di
+  /// chiamata: nessun ritardo a tempo da indovinare.
+  void _whenMapInForeground(VoidCallback action) {
+    final anim = ModalRoute.of(context)?.secondaryAnimation;
+    if (anim == null || anim.status == AnimationStatus.dismissed) {
+      action();
+      return;
+    }
+    void onStatus(AnimationStatus status) {
+      if (status != AnimationStatus.dismissed) return;
+      anim.removeStatusListener(onStatus);
+      if (mounted) action();
+    }
+
+    anim.addStatusListener(onStatus);
+  }
+
+  /// Centra la mappa su una traccia, appena la mappa è in primo piano.
   /// `cameraForCoordinates` necessita che la mappa sia visibile per calcolare
   /// correttamente i bounds; se chiamata in background restituisce valori invalidi.
-  void _scheduleFocusTrack(String id) {
-    if (ModalRoute.of(context)?.isCurrent ?? true) {
-      _focusTrack(id);
-    } else {
-      // Attendi che l'animazione di pop della lista tracce sia completata (~300ms)
-      // prima di spostare la camera; altrimenti cameraForCoordinates fallisce.
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (mounted) _focusTrack(id);
-      });
-    }
-  }
+  void _scheduleFocusTrack(String id) =>
+      _whenMapInForeground(() => _focusTrack(id));
 
   /// Centra/inquadra la mappa su una traccia (richiesto dalla lista tracce).
   Future<void> _focusTrack(String id) async {
@@ -961,15 +995,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   /// visualizzatore foto), differendo l'operazione con lo stesso schema di
   /// [_scheduleFocusTrack] se questa route non è ancora quella in primo piano
   /// (il visualizzatore foto sta ancora facendo il pop).
-  void _scheduleFlyToPoint(ll.LatLng point) {
-    if (ModalRoute.of(context)?.isCurrent ?? true) {
-      _flyToPoint(point);
-    } else {
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (mounted) _flyToPoint(point);
-      });
-    }
-  }
+  void _scheduleFlyToPoint(ll.LatLng point) =>
+      _whenMapInForeground(() => _flyToPoint(point));
 
   Future<void> _flyToPoint(ll.LatLng point) async {
     final map = _map;

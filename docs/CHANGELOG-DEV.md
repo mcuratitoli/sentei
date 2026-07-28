@@ -11,6 +11,63 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 29 luglio 2026 — Focus mappa dopo l'import, nome dal file, card Novità
+
+**Il focus sulla traccia importata non è mai partito** (1.0.0+8). Due bug sovrapposti,
+trovati solo strumentando il percorso: il primo nascondeva il secondo.
+
+1. **Id sempre `null`.** `_importGpx()` leggeva `tracksProvider.selectedId` per sapere cosa
+   inquadrare, ma nella **fase 1** la traccia viene aggiunta alla lista *senza* essere
+   selezionata né messa in editing (è scritto nel commento di `importGpx`: esiste "per il
+   focus mappa"). `selectedId` era null e `focusTrack` non veniva mai chiamato. Ora si legge
+   `importLoadingProvider`, l'unico posto dove quell'id esiste in fase 1.
+2. **`flyTo` scartato durante la transizione.** Corretto il punto 1, il log mostrava id,
+   listener, traccia e camera **tutti giusti** (`lng 7.965 lat 45.729 zoom 11.14`) e un
+   `flyTo` eseguito senza errori — ma la camera letta subito dopo era ancora quella di
+   partenza, invariata al decimale. Causa: `ModalRoute.isCurrent` diventa `true` appena il
+   `pop` è *avviato*, non a transizione finita. `_importGpx` chiama il focus **dopo** il
+   `pop`, quindi cadeva sempre nel ramo "immediato" di `_scheduleFocusTrack` e il volo
+   partiva mentre la lista tracce copriva ancora la mappa: con la vista nativa non in
+   animazione, un `flyTo` viene **perso** (un `setCamera` istantaneo invece passa — è così
+   che la camera era arrivata sul GPS all'avvio).
+
+   Il tap dalla lista tracce funzionava solo per **ordine delle chiamate**: lì il focus è
+   prima del `pop`, quindi `isCurrent` era `false` e scattava l'attesa di 350 ms. Una
+   guardia che dipende da chi chiama per prima non è una guardia: sostituita da
+   `_whenMapInForeground`, agganciata alla `secondaryAnimation` della route della mappa —
+   `dismissed` esattamente quando sopra non c'è più nulla, in entrambi gli ordini, senza
+   ritardi a tempo da indovinare. Ne beneficia anche `_scheduleFlyToPoint` ("Vedi sulla
+   mappa" dal visualizzatore foto), che aveva lo stesso schema fragile.
+
+⚠️ Trappola diagnostica incontrata: `flyTo` **ritorna prima** che l'animazione finisca.
+Leggere `getCameraState()` subito dopo dà uno stato intermedio (zoom 14.98 invece di 15.0)
+e fa sembrare rotto un volo che sta partendo — serve leggere a volo concluso.
+
+**Nome della traccia importata**: `importGpx` accetta ora `fileName` e gli dà la
+**precedenza** sul `<name>` interno al GPX (che resta come ripiego), perché è il nome che
+l'utente ha appena letto nel selettore file. Caso limite gestito: un file `.gpx` è tutto
+nome, non un'estensione con basename vuoto.
+
+**Card "Novità" al primo avvio dopo un aggiornamento** (`lib/ui/whats_new.dart`): confronta
+la build corrente con quella registrata in `shared_preferences` e mostra le novità della
+release appena installata. Niente card su **prima installazione** (nessuna build
+precedente: non è un aggiornamento). Pesca da `kReleaseNotes` — non è una quarta lista da
+mantenere — tramite un campo opzionale `spotlight` (icona + titolo + spiegazione) che serve
+solo alla release distribuita; se manca, ripiega sugli `highlights`.
+
+- **Bottom sheet e non card centrata**, a differenza del mockup di riferimento: §7/§10 delle
+  linee guida vietano i dialog centrati e una card centrata non esiste altrove nell'app.
+  Segnalato all'utente come deroga consapevole al mockup.
+- La **build 7 non è mai stata distribuita**: chi aggiorna arriva dalla 6, quindi la
+  `spotlight` della 8 copre l'intero salto 6 → 8 ed è l'unica in circolazione (nessun doppio
+  elenco che racconta le stesse cose).
+- Provata sul simulatore forzando la build precedente nelle preferenze
+  (`PlistBuddy -c "Set :flutter.whats_new_seen_build 6"` sul plist del container dati).
+  ⚠️ Il container cambia UUID a ogni reinstallazione: dopo un `simctl uninstall` il valore
+  va riscritto.
+
+---
+
 ## 29 luglio 2026 — Import GPX su iOS: il file .gpx non era selezionabile
 
 Nel selettore file di iOS il tracciato `.gpx` compariva in grigio, non selezionabile. Causa

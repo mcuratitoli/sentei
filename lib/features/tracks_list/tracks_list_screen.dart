@@ -241,7 +241,9 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     final file = await openFile(acceptedTypeGroups: [group]);
     if (file == null) return;
     final xml = await file.readAsString();
-    final error = await ref.read(tracksProvider.notifier).importGpx(xml);
+    final error = await ref
+        .read(tracksProvider.notifier)
+        .importGpx(xml, fileName: file.name);
     if (!mounted) return;
     if (error != null) {
       showIosToast(context, error);
@@ -249,7 +251,12 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     }
     // Import avviato: torna alla mappa a vedere la traccia importata (grezza
     // tratteggiata + caricamento, poi il percorso instradato lungo i sentieri).
-    final id = ref.read(tracksProvider).selectedId;
+    //
+    // L'id da inquadrare è quello dell'**import in corso**, non `selectedId`:
+    // nella fase 1 la traccia esiste già nella lista (apposta, per poterla
+    // inquadrare) ma non è ancora né selezionata né in editing — `selectedId`
+    // restava null e la mappa non si spostava mai sulla traccia importata.
+    final id = ref.read(importLoadingProvider);
     if (context.canPop()) context.pop();
     if (id != null) ref.read(mapFocusProvider.notifier).focusTrack(id);
   }

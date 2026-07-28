@@ -1,4 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
+import 'package:flutter/cupertino.dart'
+    show CupertinoIcons, CupertinoSlidingSegmentedControl;
 import 'package:flutter/material.dart';
 
 import 'tokens.dart';
@@ -17,6 +18,7 @@ class ReleaseNote {
     required this.build,
     required this.date,
     required this.highlights,
+    this.spotlight = const [],
   });
 
   final String version;
@@ -27,9 +29,65 @@ class ReleaseNote {
 
   /// Punti salienti, 2-4 voci, una riga ciascuna.
   final List<String> highlights;
+
+  /// Versione "raccontata" degli [highlights] — icona, titolo e una frase di
+  /// spiegazione — per la card **Novità** che compare al primo avvio dopo un
+  /// aggiornamento (`whats_new.dart`). Serve solo alla release più recente:
+  /// sulle vecchie si può lasciare vuota, e la card ripiega sugli
+  /// [highlights] come sole righe di titolo.
+  final List<WhatsNewItem> spotlight;
+}
+
+/// Una voce della card Novità: icona + titolo + (opzionale) spiegazione.
+class WhatsNewItem {
+  const WhatsNewItem({required this.title, this.body, this.icon});
+
+  final String title;
+  final String? body;
+  final IconData? icon;
 }
 
 const List<ReleaseNote> kReleaseNotes = [
+  ReleaseNote(
+    version: '1.0.0',
+    build: 8,
+    date: '29 luglio 2026',
+    highlights: [
+      'Card con le novità al primo avvio dopo un aggiornamento',
+      'Importando un GPX la mappa si sposta sulla traccia importata',
+      'Una traccia importata prende il nome del file GPX',
+    ],
+    // La build 7 non è mai stata distribuita: chi aggiorna arriva dalla 6, e
+    // per lui "l'ultimo aggiornamento" è tutto il salto 6 → 8. Questa lista
+    // copre quindi anche le novità della 7 — è l'unica `spotlight` in
+    // circolazione, così non ci sono due elenchi che raccontano la stessa cosa.
+    spotlight: [
+      WhatsNewItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Foto raggruppate per escursione',
+        body: 'Le foto di una traccia sono divise per uscita, con '
+            'visualizzatore a schermo intero e profilo altimetrico.',
+      ),
+      WhatsNewItem(
+        icon: CupertinoIcons.search,
+        title: '"Trova foto" cerca in tutta la libreria',
+        body: 'Prima si fermava agli scatti più recenti: su una libreria '
+            'grande non trovava nulla.',
+      ),
+      WhatsNewItem(
+        icon: CupertinoIcons.arrow_down_doc,
+        title: 'Import GPX più affidabile',
+        body: 'Il file .gpx è selezionabile nella schermata File, la mappa si '
+            'sposta sulla traccia e il nome è quello del file.',
+      ),
+      WhatsNewItem(
+        icon: CupertinoIcons.wand_stars,
+        title: 'Interfaccia più coerente',
+        body: 'Le card si chiudono trascinandole verso il basso e tutte le '
+            'conferme hanno la stessa forma.',
+      ),
+    ],
+  ),
   ReleaseNote(
     version: '1.0.0',
     build: 7,

@@ -7,6 +7,21 @@ per cosa resta da fare vedi **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 Il numero fra parentesi è il **build** (`CFBundleVersion`/`versionCode`); la app in
 Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
+## 1.0.0 (8) — 29 luglio 2026
+
+- ✨ **Al primo avvio dopo un aggiornamento compare una card con le novità**
+  di quella versione, con un tocco su "Continua" per chiuderla. Appare una
+  volta sola per aggiornamento, e mai a chi installa Sentèi per la prima
+  volta. Il changelog completo resta comunque in Impostazioni →
+  Informazioni → Sentèi.
+- 🗺️ **Importando un GPX la mappa si sposta sulla traccia importata**, invece
+  di restare dov'era: prima capitava di ritrovarsi la traccia caricata a
+  centinaia di chilometri da quello che si stava guardando, senza capire se
+  l'import fosse riuscito.
+- 📄 **Una traccia importata prende il nome del file GPX** (senza estensione).
+  Prima usava il nome scritto dentro al file, spesso generico o assente, che
+  non corrispondeva a quello appena scelto nella schermata File.
+
 ## 1.0.0 (7) — 29 luglio 2026
 
 - 📸 **"Trova foto vicine" ora trova davvero le foto.** Prima cercava solo
