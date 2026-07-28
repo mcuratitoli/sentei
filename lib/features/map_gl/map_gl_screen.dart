@@ -29,35 +29,13 @@ import '../map/map_providers.dart';
 import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
 import 'inspected_point_provider.dart';
+import 'map_style.dart';
 import '../tracks_list/tracks_list_screen.dart';
-
-/// Stile della mappa. Default: Mapbox **Outdoors** (topo stock migliore).
-/// Sovrascrivibile con uno stile Mapbox Studio dedicato (simil-GaiaGPS) senza
-/// toccare il codice: `--dart-define=MAP_STYLE_URI=mapbox://styles/<user>/<id>`.
-const String _envMapStyle = String.fromEnvironment('MAP_STYLE_URI');
-
-/// Stile "mappa" (topografico). L'override d'ambiente vince se presente.
-String get _outdoorsStyleUri =>
-    _envMapStyle.isEmpty ? MapboxStyles.OUTDOORS : _envMapStyle;
-
-/// Stile **satellite** con strade/etichette (utile in escursione: si vedono
-/// nomi e sentieri sopra l'ortofoto). **Invariato** col tema app (l'ortofoto
-/// non ha un "verso scuro" sensato, per decisione utente).
-const String _satelliteStyleUri =
-    'mapbox://styles/mapbox/satellite-streets-v12';
-
-/// Stile **scuro** usato al posto di Outdoors quando il tema dell'app è scuro
-/// (automatico, coordinato col tema — non una scelta separata dell'utente).
-/// `dark-v11` è uno stile Mapbox generico ("data visualization"), non tarato
-/// per l'escursionismo: buona parte del carattere outdoor di Sentèi resta
-/// comunque nei layer nostri sopra (hillshade, terreno 3D, sentieri CAI).
-/// Vedi `docs/eval-dark-map.md`.
-const String _darkStyleUri = MapboxStyles.DARK;
 
 /// Vista mappa selezionabile dal tasto "livelli" nella barra (Outdoors ↔
 /// Satellite). Ortogonale al **tema** (chiaro/scuro): Outdoors risolve a
-/// `_outdoorsStyleUri` o `_darkStyleUri` in base al tema; Satellite resta
-/// sempre `_satelliteStyleUri`.
+/// `outdoorsMapStyleUri` o `darkMapStyleUri` in base al tema; Satellite resta
+/// sempre `satelliteMapStyleUri` (vedi `map_style.dart`).
 enum MapStyleChoice { outdoors, satellite }
 
 /// Mappa principale su **Mapbox GL** (migrazione, Fase 4): base Outdoors +
@@ -112,8 +90,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // prop del widget non cambia e non innesca ricariche doppie.
   MapStyleChoice _styleChoice = MapStyleChoice.outdoors;
   // Tema **mappa** (chiaro/scuro), coordinato automaticamente col tema app:
-  // quando true, la vista Outdoors risolve a `_darkStyleUri` invece di
-  // `_outdoorsStyleUri` (Satellite resta invariata). Calcolato una volta in
+  // quando true, la vista Outdoors risolve a `darkMapStyleUri` invece di
+  // `outdoorsMapStyleUri` (Satellite resta invariata). Calcolato una volta in
   // `initState` (per lo stile iniziale del MapWidget) e poi tenuto sincro da
   // `_syncMapTheme` (cambio Tema nelle Impostazioni) e da
   // `didChangePlatformBrightness` (cambio del sistema mentre si è in Automatico).
@@ -992,11 +970,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   }
 
   /// Risolve l'URI di stile per la vista [choice]: Outdoors segue il **tema
-  /// mappa** (chiaro→`_outdoorsStyleUri`, scuro→`_darkStyleUri`); Satellite è
-  /// sempre `_satelliteStyleUri` (invariata col tema, per decisione utente).
+  /// mappa** (chiaro→`outdoorsMapStyleUri`, scuro→`darkMapStyleUri`);
+  /// Satellite è sempre `satelliteMapStyleUri` (invariata col tema).
   String _resolveStyleUri(MapStyleChoice choice) => switch (choice) {
-        MapStyleChoice.outdoors => _mapIsDark ? _darkStyleUri : _outdoorsStyleUri,
-        MapStyleChoice.satellite => _satelliteStyleUri,
+        MapStyleChoice.outdoors =>
+          _mapIsDark ? darkMapStyleUri : outdoorsMapStyleUri,
+        MapStyleChoice.satellite => satelliteMapStyleUri,
       };
 
   /// Cambia la vista mappa: ricarica lo stile e ri-esegue il setup (terreno,

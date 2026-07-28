@@ -26,6 +26,7 @@ import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/track_offline_download.dart';
 import 'nearby_photos_action.dart';
+import 'photo_location_panel.dart';
 import 'route_editor_provider.dart';
 
 /// Pannello inferiore di controllo della traccia attiva.
@@ -200,30 +201,6 @@ class _SelectedBody extends ConsumerWidget {
     final cursor = ref.watch(profileCursorProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
-    // Foto da evidenziare col pin giallo sul grafico: quella **selezionata**
-    // (tap su una thumbnail/pin, `PhotoDetailCard` aperta) ha priorità;
-    // altrimenti quella la cui distanza-lungo-percorso è più vicina al
-    // cursore corrente durante lo scrubbing.
-    final selectedPhoto = ref.watch(selectedPhotoProvider);
-    String? highlightedPhotoId;
-    if (track != null &&
-        selectedPhoto != null &&
-        track.photos.any((p) => p.id == selectedPhoto.id)) {
-      highlightedPhotoId = selectedPhoto.id;
-    } else if (cursor != null && track != null && track.photos.isNotEmpty) {
-      TrackPhoto? nearest;
-      var best = double.infinity;
-      for (final p in track.photos) {
-        final d = (p.distanceMeters - cursor.distanceMeters).abs();
-        if (d < best) {
-          best = d;
-          nearest = p;
-        }
-      }
-      if (nearest != null && best <= _photoHighlightToleranceMeters) {
-        highlightedPhotoId = nearest.id;
-      }
-    }
 
     final expanded = ref.watch(trackCardExpandedProvider);
 
@@ -367,10 +344,6 @@ class _SelectedBody extends ConsumerWidget {
               steepness: steepnessOn,
               height: 120,
               onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
-              photos: track?.photos ?? const [],
-              onPhotoTap: (p) =>
-                  ref.read(selectedPhotoProvider.notifier).set(p),
-              highlightedPhotoId: highlightedPhotoId,
             ),
           ],
         ],
@@ -519,12 +492,6 @@ class _TrailInfo extends StatelessWidget {
     );
   }
 }
-
-/// Tolleranza (metri lungo il percorso) per evidenziare col pin giallo sul
-/// grafico del profilo la foto sotto il dito durante lo scrubbing —
-/// generosa apposta: durante lo scrubbing è più importante "agganciare"
-/// facilmente la foto vicina che essere millimetrici.
-const double _photoHighlightToleranceMeters = 50;
 
 /// Sezione "FOTO" della card traccia (§"Sync album fotografico"): elenco
 /// delle foto collegate raggruppate per escursione ([PhotoSessionGrouper]),
@@ -1444,6 +1411,10 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
                       curve: Curves.easeOut,
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: PhotoLocationPanel(photo: current),
+                ),
               ],
             ),
           ),

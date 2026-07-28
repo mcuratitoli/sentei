@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../domain/models/elevation_profile.dart';
-import '../domain/models/track_photo.dart';
 import '../domain/services/steepness.dart';
 import 'cai_difficulty.dart';
 import 'tokens.dart';
@@ -13,7 +12,10 @@ import 'tokens.dart';
 /// notifica via [onCursor] (per evidenziarlo in mappa). Sotto l'asse X mostra
 /// i **numeri dei sentieri** (ref CAI) attraversati in ciascun tratto.
 ///
-/// Widget di presentazione: nessuna dipendenza da Riverpod.
+/// Widget di presentazione: nessuna dipendenza da Riverpod. Non disegna più i
+/// pin delle foto collegate (rimossi dalla card traccia, troppo confusi con
+/// molte foto): per evidenziare **una singola** foto (es. nel visualizzatore
+/// a schermo intero) si passa il suo punto come [cursor].
 class ElevationProfileChart extends StatefulWidget {
   const ElevationProfileChart({
     super.key,
@@ -23,9 +25,6 @@ class ElevationProfileChart extends StatefulWidget {
     this.onCursor,
     this.height = 150,
     this.steepness = false,
-    this.photos = const [],
-    this.onPhotoTap,
-    this.highlightedPhotoId,
   });
 
   final ElevationProfile profile;
@@ -41,18 +40,6 @@ class ElevationProfileChart extends StatefulWidget {
 
   /// Notifica il campione sotto il dito durante lo scrubbing (`null` a fine).
   final ValueChanged<ProfileSample?>? onCursor;
-
-  /// Foto collegate (§"Sync album fotografico"), mostrate come piccoli pin
-  /// sulla curva alla loro distanza-lungo-percorso (`TrackPhoto.distanceMeters`).
-  final List<TrackPhoto> photos;
-
-  /// Tap su un pin foto (ha priorità sullo scrubbing normale in quel punto).
-  final ValueChanged<TrackPhoto>? onPhotoTap;
-
-  /// Foto selezionata o sotto il cursore durante lo scrubbing: il suo pin si
-  /// disegna più grande con un anello giallo (stessa evidenziazione della
-  /// thumbnail corrispondente nella striscia della card).
-  final String? highlightedPhotoId;
 
   final double height;
 
@@ -89,38 +76,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       final x0 = s.fromMeters / total * width;
       final x1 = s.toMeters / total * width;
       if (local.dx >= x0 && local.dx <= x1) return scale;
-    }
-    return null;
-  }
-
-  /// Altezza utile del grafico (esclude le bande sentiero/difficoltà sotto
-  /// l'asse X), stessa formula usata da [_ProfilePainter.paint].
-  double _chartHeight(double totalHeight) {
-    final hasBands = widget.trailSegments.isNotEmpty;
-    final hasScale = widget.trailSegments.any((s) => s.caiScale != null);
-    final bandsH = (hasBands ? _ProfilePainter._bandHeight : 0) +
-        (hasScale ? _ProfilePainter.scaleBandHeight : 0);
-    return totalHeight - bandsH;
-  }
-
-  /// Foto il cui pin cade entro un raggio di tolleranza da [local], se presente.
-  TrackPhoto? _photoAt(Offset local, double width, double totalHeight) {
-    if (widget.photos.isEmpty) return null;
-    final total = widget.profile.totalDistance;
-    if (total <= 0) return null;
-    final chartH = _chartHeight(totalHeight);
-    final eleRange =
-        (widget.profile.maxElevation - widget.profile.minElevation).abs();
-    final span = eleRange < 1 ? 1.0 : eleRange;
-    double dxFor(double d) => d / total * width;
-    double dyFor(double e) =>
-        chartH - (e - widget.profile.minElevation) / span * chartH;
-
-    for (final p in widget.photos) {
-      final sample = _nearestByDistance(widget.profile.samples, p.distanceMeters);
-      final dx = dxFor(p.distanceMeters);
-      final dy = dyFor(sample.elevation);
-      if ((local.dx - dx).abs() <= 14 && (local.dy - dy).abs() <= 14) return p;
     }
     return null;
   }
@@ -189,11 +144,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (d) {
-              final photo = _photoAt(d.localPosition, width, totalHeight);
-              if (photo != null && widget.onPhotoTap != null) {
-                widget.onPhotoTap!(photo);
-                return; // tap su un pin foto → anteprima, non scrubbing
-              }
               final scale =
                   _difficultyAt(d.localPosition, width, totalHeight);
               if (scale != null) {
@@ -216,8 +166,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 bandTextColor: scheme.onSecondaryContainer,
                 cursor: widget.cursor,
                 steepness: widget.steepness,
-                photos: widget.photos,
-                highlightedPhotoId: widget.highlightedPhotoId,
               ),
               size: Size.infinite,
             ),
@@ -285,8 +233,6 @@ class _ProfilePainter extends CustomPainter {
     required this.bandTextColor,
     this.cursor,
     this.steepness = false,
-    this.photos = const [],
-    this.highlightedPhotoId,
   });
 
   final ElevationProfile profile;
@@ -297,8 +243,6 @@ class _ProfilePainter extends CustomPainter {
   final Color bandTextColor;
   final ProfileSample? cursor;
   final bool steepness;
-  final List<TrackPhoto> photos;
-  final String? highlightedPhotoId;
 
   static const double _bandHeight = 18;
   static const double scaleBandHeight = 16;
@@ -406,32 +350,6 @@ class _ProfilePainter extends CustomPainter {
       }
     }
 
-    // Pin delle foto collegate, alla loro distanza-lungo-percorso. Quello
-    // selezionato/sotto il cursore (stessa evidenziazione della thumbnail
-    // corrispondente) è più grande, con un anello giallo invece del bianco.
-    if (photos.isNotEmpty) {
-      final fill = Paint()..color = const Color(0xFFFFB300);
-      final stroke = Paint()
-        ..color = const Color(0xFFFFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      final highlightStroke = Paint()
-        ..color = const Color(0xFFFFD600)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3;
-      for (final p in photos) {
-        final sample =
-            _ElevationProfileChartState._nearestByDistance(samples, p.distanceMeters);
-        final x = dxFor(p.distanceMeters);
-        final y = dyFor(sample.elevation);
-        final isHighlighted = p.id == highlightedPhotoId;
-        final radius = isHighlighted ? 7.0 : 5.0;
-        canvas.drawCircle(Offset(x, y), radius, fill);
-        canvas.drawCircle(
-            Offset(x, y), radius, isHighlighted ? highlightStroke : stroke);
-      }
-    }
-
     final c = cursor;
     if (c != null) {
       final x = dxFor(c.distanceMeters);
@@ -471,7 +389,5 @@ class _ProfilePainter extends CustomPainter {
       old.color != color ||
       old.cursor != cursor ||
       old.steepness != steepness ||
-      old.trailSegments != trailSegments ||
-      old.photos != photos ||
-      old.highlightedPhotoId != highlightedPhotoId;
+      old.trailSegments != trailSegments;
 }

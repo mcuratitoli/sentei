@@ -11,14 +11,12 @@ import 'package:sentei/core/util/format.dart';
 import 'package:sentei/data/cloud/cloud_sync_service.dart';
 import 'package:sentei/data/storage/tracks_repository.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
-import 'package:sentei/domain/models/elevation_profile.dart' show ProfileSample;
 import 'package:sentei/domain/models/track_photo.dart';
 import 'package:sentei/domain/services/elevation_service.dart';
 import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
 import 'package:sentei/ui/app_bottom_sheet.dart' show AppSheetSurface;
-import 'package:sentei/ui/elevation_profile_chart.dart' show ElevationProfileChart;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -292,45 +290,6 @@ void main() {
   });
 
   testWidgets(
-      'scorrendo il grafico, il pin della foto vicina al cursore si evidenzia',
-      (tester) async {
-    final container = await pumpCard(tester);
-    await tester.pump();
-    final notifier = container.read(tracksProvider.notifier);
-    notifier
-      ..startNewDrawing()
-      ..addPoint(const LatLng(45.0, 7.0))
-      ..addPoint(const LatLng(45.05, 7.0)); // percorso lungo qualche km
-    await notifier.finishDrawing();
-    final id = container.read(tracksProvider).tracks.first.id;
-    await notifier.addPhotos(id, const [
-      TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
-      TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
-    ]);
-    await tester.pumpAndSettle();
-
-    // Il grafico è collassato di default: aprirlo per farlo comparire.
-    await tester.tap(find.byTooltip('Profilo altimetrico'));
-    await tester.pumpAndSettle();
-
-    Object? highlighted() => tester
-        .widget<ElevationProfileChart>(find.byType(ElevationProfileChart))
-        .highlightedPhotoId;
-
-    // Nessun cursore: nessuna foto evidenziata.
-    expect(highlighted(), isNull);
-
-    // Cursore a 540m: entro la tolleranza generosa (50m) dalla foto "near"
-    // (500m), non dalla foto "far" (5000m).
-    container.read(profileCursorProvider.notifier).set(
-        const ProfileSample(
-            distanceMeters: 540, elevation: 1000, position: LatLng(45.005, 7)));
-    await tester.pumpAndSettle();
-
-    expect(highlighted(), 'near');
-  });
-
-  testWidgets(
       'il foglio di un\'escursione mostra le foto in ordine di distanza '
       'lungo il percorso, non nell\'ordine in cui sono state collegate',
       (tester) async {
@@ -363,46 +322,6 @@ void main() {
     await tester.tap(tiles.first);
     await tester.pumpAndSettle();
     expect(container.read(selectedPhotoProvider)?.id, 'near');
-  });
-
-  testWidgets(
-      'selezionare una foto la evidenzia (thumbnail e pin nel grafico) anche '
-      'senza scrubbing, con priorità sul cursore', (tester) async {
-    final container = await pumpCard(tester);
-    await tester.pump();
-    final notifier = container.read(tracksProvider.notifier);
-    notifier
-      ..startNewDrawing()
-      ..addPoint(const LatLng(45.0, 7.0))
-      ..addPoint(const LatLng(45.05, 7.0));
-    await notifier.finishDrawing();
-    final id = container.read(tracksProvider).tracks.first.id;
-    await notifier.addPhotos(id, const [
-      TrackPhoto(id: 'near', position: LatLng(45.005, 7), distanceMeters: 500),
-      TrackPhoto(id: 'far', position: LatLng(45.04, 7), distanceMeters: 5000),
-    ]);
-    await tester.pumpAndSettle();
-
-    // Il grafico è collassato di default: aprirlo ("Profilo altimetrico")
-    // per farlo comparire nell'albero.
-    await tester.tap(find.byTooltip('Profilo altimetrico'));
-    await tester.pumpAndSettle();
-
-    // Cursore lontano da entrambe: nessuna evidenziata da scrubbing.
-    container.read(profileCursorProvider.notifier).set(
-        const ProfileSample(
-            distanceMeters: 2500, elevation: 1000, position: LatLng(45.02, 7)));
-    // Ma "far" è selezionata esplicitamente: vince lei, non il cursore.
-    container
-        .read(selectedPhotoProvider.notifier)
-        .set(container.read(tracksProvider).tracks.first.photos
-            .firstWhere((p) => p.id == 'far'));
-    await tester.pumpAndSettle();
-
-    expect(
-        tester.widget<ElevationProfileChart>(find.byType(ElevationProfileChart))
-            .highlightedPhotoId,
-        'far');
   });
 
   testWidgets(

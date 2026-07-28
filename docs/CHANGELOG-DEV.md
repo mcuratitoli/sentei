@@ -11,6 +11,53 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 luglio 2026 — Pannello Altitudine/Mappa nel viewer foto, rimossi i pin dal grafico in card
+
+**Rimossi i pin foto dal profilo altimetrico della card traccia** (`troppa confusione` con
+molte foto collegate): `ElevationProfileChart` non riceve più `photos`/`onPhotoTap`/
+`highlightedPhotoId` dalla card (`draw_route_controls.dart`, `_SelectedBody`) — anche tutta
+la logica che calcolava quale foto evidenziare (priorità selezione > cursore, tolleranza 50m)
+è stata rimossa, non più usata da nessuno. Pulizia a cascata in `elevation_profile_chart.dart`:
+tolti da `ElevationProfileChart`/`_ProfilePainter` i parametri `photos`/`onPhotoTap`/
+`highlightedPhotoId`, `_photoAt`, `_chartHeight` e il blocco di disegno dei pin — confermato
+con grep che `ElevationProfileChart` non ha altri call site in tutto il repo, quindi nessuna
+funzionalità residua da preservare. Anche 2 test in `draw_route_controls_test.dart` che
+verificavano l'evidenziazione dei pin sono stati rimossi (testavano un comportamento voluto
+rimosso, non un bug).
+
+**Nuovo pannello "Altitudine/Mappa" nel visualizzatore foto a schermo intero** (come Komoot,
+da screenshot dell'utente), sotto il filmstrip: `PhotoLocationPanel`
+(`lib/features/draw_route/photo_location_panel.dart`, nuovo file — `draw_route_controls.dart`
+era già grande). Un selettore a due pillole sceglie fra:
+- **Altitudine**: `ElevationProfileChart` col punto di scatto della foto evidenziato via
+  `cursor` (non più via `photos`, rimosso sopra) — riuso diretto, nessuna modifica al
+  componente per questo. Card bianca con tema forzato `AppTheme.light()` (il grafico è
+  calibrato per stare su sfondo chiaro, non per il nero della galleria).
+- **Mappa**: mini-mappa Mapbox **sola lettura** (gesti disabilitati: competerebbero con lo
+  swipe orizzontale del carosello) col tracciato e un pin nel punto di scatto. Stile
+  chiaro/scuro coordinato con `Theme.of(context).brightness`. Istanza Mapbox **separata** da
+  quella della schermata principale (prima volta nel progetto con 2 `MapWidget` vivi insieme).
+  Estratti gli URI di stile (`outdoorsMapStyleUri`/`darkMapStyleUri`/`satelliteMapStyleUri`,
+  prima privati in `map_gl_screen.dart`) in un nuovo `lib/features/map_gl/map_style.dart`
+  condiviso, per non duplicare le costanti Mapbox tra i due file.
+- **Lazy loading della mappa**: creare una seconda istanza Mapbox è costoso (rete/GL) — non
+  costruita finché l'utente non tocca "Mappa" la prima volta, poi tenuta viva con `Offstage`
+  (non uno switch condizionale) ai toggle successivi, per non ripagare il costo ad ogni tap.
+- **Marker che segue il carosello**: siccome lo stato del pannello/della mini-mappa **non**
+  viene ricreato scorrendo tra le foto (stessa posizione nell'albero, `Offstage` non elimina
+  lo `State`), il marker va spostato esplicitamente in `didUpdateWidget` (`CircleAnnotation
+  .geometry` riassegnato + `manager.update(...)`) invece di ricreare tutta la mappa — altrimenti
+  sarebbe rimasto fermo sulla prima foto aperta.
+
+⚠️ **Rischio più alto di questa sessione**: la mini-mappa è la parte meno verificabile senza
+device/simulatore — API `GesturesSettings`/`ScaleBarSettings`/`CircleAnnotationManager.update`
+usate da conoscenza generale dell'SDK `mapbox_maps_flutter` 2.25, non da un precedente già
+presente nel codebase (a differenza di `CompassSettings`/`PolylineAnnotationOptions`/
+`cameraForCoordinatesPadding`, questi sì già usati altrove e quindi a rischio più basso). Da
+verificare per primo appena disponibile un ambiente Flutter.
+
+---
+
 ## 28 luglio 2026 — Rifiniture grafiche: card ancorate, viewer foto a galleria, fix bug
 
 **Card ancorate in basso, non più fluttuanti**: `DrawRouteControls` (selezione **e**
