@@ -302,8 +302,10 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   l'app non ha (privacy-first, zero backend) — decisione indipendente dalle analitiche
   d'uso (vedi `docs/eval-usage-analytics.md`: il login non è un prerequisito per quelle).
   Dettagli in `docs/ROADMAP.md`.
-- [ ] **Unità di misura / localizzazione:** oggi solo metrico e italiano — valutare se serve
-  i18n.
+- [ ] **Unità di misura:** oggi solo metrico — valutare se serve un'opzione imperiale.
+
+> Multilingua (aggiunta della versione inglese): decisione presa, in roadmap — vedi
+> `docs/ROADMAP.md` §P7.
 
 > Le questioni **operative** (cosa implementare, in che ordine, con che priorità) vivono in
 > `docs/ROADMAP.md`, non qui: questa sezione è solo per decisioni architetturali di fondo

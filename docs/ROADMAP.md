@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 28 luglio 2026 · **Stato:** beta `1.0.0+6` in rilascio ai tester.
+**Aggiornato:** 2 agosto 2026 · **Stato:** beta `1.0.0+6` in rilascio ai tester.
 
 ## Come leggere questo documento
 
@@ -83,6 +83,17 @@
 - [ ] **Separazione strade/sentieri su Mapbox** — nascondere i layer strada-sterrata dello
   stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
+- [ ] **[TASK] Studiare un'opzione per esplorare i segnavia** — valutare come permettere
+  all'utente di esplorare/consultare i segnavia (numeri sentiero CAI) direttamente in app,
+  eventualmente appoggiandosi ai siti CAI (es. schede sentiero, sezioni locali) oltre ai
+  dati già usati per numeri/difficoltà (`data/trails/`, OSM2CAI/Overpass, §4 CLAUDE.md).
+  Da chiarire: solo link esterno alla scheda CAI del sentiero selezionato, o integrazione
+  più profonda (es. ricerca per numero segnavia)?
+- [ ] **[TASK] Analizzare la grafica della mappa in ottica GaiaGPS** — studiare come
+  avvicinare stile/leggibilità della mappa (colori, spessori sentieri, etichette, terreno)
+  a quello di GaiaGPS, nei limiti dello stile Mapbox Outdoors in uso (§2 CLAUDE.md);
+  capire cosa è personalizzabile via stile Mapbox custom vs cosa richiederebbe layer
+  aggiuntivi.
 
 ## P3 — Validazione pendente su device
 
@@ -185,8 +196,11 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   gestione dei conflitti più fine se servisse.
 - [ ] Routing offline (BRouter embedded, Fase 2 del CLAUDE.md) — confermare la fattibilità
   reale in Flutter (dimensione dei segment file) prima di impegnarsi.
-- [ ] Unità di misura / localizzazione: oggi solo metrico e italiano — valutare se serve
-  i18n.
+- [ ] Unità di misura: oggi solo metrico — valutare se serve un'opzione imperiale.
+- [ ] **Multilingua (i18n)**: oggi l'app è solo in italiano — aggiungere il supporto per
+  l'inglese (`flutter_localizations` + `intl`, estrazione delle stringhe UI in ARB),
+  partendo dalle schermate principali (mappa, disegno traccia, lista tracciati,
+  impostazioni). Decisione aperta collegata in `CLAUDE.md` §10.
 
 ---
 
