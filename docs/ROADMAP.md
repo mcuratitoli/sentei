@@ -3,7 +3,8 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 2 agosto 2026 · **Stato:** beta `1.0.0+6` in rilascio ai tester.
+**Aggiornato:** 2 agosto 2026 · **Stato:** beta `1.0.0+8` (29 luglio 2026) in rilascio ai
+tester.
 
 ## Come leggere questo documento
 
@@ -27,9 +28,10 @@
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
    come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
    pannello).
-2. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
-   mappa deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato
-   importato, invece di restare sull'inquadratura precedente.
+2. [x] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
+   mappa inquadra automaticamente l'area del tracciato importato. **Fatto** (29 luglio 2026,
+   confluito in `1.0.0+8`, vedi `docs/CHANGELOG-DEV.md`): due bug sovrapposti (id sempre
+   `null` in fase 1, `flyTo` perso durante la transizione della schermata lista→mappa).
 3. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
    l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
    un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card
