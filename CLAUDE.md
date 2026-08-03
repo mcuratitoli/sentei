@@ -289,6 +289,14 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   `CHANGELOG.md` e alla sezione P1 di `docs/ROADMAP.md`: quando si aggiorna uno dei due file
   del repo, aggiornare anche la lista Dart corrispondente **nella stessa sessione di lavoro**,
   non in un secondo momento.
+- **Ad ogni bump di versione in `pubspec.yaml`** (nuova build rilasciata ai tester): rivedere
+  e allineare, **nella stessa sessione**, sia i file interni (`docs/CHANGELOG-DEV.md`,
+  `docs/ROADMAP.md` — header di stato + punti risolti da spuntare) sia quelli condivisi con
+  l'utente (`CHANGELOG.md`, `README.md`, `kReleaseNotes`/`kUpcomingHighlights`). Non fidarsi
+  dello stato "da fare" già scritto in `docs/ROADMAP.md`: incrociarlo con `CHANGELOG.md`
+  prima di lasciarlo com'è, perché un punto può essere stato risolto senza che la roadmap
+  fosse aggiornata di conseguenza. Checklist passo-passo:
+  **[`docs/release-checklist.md`](docs/release-checklist.md)**.
 
 ---
 
@@ -335,6 +343,9 @@ aggiornato, non duplicarlo qui — è mantenuto in tre punti, ciascuno con uno s
 - **`CHANGELOG.md`** (radice del repo) — novità per versione in linguaggio semplice, la stessa
   lista mostrata in-app (Impostazioni → Informazioni → Sentèi, insieme a un'anteprima sintetica
   delle prossime priorità).
+
+Questi tre file (più `README.md`) vanno tenuti allineati ad ogni rilascio — checklist in
+**`docs/release-checklist.md`**, richiamata anche in §9.
 
 Architettura e stack restano quelli descritti in questo documento (§2-§6); quando cambiano in
 modo duraturo, questo file va aggiornato — lo stato di avanzamento **contingente**, invece, no.
