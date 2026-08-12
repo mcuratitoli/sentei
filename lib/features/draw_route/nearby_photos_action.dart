@@ -7,6 +7,7 @@ import 'package:photo_manager/photo_manager.dart' show PhotoManager;
 import '../../data/photos/nearby_photos_finder.dart';
 import '../../data/photos/photo_library_service.dart';
 import '../../data/photos/photo_manager_library_service.dart';
+import '../../data/photos/photo_preview_cache.dart';
 import '../../domain/models/track_photo.dart';
 import '../../ui/app_bottom_sheet.dart';
 import '../../ui/app_buttons.dart';
@@ -25,6 +26,12 @@ final photoLibraryServiceProvider =
 /// `docs/eval-photo-sync.md`).
 final nearbyPhotosFinderProvider = Provider<NearbyPhotosFinder>(
     (ref) => NearbyPhotosFinder(ref.watch(photoLibraryServiceProvider)));
+
+/// Cache delle anteprime a schermo intero, condivisa dalle pagine del
+/// carosello foto (una per foto non basterebbe: il precarico delle adiacenti
+/// deve sopravvivere allo swipe).
+final photoPreviewCacheProvider = Provider<PhotoPreviewCache>(
+    (ref) => PhotoPreviewCache(ref.watch(photoLibraryServiceProvider)));
 
 /// Azione "Trova foto" della card traccia: richiede il permesso alla libreria
 /// foto, cerca le candidate vicine al percorso e — se ce ne sono — apre una

@@ -11,6 +11,64 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 12 agosto 2026 — Foto: anteprime alla dimensione dello schermo, precarico, miniature più leggere
+
+**Causa-radice della lentezza** (P1.1 della roadmap): il visualizzatore a schermo intero
+caricava l'**originale a piena risoluzione**. `_FullPhotoPage` faceva
+`AssetEntity.fromId(...).file` e lo passava a `Image.file` **senza `cacheWidth`**: per gli
+scatti di prova (4288×2848, 12,2 MP) sono ~48 MB di bitmap decodificata per riempire un
+riquadro che, sullo schermo del simulatore, ne usa ~3,9 MB (1206×801) — **12×** di lavoro
+in più a ogni foto, ogni volta che una pagina del `PageView` entrava nell'albero.
+
+Cosa è cambiato:
+
+- **`PhotoLibraryService.preview(id, maxWidth, maxHeight)`** — è la libreria di sistema a
+  ridimensionare, non noi dopo aver decodificato tutto. Su iOS serve
+  `thumbnailDataWithOption(ThumbnailOption.ios(...))` e **non** `thumbnailDataWithSize`:
+  quest'ultima forza `ResizeContentMode.fill`, che **ritaglia** la foto per riempire il
+  riquadro (va bene per una miniatura quadrata con `BoxFit.cover`, non per la foto intera).
+  `DeliveryMode.highQualityFormat` invece dell'`opportunistic` di default: quello
+  consegnerebbe prima una versione degradata, un lampo sfocato a ogni swipe. Su Android
+  Glide (`submit(w, h)`, nessuna trasformazione) rimpicciolisce già senza ritagliare.
+- **`PhotoLibraryService.originalFile(id)`** — l'originale resta disponibile ma si carica
+  **solo sopra 1,6× di zoom** (`TransformationController` + soglia), dove i pixel in più si
+  vedono davvero.
+- **`PhotoPreviewCache`** (`lib/data/photos/photo_preview_cache.dart`) — LRU di 5 voci con
+  deduplica delle richieste in volo e **precarico delle pagine ±1**; si svuota all'uscita
+  dal visualizzatore (un'anteprima a piena pagina sono megabyte, non serve a nessun'altra
+  schermata). Coperta da test (`test/data/photo_preview_cache_test.dart`): sfratto LRU,
+  richieste condivise, errori che non sporcano la cache.
+- **`cacheWidth` sulle miniature salvate** (riquadri da 44/52/64 pt): senza, ogni miniatura
+  200×200 restava in memoria a piena bitmap anche in un riquadro da 44 pt.
+- **Qualità JPEG della miniatura salvata a 80** (il default di `photo_manager` è 100).
+  Misurato sul simulatore, 8 foto collegate alla stessa traccia:
+
+  | | miniatura JPEG | JSON traccia (base64) |
+  |---|---|---|
+  | q100 (prima) | 79,0 KB | 105,5 KB/foto — 843,6 KB in tutto |
+  | q80 (ora) | 23,8 KB | 31,9 KB/foto — 255,0 KB in tutto |
+
+  Sono **3,3× di byte in meno** su ogni sincronizzazione iCloud/Drive, invisibili a 200 px.
+
+**Smentito un sospetto della roadmap:** la copertina della sessione foto *non* è sgranata —
+i riquadri più grandi in cui la miniatura viene mostrata sono 44/52/64 pt (192 px a 3×),
+sotto i 200 px salvati. Nessun secondo taglio di miniatura da introdurre.
+
+**Fix di contorno:** la doppia **sottolineatura gialla** di debug su data e "Altitudine" nel
+visualizzatore — la rotta è un `PageRouteBuilder` senza `Scaffold`, quindi i testi senza
+stile esplicito ereditavano `DefaultTextStyle.fallback`. Risolto con un `Material`
+trasparente attorno al corpo della vista.
+
+⚠️ **Nota di metodo (verifica sul simulatore):** i click sintetici (`osascript`) **non**
+arrivano né alla vista Mapbox né ai picker di sistema (`UIDocumentPicker`), quindi né
+disegnare una traccia né importare un GPX è automatizzabile. Per provare il flusso foto la
+traccia è stata scritta **direttamente nel DB** (`track_rows`, con `metrics` non nullo:
+senza, "Trova foto vicine" resta disabilitato) e le foto generate con GPS EXIF lungo il
+percorso e aggiunte con `xcrun simctl addmedia`. Da lì in poi tutto è UI Flutter, che ai
+click risponde.
+
+---
+
 ## 29 luglio 2026 — Focus mappa dopo l'import, nome dal file, card Novità
 
 **Il focus sulla traccia importata non è mai partito** (1.0.0+8). Due bug sovrapposti,

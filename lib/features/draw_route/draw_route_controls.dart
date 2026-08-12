@@ -1,4 +1,5 @@
 import 'dart:io' show File;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/cupertino.dart'
     show
@@ -10,7 +11,6 @@ import 'package:flutter/cupertino.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:photo_manager/photo_manager.dart' show AssetEntity;
 
 import '../../core/util/format.dart';
 import '../../domain/models/photo_session.dart';
@@ -66,9 +66,8 @@ class DrawRouteControls extends ConsumerWidget {
       // (tolta dall'header), solo però quando la card *mostra* una traccia —
       // durante il disegno chiudere per sbaglio con uno scorrimento farebbe
       // perdere il lavoro, lì si esce dal pulsante "Annulla" con conferma.
-      onDismiss: drawing
-          ? null
-          : () => ref.read(tracksProvider.notifier).deselect(),
+      onDismiss:
+          drawing ? null : () => ref.read(tracksProvider.notifier).deselect(),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -662,7 +661,9 @@ class _PhotoSessionRow extends StatelessWidget {
                 width: 44,
                 height: 44,
                 child: cover != null
-                    ? Image.memory(cover, fit: BoxFit.cover)
+                    ? Image.memory(cover,
+                        fit: BoxFit.cover,
+                        cacheWidth: _decodeWidth(context, 44))
                     : ColoredBox(
                         color: palette.hairline.withValues(alpha: 0.08),
                         child: Icon(CupertinoIcons.photo,
@@ -906,7 +907,8 @@ class _NameFieldState extends ConsumerState<_NameField> {
       placeholder: 'Nome percorso',
       prefix: Padding(
         padding: const EdgeInsets.only(left: 10),
-        child: Icon(CupertinoIcons.pencil, size: 18, color: palette.iconGreyLight),
+        child:
+            Icon(CupertinoIcons.pencil, size: 18, color: palette.iconGreyLight),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
       // Stesso riempimento del campo titolo foto (`_promptEditPhotoTitle`):
@@ -1063,7 +1065,8 @@ class PhotoDetailCard extends ConsumerWidget {
                           height: 64,
                           child: current.thumbnail != null
                               ? Image.memory(current.thumbnail!,
-                                  fit: BoxFit.cover)
+                                  fit: BoxFit.cover,
+                                  cacheWidth: _decodeWidth(context, 64))
                               : ColoredBox(
                                   color:
                                       palette.hairline.withValues(alpha: 0.08),
@@ -1311,7 +1314,28 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
   @override
   void dispose() {
     _pageController.dispose();
+    // Le anteprime a piena pagina non servono a nessun'altra schermata e
+    // pesano parecchi MB l'una: uscendo, la cache si svuota.
+    ref.read(photoPreviewCacheProvider).clear();
     super.dispose();
+  }
+
+  /// Scalda le pagine **vicine** a [index]: lo swipe le trova già pronte
+  /// invece di aspettare la libreria a ogni cambio pagina. Una per lato basta
+  /// — con più margine si tengono in memoria bitmap che l'utente potrebbe non
+  /// guardare mai.
+  void _prefetchNeighbours(List<TrackPhoto> photos, int index, Size size) {
+    if (size.isEmpty) return;
+    final ids = [
+      for (final i in [index - 1, index + 1])
+        if (i >= 0 && i < photos.length) photos[i].id,
+    ];
+    if (ids.isEmpty) return;
+    ref.read(photoPreviewCacheProvider).prefetch(
+          ids,
+          width: size.width.round(),
+          height: size.height.round(),
+        );
   }
 
   @override
@@ -1337,77 +1361,92 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
     final index = _page.clamp(0, photos.length - 1);
     final current = photos[index];
 
+    // Dimensione dello schermo come tetto per il precarico: la pagina vera è
+    // un po' più bassa (barra e filmstrip), quindi l'anteprima precaricata è
+    // semmai *più* grande del necessario, mai più piccola. Le richieste già
+    // fatte vengono ignorate, quindi ripeterlo ad ogni build non costa nulla.
+    _prefetchNeighbours(photos, index,
+        MediaQuery.sizeOf(context) * MediaQuery.devicePixelRatioOf(context));
+
     final dragProgress = (_dragDy.abs() / 400).clamp(0.0, 1.0);
     final backdropAlpha = 1 - dragProgress * 0.7;
 
-    return GestureDetector(
-      onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
-      onVerticalDragEnd: (d) {
-        final fling = (d.primaryVelocity ?? 0).abs() > _dismissVelocity;
-        if (_dragDy.abs() > _dismissDistance || fling) {
-          Navigator.of(context).maybePop();
-        } else {
-          setState(() => _dragDy = 0);
-        }
-      },
-      child: ColoredBox(
-        color: const Color(0xFF000000).withValues(alpha: backdropAlpha),
-        child: Transform.translate(
-          offset: Offset(0, _dragDy),
-          child: SafeArea(
-            child: Column(
-              children: [
-                _FullPhotoTopBar(
-                  photo: current,
-                  onClose: () => Navigator.of(context).maybePop(),
-                  // Chiude il visualizzatore, riduce la card traccia (più
-                  // mappa visibile) e centra la mappa sul punto di scatto:
-                  // `selectedPhotoProvider` resta impostato (non lo tocca
-                  // nessuno qui), quindi `PhotoDetailCard` con la thumbnail
-                  // riappare già sopra la card ridotta — nessun'altra azione
-                  // da coordinare.
-                  onShowOnMap: () {
-                    ref
-                        .read(mapFlyToPointProvider.notifier)
-                        .flyTo(current.position);
-                    ref.read(trackCardExpandedProvider.notifier).collapse();
-                    Navigator.of(context).maybePop();
-                  },
-                  onEdit: widget.trackId == null
-                      ? null
-                      : () => _promptEditPhotoTitle(
-                          context, ref, widget.trackId!, current),
-                  onDelete: widget.trackId == null
-                      ? null
-                      : () => _confirmRemovePhoto(
-                          context, ref, widget.trackId!, current.id),
-                ),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: photos.length,
-                    onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (_, i) => _FullPhotoPage(photo: photos[i]),
+    // `Material` trasparente: la rotta è costruita con `PageRouteBuilder`
+    // senza `Scaffold`, quindi i testi senza stile esplicito ereditavano il
+    // `DefaultTextStyle.fallback` di Flutter — quello con la **doppia
+    // sottolineatura gialla** di debug (si vedeva sulla data in alto e su
+    // "Altitudine"). Lo sfondo resta dei `ColoredBox` qui sotto.
+    return Material(
+      type: MaterialType.transparency,
+      child: GestureDetector(
+        onVerticalDragUpdate: (d) => setState(() => _dragDy += d.delta.dy),
+        onVerticalDragEnd: (d) {
+          final fling = (d.primaryVelocity ?? 0).abs() > _dismissVelocity;
+          if (_dragDy.abs() > _dismissDistance || fling) {
+            Navigator.of(context).maybePop();
+          } else {
+            setState(() => _dragDy = 0);
+          }
+        },
+        child: ColoredBox(
+          color: const Color(0xFF000000).withValues(alpha: backdropAlpha),
+          child: Transform.translate(
+            offset: Offset(0, _dragDy),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _FullPhotoTopBar(
+                    photo: current,
+                    onClose: () => Navigator.of(context).maybePop(),
+                    // Chiude il visualizzatore, riduce la card traccia (più
+                    // mappa visibile) e centra la mappa sul punto di scatto:
+                    // `selectedPhotoProvider` resta impostato (non lo tocca
+                    // nessuno qui), quindi `PhotoDetailCard` con la thumbnail
+                    // riappare già sopra la card ridotta — nessun'altra azione
+                    // da coordinare.
+                    onShowOnMap: () {
+                      ref
+                          .read(mapFlyToPointProvider.notifier)
+                          .flyTo(current.position);
+                      ref.read(trackCardExpandedProvider.notifier).collapse();
+                      Navigator.of(context).maybePop();
+                    },
+                    onEdit: widget.trackId == null
+                        ? null
+                        : () => _promptEditPhotoTitle(
+                            context, ref, widget.trackId!, current),
+                    onDelete: widget.trackId == null
+                        ? null
+                        : () => _confirmRemovePhoto(
+                            context, ref, widget.trackId!, current.id),
                   ),
-                ),
-                if (photos.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: _PhotoFilmstrip(
-                      photos: photos,
-                      selectedIndex: index,
-                      onSelect: (i) => _pageController.animateToPage(
-                        i,
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOut,
-                      ),
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: photos.length,
+                      onPageChanged: (i) => setState(() => _page = i),
+                      itemBuilder: (_, i) => _FullPhotoPage(photo: photos[i]),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  child: PhotoLocationPanel(photo: current),
-                ),
-              ],
+                  if (photos.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: _PhotoFilmstrip(
+                        photos: photos,
+                        selectedIndex: index,
+                        onSelect: (i) => _pageController.animateToPage(
+                          i,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOut,
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: PhotoLocationPanel(photo: current),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1484,72 +1523,124 @@ class _FullPhotoIconButton extends StatelessWidget {
       onPressed: onPressed,
       child: Icon(
         icon,
-        color:
-            onPressed == null ? const Color(0x66FFFFFF) : const Color(0xFFFFFFFF),
+        color: onPressed == null
+            ? const Color(0x66FFFFFF)
+            : const Color(0xFFFFFFFF),
         size: 22,
       ),
     );
   }
 }
 
-/// Una pagina del carosello: risolve l'asset **a schermo intero** dalla
-/// libreria del dispositivo in modo indipendente (non tutte insieme, solo
-/// quando la pagina entra nell'albero) mostrando la thumbnail già disponibile
-/// nel frattempo o come fallback onesto se l'originale non risolve più.
-class _FullPhotoPage extends StatefulWidget {
+/// Una pagina del carosello.
+///
+/// Mostra un'**anteprima ridimensionata dalla libreria** allo spazio
+/// disponibile, non il file originale: uno scatto da 12 MP decodificato a
+/// piena risoluzione sono ~48 MB di bitmap per riempire uno schermo che ne
+/// userebbe ~3, ed era la causa dell'attesa all'apertura e degli scatti
+/// durante lo swipe. L'originale si carica **solo se l'utente zooma**, dove i
+/// pixel in più si vedono davvero.
+///
+/// Ordine di ripiego: anteprima → miniatura salvata nei metadati (asset non
+/// più su questo device, es. traccia sincronizzata da un altro telefono) →
+/// icona.
+class _FullPhotoPage extends ConsumerStatefulWidget {
   const _FullPhotoPage({required this.photo});
 
   final TrackPhoto photo;
 
   @override
-  State<_FullPhotoPage> createState() => _FullPhotoPageState();
+  ConsumerState<_FullPhotoPage> createState() => _FullPhotoPageState();
 }
 
-class _FullPhotoPageState extends State<_FullPhotoPage> {
-  late Future<File?> _fileFuture = _load(widget.photo.id);
+class _FullPhotoPageState extends ConsumerState<_FullPhotoPage> {
+  /// Ingrandimento oltre il quale l'anteprima a dimensione schermo comincia a
+  /// perdere dettaglio: da lì si passa all'originale.
+  static const double _originalScaleThreshold = 1.6;
 
-  Future<File?> _load(String photoId) async {
-    try {
-      final asset = await AssetEntity.fromId(photoId);
-      return await asset?.file;
-    } catch (_) {
-      return null;
-    }
+  final TransformationController _zoom = TransformationController();
+
+  Uint8List? _preview;
+  File? _original;
+  bool _loadingOriginal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoom.addListener(_onZoom);
   }
 
   @override
-  void didUpdateWidget(covariant _FullPhotoPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.photo.id != widget.photo.id) {
-      _fileFuture = _load(widget.photo.id);
+  void dispose() {
+    _zoom.removeListener(_onZoom);
+    _zoom.dispose();
+    super.dispose();
+  }
+
+  void _onZoom() {
+    if (_original != null || _loadingOriginal) return;
+    if (_zoom.value.getMaxScaleOnAxis() < _originalScaleThreshold) return;
+    _loadingOriginal = true;
+    ref
+        .read(photoLibraryServiceProvider)
+        .originalFile(widget.photo.id)
+        .then((file) {
+      if (mounted && file != null) setState(() => _original = file);
+    }).catchError((_) => null);
+  }
+
+  /// Assicura l'anteprima per uno spazio di [size] **pixel fisici**. Quando la
+  /// pagina è stata precaricata come vicina di quella aperta, la cache
+  /// risponde subito e la foto è già lì al primo frame.
+  void _ensurePreview(Size size) {
+    if (_preview != null) return;
+    final cache = ref.read(photoPreviewCacheProvider);
+    final ready = cache.cached(widget.photo.id);
+    if (ready != null) {
+      // Siamo dentro il build di un `LayoutBuilder`: lo stato si aggiorna al
+      // frame dopo, non durante.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _preview = ready);
+      });
+      return;
     }
+    cache
+        .preview(widget.photo.id,
+            width: size.width.round(), height: size.height.round())
+        .then((bytes) {
+      if (mounted && bytes != null) setState(() => _preview = bytes);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<File?>(
-      future: _fileFuture,
-      builder: (_, snapshot) {
-        final file = snapshot.data;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _ensurePreview(constraints.biggest * dpr);
         // `SizedBox.expand` + `BoxFit.contain`: la foto riempie tutto lo
         // spazio del carosello mantenendo le proporzioni. Prima era `Center`
         // sull'immagine alla sua dimensione naturale, che su scatti piccoli
         // (o sulla thumbnail di ripiego) la lasciava minuscola in mezzo al
         // nero — è il soggetto della schermata, deve dominarla.
-        if (file != null) {
+        final image = _original != null
+            ? Image.file(_original!, fit: BoxFit.contain)
+            : _preview != null
+                ? Image.memory(_preview!, fit: BoxFit.contain)
+                : null;
+        if (image != null) {
           return InteractiveViewer(
+            transformationController: _zoom,
             minScale: 1,
             maxScale: 5,
-            child: SizedBox.expand(
-              child: Image.file(file, fit: BoxFit.contain),
-            ),
+            child: SizedBox.expand(child: image),
           );
         }
+        // In attesa dell'anteprima, o asset non risolvibile su questo device:
+        // la miniatura salvata nei metadati, a piena grandezza e **non**
+        // velata — l'opacità la faceva sembrare un errore di caricamento
+        // invece di una versione a bassa risoluzione.
         final thumb = widget.photo.thumbnail;
-        // Ripiego (asset non risolvibile su questo device, es. traccia
-        // sincronizzata da un altro): la thumbnail dei metadati, a piena
-        // grandezza e **non** più velata — l'opacità la faceva sembrare un
-        // errore di caricamento invece di una versione a bassa risoluzione.
         return SizedBox.expand(
           child: thumb != null
               ? Image.memory(thumb, fit: BoxFit.contain)
@@ -1562,6 +1653,16 @@ class _FullPhotoPageState extends State<_FullPhotoPage> {
     );
   }
 }
+
+/// Larghezza in **pixel fisici** a cui decodificare una miniatura mostrata in
+/// un riquadro di [side] pt.
+///
+/// La miniatura salvata nei metadati è 200×200: senza questo, Flutter tiene in
+/// memoria la bitmap piena (160 KB) per ogni foto anche dentro un riquadro da
+/// 44 pt — con una traccia da decine di scatti sono megabyte di differenza
+/// nella striscia di anteprime.
+int _decodeWidth(BuildContext context, double side) =>
+    (side * MediaQuery.devicePixelRatioOf(context)).round();
 
 /// Filmstrip orizzontale (come la galleria Foto di Apple): tocca una
 /// miniatura per saltare a quella foto; la miniatura selezionata scorre in
@@ -1641,15 +1742,16 @@ class _PhotoFilmstripState extends State<_PhotoFilmstrip> {
               decoration: BoxDecoration(
                 borderRadius: AppRadii.rMd,
                 border: Border.all(
-                  color:
-                      selected ? widget.selectedColor : Colors.transparent,
+                  color: selected ? widget.selectedColor : Colors.transparent,
                   width: 2,
                 ),
               ),
               child: ClipRRect(
                 borderRadius: AppRadii.rMd,
                 child: photo.thumbnail != null
-                    ? Image.memory(photo.thumbnail!, fit: BoxFit.cover)
+                    ? Image.memory(photo.thumbnail!,
+                        fit: BoxFit.cover,
+                        cacheWidth: _decodeWidth(context, 52))
                     : ColoredBox(
                         color: widget.placeholderColor,
                         child: Icon(CupertinoIcons.photo,

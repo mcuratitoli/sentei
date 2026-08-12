@@ -1,3 +1,4 @@
+import 'dart:io' show File;
 import 'dart:typed_data' show Uint8List;
 
 import '../../domain/models/photo_candidate.dart';
@@ -37,5 +38,27 @@ abstract class PhotoLibraryService {
 
   /// Anteprima JPEG di [assetId] già ridimensionata a [size]×[size] px, o
   /// `null` se l'asset non è più raggiungibile (rimosso dalla libreria).
+  ///
+  /// È la miniatura **salvata nei metadati della traccia** (base64 nel JSON
+  /// sincronizzato sul cloud): tenerla piccola: 200 px coprono con margine il
+  /// riquadro più grande in cui viene mostrata (64 pt = 192 px a 3×).
   Future<Uint8List?> thumbnail(String assetId, {int size = 200});
+
+  /// Anteprima JPEG di [assetId] rimpicciolita per stare in
+  /// [maxWidth]×[maxHeight] **pixel**, proporzioni invariate.
+  ///
+  /// Per mostrare una foto a schermo intero: chiedere alla libreria di
+  /// ridimensionare costa una frazione del caricare l'originale (12 MP →
+  /// ~48 MB di bitmap decodificata) per poi rimpicciolirlo a schermo. Non
+  /// sostituisce [originalFile], che serve solo quando l'utente zooma.
+  Future<Uint8List?> preview(
+    String assetId, {
+    required int maxWidth,
+    required int maxHeight,
+  });
+
+  /// Il file della foto originale, a piena risoluzione, o `null` se l'asset
+  /// non è più sul dispositivo. **Caro**: usarlo solo su richiesta esplicita
+  /// dell'utente (zoom), mai per il primo disegno di una schermata.
+  Future<File?> originalFile(String assetId);
 }

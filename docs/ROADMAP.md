@@ -24,36 +24,26 @@
 > la fluidità delle foto, la stima del tempo di percorrenza e la comprensione dei segnavia
 > sulla mappa. I primi due sono lavori chiusi e stimabili, il terzo è un'epica da spezzare.
 
-### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — *SP 5*
+### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — ✅ fatto (12 ago 2026)
 
-Oggi il visualizzatore a schermo intero carica **l'originale a piena risoluzione**:
-`_FullPhotoPage._load()` (`lib/features/draw_route/draw_route_controls.dart:1509`) fa
-`AssetEntity.fromId(...).file` e lo mostra con `Image.file(file, fit: BoxFit.contain)`
-senza `cacheWidth`/`cacheHeight`. Uno scatto da 12 MP viene quindi letto da disco *e*
-decodificato in una bitmap da ~48 MB per riempire uno schermo che ne userebbe ~3 — è la
-causa più probabile sia dell'attesa all'apertura sia degli scatti durante lo swipe nel
-`PageView` (ogni pagina rifà tutto da zero, senza prefetch delle adiacenti).
+Causa-radice confermata: il visualizzatore caricava **l'originale a piena risoluzione**
+(~48 MB di bitmap per uno scatto da 12 MP) per riempire un riquadro che ne usa ~4 MB.
+Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
 
-- [ ] **Decodifica alla dimensione dello schermo** — passare `cacheWidth`/`cacheHeight`
-  (larghezza logica × `devicePixelRatio`) a `Image.file`, oppure chiedere direttamente a
-  `photo_manager` un `thumbnailDataWithSize` di quelle dimensioni invece del file
-  originale. L'`InteractiveViewer` arriva a 5×: prevedere un secondo caricamento a
-  risoluzione piena **solo** quando l'utente zooma davvero.
-- [ ] **Prefetch delle pagine adiacenti** — `precacheImage` su pagina ±1 al cambio di
-  indice del carosello, così lo swipe trova l'immagine già decodificata.
-- [ ] **Thumbnail: qualità e dimensione giuste per l'uso** — oggi tutto passa da
-  `ThumbnailSize.square(200)` (`photo_manager_library_service.dart:93`) con la qualità di
-  default; la stessa miniatura serve la filmstrip (piccola) e la **cover della card
-  sessione** (`draw_route_controls.dart:645`), dove 200 px si vedono sgranati. Valutare due
-  tagli (filmstrip / cover) e una qualità JPEG esplicita.
-- [ ] **Peso dei metadati sincronizzati** — la thumbnail viaggia in **base64 dentro il JSON
-  della traccia** (`track_codec.dart:102`, colonna `photos` in `app_database.dart:23`), che
-  è anche il file caricato su iCloud/Drive: +33% di overhead base64 per foto. Misurare il
-  peso reale di una traccia con ~50 foto e fissare un tetto (dimensione/qualità della
-  thumbnail salvata) prima che diventi un problema di sync.
-- [ ] Misurare **prima e dopo** con una traccia reale a molte foto (tempo di apertura del
-  visualizzatore, frame durante lo swipe, byte del JSON) — senza numeri non si sa se è
-  risolto.
+- [x] **Decodifica alla dimensione dello schermo** — `PhotoLibraryService.preview()`: è la
+  libreria di sistema a ridimensionare. L'originale si carica solo **oltre 1,6× di zoom**.
+- [x] **Precarico delle pagine adiacenti** — `PhotoPreviewCache` (LRU 5 voci, richieste in
+  volo deduplicate, precarico ±1), svuotata all'uscita dal visualizzatore.
+- [x] **Miniature: qualità giusta per l'uso** — JPEG q80 invece del default q100, e
+  `cacheWidth` sui riquadri piccoli. *Il sospetto della "cover sgranata" era infondato: i
+  riquadri più grandi sono 64 pt = 192 px a 3×, sotto i 200 px salvati — un secondo taglio
+  di miniatura non serve.*
+- [x] **Peso dei metadati sincronizzati** — misurato su 8 foto collegate: JSON della traccia
+  da **843,6 KB a 255,0 KB** (105,5 → 31,9 KB per foto), 3,3× in meno su ogni sync.
+- [ ] **Da validare su device** (vedi P4): la resa su una **libreria reale** con scatti
+  HEIC da 48 MP e una traccia con decine di foto — il simulatore non dice nulla su tempi
+  reali e memoria, e lo **zoom oltre 1,6×** (caricamento dell'originale) non è verificabile
+  senza pinch.
 
 ### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — *SP 5*
 
@@ -114,7 +104,8 @@ geometria finisce dove finisce lo schermo. Va spezzata così:
 - [ ] **Da tenere separato** (non in questa epica, ma è l'estensione naturale): "usa questo
   segnavia come traccia" — import diretto del GPX della relazione nell'editor.
 
-*Totale indicativo: ~23 story point (il punto 3 va rivisto una volta spezzato).*
+*Totale indicativo: ~23 story point, di cui 5 già fatti (punto 1) — il punto 3 va rivisto
+una volta spezzato.*
 
 ---
 
@@ -190,6 +181,13 @@ geometria finisce dove finisce lo schermo. Va spezzata così:
 
 Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
 su un telefono fisico:
+
+- [ ] **Foto più veloci ad aprirsi e scorrere** (P1.1, 12 ago 2026) — provato sul
+  simulatore con 8 foto da 12 MP generate ad hoc: la foto è a schermo entro mezzo secondo e
+  lo swipe alla successiva la trova già pronta. Restano da vedere su un telefono vero: una
+  libreria con **HEIC da 48 MP**, una traccia con decine di foto (memoria durante lo
+  scorrimento veloce della striscia) e lo **zoom oltre 1,6×**, che passa all'originale e
+  sul simulatore non è provabile (niente pinch).
 
 - [ ] **"Trova foto vicine" su una libreria reale e grande** — è il bug che ha originato
   tutto il lavoro sulle foto (1.0.0+7): `photoLocations()` scandiva solo le 3000 foto più

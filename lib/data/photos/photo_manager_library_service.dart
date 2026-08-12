@@ -1,3 +1,4 @@
+import 'dart:io' show File, Platform;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:latlong2/latlong.dart' as ll;
@@ -19,6 +20,16 @@ class PhotoManagerLibraryService extends PhotoLibraryService {
   const PhotoManagerLibraryService();
 
   static const int _batchSize = 500;
+
+  /// Qualità JPEG della miniatura **salvata** nei metadati della traccia. Il
+  /// default di `photo_manager` è 100, che su un 200×200 costa il doppio dei
+  /// byte senza differenze visibili a quella dimensione — e quei byte, in
+  /// base64 dentro il JSON, finiscono su iCloud/Drive ad ogni sync.
+  static const int _thumbnailQuality = 80;
+
+  /// Qualità JPEG dell'anteprima a schermo intero: alta, ma non 100 (gli
+  /// ultimi punti di qualità sono quasi tutti byte in più).
+  static const int _previewQuality = 90;
 
   @override
   Future<PhotoLibraryPermission> requestPermission() async {
@@ -92,6 +103,45 @@ class PhotoManagerLibraryService extends PhotoLibraryService {
   @override
   Future<Uint8List?> thumbnail(String assetId, {int size = 200}) async {
     final asset = await AssetEntity.fromId(assetId);
-    return asset?.thumbnailDataWithSize(ThumbnailSize.square(size));
+    return asset?.thumbnailDataWithSize(
+      ThumbnailSize.square(size),
+      quality: _thumbnailQuality,
+    );
+  }
+
+  @override
+  Future<Uint8List?> preview(
+    String assetId, {
+    required int maxWidth,
+    required int maxHeight,
+  }) async {
+    final asset = await AssetEntity.fromId(assetId);
+    if (asset == null) return null;
+    // `thumbnailDataWithOption` e non `thumbnailDataWithSize`: quest'ultima su
+    // iOS forza `ResizeContentMode.fill`, che **ritaglia** la foto per
+    // riempire il riquadro richiesto — accettabile per una miniatura quadrata
+    // mostrata con `BoxFit.cover`, sbagliato per la foto a schermo intero.
+    // Con `fit` la libreria rimpicciolisce mantenendo le proporzioni. Su
+    // Android non serve l'equivalente: Glide (`submit(w, h)`, nessuna
+    // trasformazione) rimpicciolisce già senza ritagliare.
+    final size = ThumbnailSize(maxWidth, maxHeight);
+    final option = Platform.isIOS || Platform.isMacOS
+        ? ThumbnailOption.ios(
+            size: size,
+            quality: _previewQuality,
+            // L'anteprima resta sullo schermo finché l'utente non cambia
+            // foto: `opportunistic` (default) consegnerebbe prima una
+            // versione degradata, che si vedrebbe come un lampo sfocato a
+            // ogni swipe.
+            deliveryMode: DeliveryMode.highQualityFormat,
+          )
+        : ThumbnailOption(size: size, quality: _previewQuality);
+    return asset.thumbnailDataWithOption(option);
+  }
+
+  @override
+  Future<File?> originalFile(String assetId) async {
+    final asset = await AssetEntity.fromId(assetId);
+    return asset?.file;
   }
 }
