@@ -120,7 +120,8 @@ lib/
     gpx/                 # import/export GPX
     search/              # geocoding (Mapbox + Nominatim)
     location/            # posizione GPS
-    photos/              # libreria foto + matching spaziale con la traccia (in corso)
+    photos/              # libreria foto (matching spaziale con la traccia) + cache
+                         # delle anteprime a schermo intero, con precarico
     map_sources/         # costanti residue (template Terrarium)
   domain/
     models/              # Track, ElevationProfile, TrackPhoto, ...
@@ -195,6 +196,12 @@ test/
 - Nessun upload dell'originale: solo metadati (GPS + timestamp + distanza-lungo-percorso +
   thumbnail) viaggiano nel JSON della traccia già sincronizzato; ogni device rifà un
   re-match locale nella propria libreria foto. Analisi completa: `docs/eval-photo-sync.md`.
+- **Visualizzazione:** mai l'originale a piena risoluzione per riempire lo schermo (48 MP =
+  ~195 MB di bitmap). Si chiede alla libreria di sistema un'anteprima già della misura
+  giusta (`PhotoLibraryService.preview`), si tiene in una cache LRU con precarico e
+  **decodifica anticipata** delle foto adiacenti (`PhotoPreviewCache`), e si passa
+  all'originale — con decodifica limitata — solo sopra 1,6× di zoom. Le miniature salvate
+  nei metadati restano 200 px/q80: sono anche byte che viaggiano sul cloud ad ogni sync.
 
 ---
 
@@ -292,6 +299,11 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   (icona lineare + titolo breve + una riga di spiegazione opzionale) e rese dallo stesso
   widget `NoteRow`, condiviso con la card di primo avvio (`whats_new.dart`): le emoji
   restano al testo di `CHANGELOG.md`, in-app la categoria la dice l'icona.
+- **Modifiche non ancora distribuite:** finché non si rilascia, le voci utente vanno in una
+  sezione **`## Non ancora rilasciato`** in cima a `CHANGELOG.md` — non in `kReleaseNotes`,
+  che elenca solo versioni realmente uscite (ci pesca anche la card "Novità" al primo
+  avvio). Al rilascio quella sezione prende il numero di build e si riporta in
+  `kReleaseNotes` nella stessa sessione.
 
 ---
 

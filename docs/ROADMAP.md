@@ -3,7 +3,9 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 12 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester.
+**Aggiornato:** 12 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
+modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
+rilasciato").
 
 ## Come leggere questo documento
 

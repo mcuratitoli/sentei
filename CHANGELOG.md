@@ -13,6 +13,32 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
+## Non ancora rilasciato
+
+Modifiche già su `main` ma non ancora distribuite: alla prossima release questa
+sezione prende il numero di build (`1.0.0 (9)`) e le sue voci vanno riportate in
+`kReleaseNotes` (`lib/ui/release_notes.dart`) — vedi `CLAUDE.md` §9. Nella stessa
+occasione va tolta da `kRoadmapGroups` la voce "Foto più leggere" (ora in "In
+lavorazione"): a quel punto è una novità consegnata, non una cosa da fare.
+
+- 📸 **Le foto si aprono e si scorrono molto più in fretta.** Prima l'app
+  caricava ogni scatto alla sua risoluzione piena — su una foto da 48 megapixel
+  è come srotolare un poster per guardarlo in cartolina — e lo rifaceva da capo
+  ad ogni scorrimento. Ora chiede al telefono l'immagine già della misura dello
+  schermo e prepara in anticipo la foto precedente e la successiva.
+- 📸 **Indicatore di caricamento** al centro mentre la foto arriva, al posto
+  della miniatura ingrandita che sembrava una foto sgranata. Si vede soprattutto
+  con le foto che stanno solo in iCloud e vanno scaricate.
+- ☁️ **Sincronizzazione più leggera:** i dati di una traccia con foto pesano
+  circa **un terzo** di prima (su 8 foto: da 844 a 255 KB), quindi meno traffico
+  e meno spazio su iCloud/Google Drive.
+- 🔍 Ingrandendo una foto non c'è più il blocco di qualche istante.
+- 🎨 **Novità e Roadmap ridisegnate** (Impostazioni → Informazioni → Sentèi):
+  ogni voce ha un'icona, un titolo e una riga che spiega cosa cambia; la Roadmap
+  è divisa in "In lavorazione", "Prossime" e "Più avanti".
+- 🐛 Tolte le righe gialle sotto la data e "Altitudine" nella foto a schermo
+  intero (un residuo di debug).
+
 ## 1.0.0 (8) — 29 luglio 2026
 
 - ✨ **Al primo avvio dopo un aggiornamento compare una card con le novità**
