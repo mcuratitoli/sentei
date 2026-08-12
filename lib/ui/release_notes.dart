@@ -172,8 +172,10 @@ const List<ReleaseNote> kReleaseNotes = [
 /// stessa sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa
 /// convenzione di [kReleaseNotes], vedi anche `CLAUDE.md` §9).
 const List<String> kUpcomingHighlights = [
+  'Foto più leggere: si aprono subito e si scorrono senza scatti',
+  'Tempo di percorrenza stimato, calcolato con il metodo del CAI',
+  'Tocca un segnavia per vederlo intero: da dove parte, dove arriva, la scheda ufficiale',
   'Tasto per eliminare una traccia direttamente dalla sua scheda',
-  'Traccia selezionata più in evidenza, le altre più trasparenti',
   'Foto lungo il percorso: vista a griglia, importazione dalla card, zoom sul punto di scatto',
 ];
 

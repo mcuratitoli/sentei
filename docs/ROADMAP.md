@@ -3,11 +3,11 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 28 luglio 2026 · **Stato:** beta `1.0.0+6` in rilascio ai tester.
+**Aggiornato:** 12 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester.
 
 ## Come leggere questo documento
 
-- Le sezioni sono numerate **P1 → P7** in ordine di priorità (P1 = da affrontare per primo).
+- Le sezioni sono numerate **P1 → P8** in ordine di priorità (P1 = da affrontare per primo).
 - Ogni punto è etichettato **[FIX]** (comportamento rotto/incoerente di una feature già
   rilasciata), **[FEATURE]** (funzionalità nuova) o **[TASK]** (lavoro tecnico, non visibile
   all'utente).
@@ -18,10 +18,110 @@
 
 ---
 
-## P1 — Feedback test su device (24 luglio 2026) — priorità massima
+## P1 — Priorità massima (12 agosto 2026)
 
-> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Precedono
-> tutto il resto della roadmap.
+> Tre temi decisi come **prime cose da fare**, prima di riprendere il feedback di test in P2:
+> la fluidità delle foto, la stima del tempo di percorrenza e la comprensione dei segnavia
+> sulla mappa. I primi due sono lavori chiusi e stimabili, il terzo è un'epica da spezzare.
+
+### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — *SP 5*
+
+Oggi il visualizzatore a schermo intero carica **l'originale a piena risoluzione**:
+`_FullPhotoPage._load()` (`lib/features/draw_route/draw_route_controls.dart:1509`) fa
+`AssetEntity.fromId(...).file` e lo mostra con `Image.file(file, fit: BoxFit.contain)`
+senza `cacheWidth`/`cacheHeight`. Uno scatto da 12 MP viene quindi letto da disco *e*
+decodificato in una bitmap da ~48 MB per riempire uno schermo che ne userebbe ~3 — è la
+causa più probabile sia dell'attesa all'apertura sia degli scatti durante lo swipe nel
+`PageView` (ogni pagina rifà tutto da zero, senza prefetch delle adiacenti).
+
+- [ ] **Decodifica alla dimensione dello schermo** — passare `cacheWidth`/`cacheHeight`
+  (larghezza logica × `devicePixelRatio`) a `Image.file`, oppure chiedere direttamente a
+  `photo_manager` un `thumbnailDataWithSize` di quelle dimensioni invece del file
+  originale. L'`InteractiveViewer` arriva a 5×: prevedere un secondo caricamento a
+  risoluzione piena **solo** quando l'utente zooma davvero.
+- [ ] **Prefetch delle pagine adiacenti** — `precacheImage` su pagina ±1 al cambio di
+  indice del carosello, così lo swipe trova l'immagine già decodificata.
+- [ ] **Thumbnail: qualità e dimensione giuste per l'uso** — oggi tutto passa da
+  `ThumbnailSize.square(200)` (`photo_manager_library_service.dart:93`) con la qualità di
+  default; la stessa miniatura serve la filmstrip (piccola) e la **cover della card
+  sessione** (`draw_route_controls.dart:645`), dove 200 px si vedono sgranati. Valutare due
+  tagli (filmstrip / cover) e una qualità JPEG esplicita.
+- [ ] **Peso dei metadati sincronizzati** — la thumbnail viaggia in **base64 dentro il JSON
+  della traccia** (`track_codec.dart:102`, colonna `photos` in `app_database.dart:23`), che
+  è anche il file caricato su iCloud/Drive: +33% di overhead base64 per foto. Misurare il
+  peso reale di una traccia con ~50 foto e fissare un tetto (dimensione/qualità della
+  thumbnail salvata) prima che diventi un problema di sync.
+- [ ] Misurare **prima e dopo** con una traccia reale a molte foto (tempo di apertura del
+  visualizzatore, frame durante lo swipe, byte del JSON) — senza numeri non si sa se è
+  risolto.
+
+### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — *SP 5*
+
+Manca del tutto: una traccia mostra distanza, D+/D- e difficoltà, ma non "quanto ci metto".
+È il dato che ogni cartello CAI riporta, quindi va calcolato **con lo stesso metodo dei
+cartelli**, non con una media inventata.
+
+- [ ] **Scegliere e documentare la formula.** Le tre famiglie in gioco:
+  - *CAI / "ora di marcia"* — velocità di riferimento ~**4 km/h in piano**, ~**300-350 m/h
+    in salita**, ~**500-600 m/h in discesa**; tempo orizzontale e verticale combinati alla
+    svizzera (SAC): `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2`. È quello che
+    produce numeri confrontabili con la segnaletica italiana → **candidato di default**.
+  - *Naismith + correzione Langmuir/Aitken* — 5 km/h più un'ora ogni 600 m di salita, con
+    sconto/penalità in discesa secondo la pendenza. Più anglosassone, tende a sottostimare
+    sui sentieri alpini.
+  - *Tobler* — velocità come funzione esponenziale della pendenza, calcolata **per
+    segmento**. È la più adatta ai nostri dati (il path è già densificato ogni ~15 m con
+    quota da Terrarium), ma va tarata perché non conosce il tipo di terreno.
+- [ ] **Implementare come servizio di dominio puro** — `lib/domain/services/hiking_time.dart`,
+  input = punti densificati + quote (gli stessi che alimentano `track_metrics.dart`),
+  nessuna dipendenza dalla UI, **coperto da test** con casi noti (§9 di `CLAUDE.md`).
+  Attenzione al D+ da usare: quello **con deadband** (già filtrato dal rumore DEM), non il
+  grezzo, altrimenti il tempo si gonfia come si gonfiava il dislivello.
+- [ ] **Applicarlo ovunque ci sia un percorso** — traccia in disegno (aggiornato mentre si
+  aggiungono punti), traccia salvata, GPX importato: è lo stesso dato calcolato dallo stesso
+  servizio.
+- [ ] **Esporre il passo dell'escursionista** — un'impostazione lento/medio/veloce come
+  semplice moltiplicatore, con "medio" = il riferimento CAI. Decidere se il tempo mostrato
+  **include le soste** (la convenzione CAI è: no) e dirlo esplicitamente in UI.
+- [ ] Valutare se la **difficoltà CAI per tratto** (`TrailSegment.caiScale`, già disponibile)
+  debba pesare sulla stima (EE/EEA più lenti) o restare fuori dalla formula.
+
+### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — *SP 13 (epica)*
+
+Caso d'uso: vedo un rifugio, tocco intorno, trovo un sentiero con un numero — voglio sapere
+**dove quel segnavia parte e dove arriva**, vederlo tutto sulla mappa e aprire la scheda
+ufficiale. Oggi non è possibile: il tap sulla mappa (`map_gl_screen.dart:674`) produce solo
+l'*info punto* (quota/coordinate/località) e non interroga il layer sentieri; e soprattutto
+i modelli in `data/trails/` conservano **solo `ref` + geometria ritagliata al bounding box**
+(`TrailRelation`, `TrailRefLine`) — niente id di relazione, niente `name`/`from`/`to`, e la
+geometria finisce dove finisce lo schermo. Va spezzata così:
+
+- [ ] **Portarsi dietro l'identità della relazione** — id OSM/OSM2CAI e tag `name`, `from`,
+  `to`, `network`, `osmc:symbol` in `TrailRelation`/`TrailRefLine` e nel source GeoJSON
+  `sentei-trails`. È il prerequisito di tutto il resto.
+- [ ] **Tap → quale segnavia** — `queryRenderedFeatures` sul layer sentieri con una
+  tolleranza in pixel; se sotto il dito ci sono più segnavia sovrapposti, farli scegliere.
+- [ ] **Fetch della relazione completa** (non ritagliata): OSM2CAI espone
+  `GET /api/v2/hiking-route/{id}` in GeoJSON e `GET /api/v2/hiking-routes/{id}.gpx`
+  (vedi `docs/osm2cai-investigation.md`); fuori Italia, Overpass con `rel(<id>); out geom;`.
+- [ ] **Mostrarlo** — l'intera relazione evidenziata sulla mappa + fit-bounds, e una card
+  con numero, nome, partenza → arrivo, lunghezza, D+/D-, difficoltà CAI e **tempo stimato**
+  (riusa il punto 2 di questa sezione).
+- [ ] **Link alla scheda ufficiale** — *da verificare prima di implementare*: dell'endpoint
+  API OSM2CAI sappiamo la forma, della **pagina web** pubblica corrispondente no. Verificare
+  se esiste un permalink per id su `osm2cai.cai.it` (e cosa fare fuori Italia: fallback alla
+  relazione su `openstreetmap.org`); non inventare un URL.
+- [ ] **Da tenere separato** (non in questa epica, ma è l'estensione naturale): "usa questo
+  segnavia come traccia" — import diretto del GPX della relazione nell'editor.
+
+*Totale indicativo: ~23 story point (il punto 3 va rivisto una volta spezzato).*
+
+---
+
+## P2 — Feedback test su device (24 luglio 2026)
+
+> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Restano il
+> primo lavoro dopo P1.
 
 1. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
@@ -64,11 +164,11 @@
 
 ---
 
-## P2 — Editing tracce & UX mappa (aperti)
+## P3 — Editing tracce & UX mappa (aperti)
 
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P1, punto 6**.
+  requisiti dettagliati in **P2, punto 5**.
 - [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
   su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
   già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non
@@ -76,15 +176,17 @@
   sola-visualizzazione vs editing completo.
 - [ ] **Linee sentieri visibili sul layer mappa** — costo quasi zero: la geometria dei
   sentieri (`sentei-trails`) è già scaricata per posizionare le etichette, manca solo una
-  `LineLayer` che la disegni.
+  `LineLayer` che la disegni. *Naturale da fare insieme a **P1, punto 3**: serve comunque un
+  layer selezionabile su cui fare `queryRenderedFeatures`.*
 - [ ] **Migrazione layer sentieri a OSM2CAI** — stessa idea sopra ma con `ref`/
   `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
-  gestire con zoom minimo/fallback).
+  gestire con zoom minimo/fallback). *Anche questo confluisce in **P1, punto 3**, che
+  richiede id e tag della relazione.*
 - [ ] **Separazione strade/sentieri su Mapbox** — nascondere i layer strada-sterrata dello
   stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
 
-## P3 — Validazione pendente su device
+## P4 — Validazione pendente su device
 
 Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
 su un telefono fisico:
@@ -100,7 +202,7 @@ su un telefono fisico:
   Salva) — comportamento atteso descritto in `docs/CHANGELOG-DEV.md`. *(Selettore file su
   iOS, focus mappa e nome della traccia corretti e provati sul simulatore in 1.0.0+8;
   resta da validare il **riallineamento** vero su tracce reali — vedi anche la nota sui
-  fallimenti BRouter in P7.)*
+  fallimenti BRouter in P8.)*
 - [ ] Card **Novità** al primo avvio dopo un aggiornamento — provata sul simulatore
   forzando la build precedente nelle preferenze; da vedere in un aggiornamento vero
   (TestFlight/Play), dove il salto di versione arriva dallo store e non da un `flutter run`.
@@ -116,7 +218,7 @@ su un telefono fisico:
 - [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
   dell'ambiente di sviluppo, va provato su rete reale.
 
-## P4 — Build & toolchain
+## P5 — Build & toolchain
 
 - [ ] **Dimensione dell'APK: `--split-per-abi`** → ~40-50 MB per architettura invece di un
   unico APK universale. Misure reali su 1.0.0+8 (29 lug 2026): **APK 124 MB**, contro
@@ -129,19 +231,19 @@ su un telefono fisico:
   - Priorità legata al canale di distribuzione: **irrilevante su Play Store** (lo store
     serve già solo l'ABI del dispositivo, e con `--release` si userebbe comunque un
     App Bundle), **rilevante subito** se si continua a passare l'APK a mano — vedi la
-    strategia in P6.
+    strategia in P7.
 - [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
   sessione dedicata dopo la beta, rischio regressioni mapbox/drift/riverpod.
 - [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — non ancora
   configurata.
 
-## P5 — Rimandati
+## P6 — Rimandati
 
 - [ ] Bundling font offline (ora scaricati a runtime via `google_fonts`... nota: su iOS si
   usa già il font di sistema, verificare se il bundling serve ancora su Android).
 - [ ] Registrazione traccia live (background location, Fase 2 del CLAUDE.md).
 
-## P6 — Distribuzione & accesso
+## P7 — Distribuzione & accesso
 
 **Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
 closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
@@ -168,7 +270,7 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   richiede. Vedi `docs/eval-usage-analytics.md` §6. Riaprire solo per un motivo diverso
   dalle analitiche (continuità multi-dispositivo, supporto utenti).
 
-## P7 — Backlog tecnico (bassa priorità)
+## P8 — Backlog tecnico (bassa priorità)
 
 - [ ] **Affidabilità del BRouter pubblico**: durante l'import di una traccia alpina reale
   (29 lug 2026) il server ha rifiutato molti segmenti con `HTTP 400: operation killed by
