@@ -1324,18 +1324,27 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
   /// invece di aspettare la libreria a ogni cambio pagina. Una per lato basta
   /// — con più margine si tengono in memoria bitmap che l'utente potrebbe non
   /// guardare mai.
+  ///
+  /// Non basta avere i byte: finché nessuno li **decodifica**, il lavoro (e lo
+  /// scatto che si vede) si sposta soltanto al momento dello swipe. Da qui
+  /// `precacheImage`, che decodifica in anticipo e lascia l'immagine nella
+  /// `ImageCache` di Flutter — dove `Image.memory` sugli stessi byte la
+  /// ritrova già pronta.
   void _prefetchNeighbours(List<TrackPhoto> photos, int index, Size size) {
     if (size.isEmpty) return;
-    final ids = [
-      for (final i in [index - 1, index + 1])
-        if (i >= 0 && i < photos.length) photos[i].id,
-    ];
-    if (ids.isEmpty) return;
-    ref.read(photoPreviewCacheProvider).prefetch(
-          ids,
-          width: size.width.round(),
-          height: size.height.round(),
-        );
+    final cache = ref.read(photoPreviewCacheProvider);
+    for (final i in [index - 1, index + 1]) {
+      if (i < 0 || i >= photos.length) continue;
+      final id = photos[i].id;
+      // Già scaricata e già decodificata al passaggio precedente.
+      if (cache.cached(id) != null) continue;
+      cache
+          .preview(id, width: size.width.round(), height: size.height.round())
+          .then((bytes) {
+        if (!mounted || bytes == null) return;
+        precacheImage(MemoryImage(bytes), context);
+      });
+    }
   }
 
   @override
@@ -1424,6 +1433,10 @@ class _FullPhotoViewState extends ConsumerState<_FullPhotoView> {
                     child: PageView.builder(
                       controller: _pageController,
                       itemCount: photos.length,
+                      // Costruisce anche la pagina adiacente **prima** che
+                      // entri in vista: insieme al precarico qui sopra, allo
+                      // swipe non resta nulla di pesante da fare.
+                      allowImplicitScrolling: true,
                       onPageChanged: (i) => setState(() => _page = i),
                       itemBuilder: (_, i) => _FullPhotoPage(photo: photos[i]),
                     ),
@@ -1558,11 +1571,23 @@ class _FullPhotoPageState extends ConsumerState<_FullPhotoPage> {
   /// perdere dettaglio: da lì si passa all'originale.
   static const double _originalScaleThreshold = 1.6;
 
+  /// Quanti pixel dell'originale decodificare quando si zooma, in multipli
+  /// della larghezza dello schermo. Copre lo zoom fino a 2,5× a piena
+  /// definizione senza decodificare 48 MP interi: su uno scatto di un iPhone
+  /// recente sarebbero ~200 MB di bitmap, e il salto si sentirebbe tutto.
+  static const double _zoomDecodeFactor = 2.5;
+
   final TransformationController _zoom = TransformationController();
 
   Uint8List? _preview;
   File? _original;
   bool _loadingOriginal = false;
+  bool _requested = false;
+
+  /// Nessuna anteprima disponibile per questa foto (asset non più sul
+  /// dispositivo): si ripiega sulla miniatura salvata, non sullo spinner —
+  /// altrimenti girerebbe per sempre.
+  bool _unavailable = false;
 
   @override
   void initState() {
@@ -1589,27 +1614,29 @@ class _FullPhotoPageState extends ConsumerState<_FullPhotoPage> {
     }).catchError((_) => null);
   }
 
-  /// Assicura l'anteprima per uno spazio di [size] **pixel fisici**. Quando la
-  /// pagina è stata precaricata come vicina di quella aperta, la cache
-  /// risponde subito e la foto è già lì al primo frame.
-  void _ensurePreview(Size size) {
-    if (_preview != null) return;
+  /// I byte dell'anteprima: quelli già arrivati a questa pagina, o quelli che
+  /// la cache ha pronti perché la pagina è stata **precaricata** come vicina.
+  /// Leggerli qui (e non copiarli nello stato con un `setState` differito)
+  /// evita il frame di spinner su una foto che è già in memoria.
+  Uint8List? _bytes(Size size) {
+    if (_preview != null) return _preview;
     final cache = ref.read(photoPreviewCacheProvider);
     final ready = cache.cached(widget.photo.id);
-    if (ready != null) {
-      // Siamo dentro il build di un `LayoutBuilder`: lo stato si aggiorna al
-      // frame dopo, non durante.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _preview = ready);
+    if (ready != null) return ready;
+    if (!_requested && !size.isEmpty) {
+      _requested = true;
+      cache
+          .preview(widget.photo.id,
+              width: size.width.round(), height: size.height.round())
+          .then((bytes) {
+        if (!mounted) return;
+        setState(() {
+          _preview = bytes;
+          _unavailable = bytes == null;
+        });
       });
-      return;
     }
-    cache
-        .preview(widget.photo.id,
-            width: size.width.round(), height: size.height.round())
-        .then((bytes) {
-      if (mounted && bytes != null) setState(() => _preview = bytes);
-    });
+    return null;
   }
 
   @override
@@ -1617,16 +1644,21 @@ class _FullPhotoPageState extends ConsumerState<_FullPhotoPage> {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        _ensurePreview(constraints.biggest * dpr);
+        final bytes = _bytes(constraints.biggest * dpr);
         // `SizedBox.expand` + `BoxFit.contain`: la foto riempie tutto lo
         // spazio del carosello mantenendo le proporzioni. Prima era `Center`
         // sull'immagine alla sua dimensione naturale, che su scatti piccoli
         // (o sulla thumbnail di ripiego) la lasciava minuscola in mezzo al
         // nero — è il soggetto della schermata, deve dominarla.
         final image = _original != null
-            ? Image.file(_original!, fit: BoxFit.contain)
-            : _preview != null
-                ? Image.memory(_preview!, fit: BoxFit.contain)
+            ? Image.file(
+                _original!,
+                fit: BoxFit.contain,
+                cacheWidth:
+                    (constraints.maxWidth * dpr * _zoomDecodeFactor).round(),
+              )
+            : bytes != null
+                ? Image.memory(bytes, fit: BoxFit.contain)
                 : null;
         if (image != null) {
           return InteractiveViewer(
@@ -1636,18 +1668,31 @@ class _FullPhotoPageState extends ConsumerState<_FullPhotoPage> {
             child: SizedBox.expand(child: image),
           );
         }
-        // In attesa dell'anteprima, o asset non risolvibile su questo device:
-        // la miniatura salvata nei metadati, a piena grandezza e **non**
-        // velata — l'opacità la faceva sembrare un errore di caricamento
-        // invece di una versione a bassa risoluzione.
+        // Asset non più risolvibile su questo device (es. traccia
+        // sincronizzata da un altro telefono): la miniatura salvata nei
+        // metadati, a piena grandezza e **non** velata — l'opacità la faceva
+        // sembrare un errore di caricamento invece di una versione a bassa
+        // risoluzione.
         final thumb = widget.photo.thumbnail;
-        return SizedBox.expand(
-          child: thumb != null
-              ? Image.memory(thumb, fit: BoxFit.contain)
-              : const Center(
-                  child: Icon(CupertinoIcons.photo,
-                      color: Color(0x66FFFFFF), size: 64),
-                ),
+        if (_unavailable) {
+          return SizedBox.expand(
+            child: thumb != null
+                ? Image.memory(thumb, fit: BoxFit.contain)
+                : const Center(
+                    child: Icon(CupertinoIcons.photo,
+                        color: Color(0x66FFFFFF), size: 64),
+                  ),
+          );
+        }
+        // In attesa dell'anteprima: un indicatore, non la miniatura da 200 px
+        // stirata a schermo intero — quella si legge come "foto sgranata",
+        // non come "sto caricando", e cambiando in corsa faceva l'effetto di
+        // un salto di qualità a metà swipe.
+        return const SizedBox.expand(
+          child: Center(
+            child: CupertinoActivityIndicator(
+                radius: 16, color: Color(0xFFFFFFFF)),
+          ),
         );
       },
     );

@@ -33,7 +33,15 @@ Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
 - [x] **Decodifica alla dimensione dello schermo** — `PhotoLibraryService.preview()`: è la
   libreria di sistema a ridimensionare. L'originale si carica solo **oltre 1,6× di zoom**.
 - [x] **Precarico delle pagine adiacenti** — `PhotoPreviewCache` (LRU 5 voci, richieste in
-  volo deduplicate, precarico ±1), svuotata all'uscita dal visualizzatore.
+  volo deduplicate, precarico ±1), svuotata all'uscita dal visualizzatore. Il precarico
+  **decodifica** in anticipo (`precacheImage`), non si limita a scaricare i byte:
+  altrimenti il lavoro si sposta soltanto al momento dello swipe, che è dove lo scatto si
+  vede.
+- [x] **Indicatore di caricamento** al centro mentre l'anteprima arriva, invece della
+  miniatura stirata a schermo intero. Serve soprattutto alle foto ancora **solo in iCloud**,
+  dove PhotoKit deve prima scaricarle.
+- [x] **Zoom senza blocchi** — l'originale si decodifica a 2,5× la larghezza dello schermo,
+  non a piena risoluzione (48 MP = ~195 MB di bitmap).
 - [x] **Miniature: qualità giusta per l'uso** — JPEG q80 invece del default q100, e
   `cacheWidth` sui riquadri piccoli. *Il sospetto della "cover sgranata" era infondato: i
   riquadri più grandi sono 64 pt = 192 px a 3×, sotto i 200 px salvati — un secondo taglio
@@ -183,11 +191,12 @@ Implementato in codice e coperto da test automatici, ma non ancora confermato a 
 su un telefono fisico:
 
 - [ ] **Foto più veloci ad aprirsi e scorrere** (P1.1, 12 ago 2026) — provato sul
-  simulatore con 8 foto da 12 MP generate ad hoc: la foto è a schermo entro mezzo secondo e
-  lo swipe alla successiva la trova già pronta. Restano da vedere su un telefono vero: una
-  libreria con **HEIC da 48 MP**, una traccia con decine di foto (memoria durante lo
-  scorrimento veloce della striscia) e lo **zoom oltre 1,6×**, che passa all'originale e
-  sul simulatore non è provabile (niente pinch).
+  simulatore con 14 foto generate ad hoc, di cui **6 da 48 MP** (8064×6048): la foto è a
+  schermo entro ~250 ms anche saltando da una miniatura all'altra. Restano da vedere su un
+  telefono vero: **HEIC** veri (decodifica diversa dal JPEG), foto ancora **solo in iCloud**
+  (è lì che l'indicatore di caricamento deve comparire, ed è il caso più lento), una traccia
+  con decine di foto (memoria scorrendo veloce la striscia) e lo **zoom oltre 1,6×**, non
+  provabile sul simulatore perché i click sintetici non fanno pinch.
 
 - [ ] **"Trova foto vicine" su una libreria reale e grande** — è il bug che ha originato
   tutto il lavoro sulle foto (1.0.0+7): `photoLocations()` scandiva solo le 3000 foto più

@@ -50,6 +50,36 @@ Cosa è cambiato:
 
   Sono **3,3× di byte in meno** su ogni sincronizzazione iCloud/Drive, invisibili a 200 px.
 
+**Secondo giro, dopo la prova su foto grandi** (l'utente segnala che sul telefono, con
+scatti di un iPhone recente, resta un piccolo scatto nello scorrimento e che si aspetta un
+indicatore di caricamento):
+
+- **Indicatore di caricamento** al centro mentre l'anteprima arriva, al posto della
+  miniatura da 200 px stirata a schermo intero: quella si legge come "foto sgranata", non
+  come "sto caricando", e cambiando in corsa faceva l'effetto di un salto di qualità a metà
+  swipe. La miniatura salvata resta il ripiego per gli asset **non più sul dispositivo**
+  (traccia sincronizzata da un altro telefono), dove nessuna attesa risolverebbe.
+- **Decodifica anticipata, non solo byte anticipati.** Il precarico scaricava le anteprime
+  vicine ma **nessuno le decodificava**: il lavoro (e lo scatto) si spostava soltanto al
+  momento dello swipe. Ora il precarico chiama `precacheImage(MemoryImage(bytes))`, e
+  `Image.memory` sugli **stessi byte** ritrova l'immagine già nella `ImageCache` di Flutter.
+  Aggiunto anche `allowImplicitScrolling: true` al `PageView`, che costruisce la pagina
+  adiacente prima che entri in vista.
+- **Zoom con decodifica limitata:** `Image.file(..., cacheWidth: larghezza × dpr × 2,5)`.
+  Su uno scatto da 48 MP la decodifica piena sarebbe ~195 MB di bitmap — il salto si
+  sentirebbe tutto, ed è esattamente lo scenario del telefono reale.
+- Verificato sul simulatore con **6 foto da 48 MP** (8064×6048) generate apposta e aggiunte
+  alla libreria, oltre alle 8 da 12 MP: 14 foto sulla stessa traccia, navigazione fluida,
+  foto a schermo entro ~250 ms anche saltando da una miniatura all'altra.
+
+⚠️ **`DeliveryMode.highQualityFormat` è obbligatorio, non una preferenza estetica.** Con
+`opportunistic` (default) PhotoKit chiama il result handler più volte — prima una versione
+degradata, poi quella buona — ma `photo_manager` risponde **solo alla prima** e scarta le
+successive: si resterebbe con l'anteprima sfocata per sempre. Il prezzo è che su una foto
+ancora solo in **iCloud** (spazio ottimizzato) la risposta arriva dopo il download — il
+plugin abilita `networkAccessAllowed` per le thumbnail, quindi la foto arriva, ma può
+metterci secondi. È il caso in cui l'indicatore di caricamento serve davvero.
+
 **Smentito un sospetto della roadmap:** la copertina della sessione foto *non* è sgranata —
 i riquadri più grandi in cui la miniatura viene mostrata sono 44/52/64 pt (192 px a 3×),
 sotto i 200 px salvati. Nessun secondo taglio di miniatura da introdurre.

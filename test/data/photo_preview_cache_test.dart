@@ -112,15 +112,18 @@ void main() {
     expect(cache.cached('b'), isNull);
   });
 
-  test('il precarico salta quelle già in cache o già in volo', () async {
+  test('il precarico delle vicine chiede solo quelle che mancano', () async {
     final cache = PhotoPreviewCache(library);
-    await _load(cache, library, 'a', 1);
+    await _load(cache, library, 'a', 1); // già in cache
     cache.preview('b', width: 100, height: 100); // in volo, non completata
 
-    cache.prefetch(['a', 'b', 'c'], width: 100, height: 100);
+    // Come fa il carosello per le pagine ±1: ripassa sugli stessi id.
+    for (final id in ['a', 'b', 'c']) {
+      cache.preview(id, width: 100, height: 100);
+    }
 
     expect(library.requested, ['a', 'b', 'c'],
-        reason: 'solo "c" è una richiesta nuova');
+        reason: '"a" è in cache e "b" è già in volo: solo "c" è nuova');
   });
 
   test('un errore della libreria non propaga e non sporca la cache', () async {

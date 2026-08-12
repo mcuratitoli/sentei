@@ -129,10 +129,14 @@ class PhotoManagerLibraryService extends PhotoLibraryService {
         ? ThumbnailOption.ios(
             size: size,
             quality: _previewQuality,
-            // L'anteprima resta sullo schermo finché l'utente non cambia
-            // foto: `opportunistic` (default) consegnerebbe prima una
-            // versione degradata, che si vedrebbe come un lampo sfocato a
-            // ogni swipe.
+            // Obbligatorio, non una preferenza: con `opportunistic` (default)
+            // PhotoKit chiama il result handler **più volte** — prima una
+            // versione degradata, poi quella buona — ma `photo_manager`
+            // risponde solo alla prima (`isReplied`) e le successive le
+            // scarta. Si resterebbe con l'anteprima sfocata per sempre.
+            // Il prezzo è che su una foto ancora solo in iCloud la risposta
+            // arriva dopo il download: da qui l'indicatore di caricamento nel
+            // visualizzatore.
             deliveryMode: DeliveryMode.highQualityFormat,
           )
         : ThumbnailOption(size: size, quality: _previewQuality);

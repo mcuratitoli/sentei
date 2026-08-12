@@ -79,20 +79,6 @@ class PhotoPreviewCache {
     }
   }
 
-  /// Scalda la cache per [assetIds] (le foto adiacenti a quella mostrata),
-  /// ignorando quelle già presenti o già in corso. Best-effort: nessun errore
-  /// risale, un precarico fallito costa solo un caricamento normale dopo.
-  void prefetch(
-    Iterable<String> assetIds, {
-    required int width,
-    required int height,
-  }) {
-    for (final id in assetIds) {
-      if (_entries.containsKey(id) || _inFlight.containsKey(id)) continue;
-      preview(id, width: width, height: height);
-    }
-  }
-
   void _put(String assetId, Uint8List bytes) {
     _entries[assetId] = bytes;
     while (_entries.length > maxEntries) {
