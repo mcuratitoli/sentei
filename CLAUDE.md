@@ -284,11 +284,14 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
     `CLAUDE.md` §8 (UDID simulatore/dispositivo, Team ID Apple).
 - Team ID Apple e bundle id sono già pubblici di fatto (compaiono nel binario distribuito e
   nei file di progetto `ios/`/`android/`), ma evitare comunque di ripeterli qui senza motivo.
-- **`kReleaseNotes` e `kUpcomingHighlights`** (`lib/ui/release_notes.dart`, changelog e
+- **`kReleaseNotes` e `kRoadmapGroups`** (`lib/ui/release_notes.dart`, changelog e
   roadmap sintetica mostrati in-app) vanno **sempre tenuti allineati** rispettivamente a
-  `CHANGELOG.md` e alla sezione P1 di `docs/ROADMAP.md`: quando si aggiorna uno dei due file
-  del repo, aggiornare anche la lista Dart corrispondente **nella stessa sessione di lavoro**,
-  non in un secondo momento.
+  `CHANGELOG.md` e alle sezioni P1/P2 di `docs/ROADMAP.md`: quando si aggiorna uno dei due
+  file del repo, aggiornare anche la lista Dart corrispondente **nella stessa sessione di
+  lavoro**, non in un secondo momento. Entrambe le liste sono fatte di `NoteItem`
+  (icona lineare + titolo breve + una riga di spiegazione opzionale) e rese dallo stesso
+  widget `NoteRow`, condiviso con la card di primo avvio (`whats_new.dart`): le emoji
+  restano al testo di `CHANGELOG.md`, in-app la categoria la dice l'icona.
 
 ---
 

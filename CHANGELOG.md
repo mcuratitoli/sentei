@@ -7,6 +7,12 @@ per cosa resta da fare vedi **[`docs/ROADMAP.md`](docs/ROADMAP.md)**.
 Il numero fra parentesi è il **build** (`CFBundleVersion`/`versionCode`); la app in
 Impostazioni → Informazioni mostra `versione (build)`, es. `1.0.0 (4)`.
 
+L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 🐛 correzione ·
+🎨 grafica e interfaccia · 🗺️ mappa · 📸 foto · ✏️ disegno e modifica tracciati ·
+📥 import/export GPX · ☁️ sincronizzazione · 📖 legende e documentazione. In-app la stessa
+distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
+`lib/ui/release_notes.dart`), non dall'emoji.
+
 ## 1.0.0 (8) — 29 luglio 2026
 
 - ✨ **Al primo avvio dopo un aggiornamento compare una card con le novità**

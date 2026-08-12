@@ -4,13 +4,38 @@ import 'package:flutter/material.dart';
 
 import 'tokens.dart';
 
+/// Una voce di **Novità** o **Roadmap**: icona + titolo + (opzionale) una riga
+/// di spiegazione.
+///
+/// Stesso tipo per le tre superfici che raccontano cosa cambia — tab "Novità",
+/// tab "Roadmap" e card di primo avvio (`whats_new.dart`) — così sono anche
+/// rese dallo stesso widget ([NoteRow]) e non possono divergere nell'aspetto.
+///
+/// Il [title] è una riga sola e sta in grassetto: tenerlo corto (4-7 parole).
+/// Il [body] spiega *perché* interessa a chi cammina, non come è fatto: va
+/// omesso quando il titolo si spiega da sé, altrimenti la lista diventa un
+/// muro di testo.
+class NoteItem {
+  const NoteItem({required this.title, this.body, this.icon});
+
+  final String title;
+  final String? body;
+
+  /// Icona **lineare** (`CupertinoIcons`), come ogni icona dell'app
+  /// (`new design/DESIGN_GUIDELINES.md` §1) — niente emoji qui: in
+  /// `CHANGELOG.md` l'emoji fa da marcatore di categoria nel testo, qui la
+  /// stessa categoria è resa dall'icona nel quadratino d'accento.
+  /// Default: [CupertinoIcons.sparkles].
+  final IconData? icon;
+}
+
 /// Novità per versione (Impostazioni → Informazioni → Sentèi, tab "Novità"),
 /// in forma **sintetica** — versione completa e dettagliata in `CHANGELOG.md`
 /// alla radice del repo. **Tenere le due liste allineate**: quando si
 /// aggiorna `CHANGELOG.md` per una nuova versione, aggiungere qui la voce
 /// corrispondente nella stessa sessione di lavoro (vedi anche `CLAUDE.md` §9).
 ///
-/// Vedi anche [kUpcomingHighlights] più sotto: stessa idea ma per la tab
+/// Vedi anche [kRoadmapGroups] più sotto: stessa idea ma per la tab
 /// "Roadmap" (prossime priorità, non ancora rilasciate).
 class ReleaseNote {
   const ReleaseNote({
@@ -27,24 +52,15 @@ class ReleaseNote {
   /// Data testuale breve (es. "5 luglio 2026").
   final String date;
 
-  /// Punti salienti, 2-4 voci, una riga ciascuna.
-  final List<String> highlights;
+  /// Punti salienti, 2-4 voci.
+  final List<NoteItem> highlights;
 
-  /// Versione "raccontata" degli [highlights] — icona, titolo e una frase di
-  /// spiegazione — per la card **Novità** che compare al primo avvio dopo un
-  /// aggiornamento (`whats_new.dart`). Serve solo alla release più recente:
-  /// sulle vecchie si può lasciare vuota, e la card ripiega sugli
-  /// [highlights] come sole righe di titolo.
-  final List<WhatsNewItem> spotlight;
-}
-
-/// Una voce della card Novità: icona + titolo + (opzionale) spiegazione.
-class WhatsNewItem {
-  const WhatsNewItem({required this.title, this.body, this.icon});
-
-  final String title;
-  final String? body;
-  final IconData? icon;
+  /// Versione "raccontata" degli [highlights] — le stesse voci con una
+  /// spiegazione più distesa — per la card **Novità** che compare al primo
+  /// avvio dopo un aggiornamento (`whats_new.dart`). Serve solo alla release
+  /// più recente: sulle vecchie si può lasciare vuota, e la card ripiega
+  /// sugli [highlights].
+  final List<NoteItem> spotlight;
 }
 
 const List<ReleaseNote> kReleaseNotes = [
@@ -53,34 +69,43 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 8,
     date: '29 luglio 2026',
     highlights: [
-      'Card con le novità al primo avvio dopo un aggiornamento',
-      'Importando un GPX la mappa si sposta sulla traccia importata',
-      'Una traccia importata prende il nome del file GPX',
+      NoteItem(
+        icon: CupertinoIcons.sparkles,
+        title: 'Card con le novità dopo un aggiornamento',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.map,
+        title: 'La mappa si sposta sul GPX importato',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.doc_text,
+        title: 'Una traccia importata prende il nome del file',
+      ),
     ],
     // La build 7 non è mai stata distribuita: chi aggiorna arriva dalla 6, e
     // per lui "l'ultimo aggiornamento" è tutto il salto 6 → 8. Questa lista
     // copre quindi anche le novità della 7 — è l'unica `spotlight` in
     // circolazione, così non ci sono due elenchi che raccontano la stessa cosa.
     spotlight: [
-      WhatsNewItem(
+      NoteItem(
         icon: CupertinoIcons.photo_on_rectangle,
         title: 'Foto raggruppate per escursione',
         body: 'Le foto di una traccia sono divise per uscita, con '
             'visualizzatore a schermo intero e profilo altimetrico.',
       ),
-      WhatsNewItem(
+      NoteItem(
         icon: CupertinoIcons.search,
         title: '"Trova foto" cerca in tutta la libreria',
         body: 'Prima si fermava agli scatti più recenti: su una libreria '
             'grande non trovava nulla.',
       ),
-      WhatsNewItem(
+      NoteItem(
         icon: CupertinoIcons.arrow_down_doc,
         title: 'Import GPX più affidabile',
         body: 'Il file .gpx è selezionabile nella schermata File, la mappa si '
             'sposta sulla traccia e il nome è quello del file.',
       ),
-      WhatsNewItem(
+      NoteItem(
         icon: CupertinoIcons.wand_stars,
         title: 'Interfaccia più coerente',
         body: 'Le card si chiudono trascinandole verso il basso e tutte le '
@@ -93,10 +118,25 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 7,
     date: '29 luglio 2026',
     highlights: [
-      '"Trova foto vicine" cerca in tutta la libreria: prima si fermava alle 3000 più recenti',
-      'Foto raggruppate per escursione, con visualizzatore a schermo intero e profilo altimetrico',
-      'Card di traccia e foto: si chiudono trascinandole verso il basso, conferme tutte uguali',
-      'Corretto l\'import GPX su iPhone: il file non era selezionabile',
+      NoteItem(
+        icon: CupertinoIcons.search,
+        title: '"Trova foto vicine" cerca in tutta la libreria',
+        body: 'Prima si fermava alle 3000 più recenti.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Foto raggruppate per escursione',
+        body: 'Con visualizzatore a schermo intero e profilo altimetrico.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.hand_draw,
+        title: 'Card che si chiudono trascinandole in basso',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.arrow_down_doc,
+        title: 'Corretto l\'import GPX su iPhone',
+        body: 'Nella schermata File il tracciato non era selezionabile.',
+      ),
     ],
   ),
   ReleaseNote(
@@ -104,10 +144,24 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 6,
     date: '28 luglio 2026',
     highlights: [
-      'Redesign grafico: card e pannelli con sfondo pieno, bottoni e badge coerenti',
-      'Tutti i pannelli a comparsa ora incollati al bordo inferiore, come la selezione tema',
-      'Foto lungo il percorso: card di dettaglio unificata, thumbnail evidenziate sul grafico',
-      'Tema chiaro/scuro coerente fin dall\'apertura dell\'app',
+      NoteItem(
+        icon: CupertinoIcons.paintbrush,
+        title: 'Redesign grafico di card e pannelli',
+        body: 'Sfondo pieno, bottoni e badge coerenti in tutta l\'app.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.rectangle_stack,
+        title: 'Pannelli tutti ancorati al bordo inferiore',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Foto: card di dettaglio unificata',
+        body: 'Thumbnail evidenziate anche sul profilo altimetrico.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.moon_stars,
+        title: 'Tema chiaro/scuro coerente fin dall\'apertura',
+      ),
     ],
   ),
   ReleaseNote(
@@ -115,10 +169,24 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 5,
     date: '24 luglio 2026',
     highlights: [
-      'Modalità scura: Standard, Notturno e Risparmio energetico',
-      'Editing avanzato dei tracciati (punti intermedi, undo, ri-instradamento)',
-      'Import GPX migliorato + legenda difficoltà estesa',
-      'Novità in-app: questo changelog, ora con anche la roadmap',
+      NoteItem(
+        icon: CupertinoIcons.moon_stars,
+        title: 'Modalità scura in 3 varianti',
+        body: 'Standard, Notturno e Risparmio energetico.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.pencil,
+        title: 'Editing avanzato dei tracciati',
+        body: 'Punti intermedi, undo, ri-instradamento.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.arrow_down_doc,
+        title: 'Import GPX migliorato e legenda estesa',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.list_bullet,
+        title: 'Novità in-app: questo changelog',
+      ),
     ],
   ),
   ReleaseNote(
@@ -126,9 +194,21 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 4,
     date: '5 luglio 2026',
     highlights: [
-      'Menu e conferme in stile iOS (conferma prima di eliminare una traccia)',
-      'Ordinamento tracciati salvato: alfabetico, data, dislivello, quota',
-      'Cloud per piattaforma: iCloud su iOS, Google Drive su Android',
+      NoteItem(
+        icon: CupertinoIcons.checkmark_seal,
+        title: 'Menu e conferme in stile iOS',
+        body: 'Conferma prima di eliminare una traccia.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.sort_down,
+        title: 'Ordinamento tracciati salvato',
+        body: 'Alfabetico, data, dislivello, quota.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.cloud,
+        title: 'Cloud per piattaforma',
+        body: 'iCloud su iOS, Google Drive su Android.',
+      ),
     ],
   ),
   ReleaseNote(
@@ -136,9 +216,18 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 3,
     date: '2 luglio 2026',
     highlights: [
-      'Legenda difficoltà CAI + tooltip nel grafico del profilo',
-      'Info punto: quota, coordinate e località al tocco sulla mappa',
-      'Vista satellite e ricerca in stile vetro',
+      NoteItem(
+        icon: CupertinoIcons.book,
+        title: 'Legenda difficoltà CAI e tooltip sul grafico',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.map_pin_ellipse,
+        title: 'Info punto: quota, coordinate e località',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.layers_alt,
+        title: 'Vista satellite e ricerca in stile vetro',
+      ),
     ],
   ),
   ReleaseNote(
@@ -146,9 +235,18 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 2,
     date: '25 giugno 2026',
     highlights: [
-      'Ricerca di località e rifugi alpini',
-      'Segnavia CAI ufficiali (OSM2CAI) e grado di difficoltà in card',
-      'Interfaccia in stile "vetro smerigliato" iOS',
+      NoteItem(
+        icon: CupertinoIcons.search,
+        title: 'Ricerca di località e rifugi alpini',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.signature,
+        title: 'Segnavia CAI ufficiali e grado di difficoltà',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.wand_stars,
+        title: 'Interfaccia in stile "vetro smerigliato"',
+      ),
     ],
   ),
   ReleaseNote(
@@ -156,27 +254,99 @@ const List<ReleaseNote> kReleaseNotes = [
     build: 1,
     date: '16 giugno 2026',
     highlights: [
-      'Prima beta: mappa 3D, disegno tracciati con snap-to-trail',
-      'Distanza, dislivello e profilo altimetrico',
-      'Salvataggio locale, export/import GPX, mappe offline',
-      'Sync su Google Drive e iCloud Drive',
+      NoteItem(
+        icon: CupertinoIcons.map,
+        title: 'Prima beta: mappa 3D e disegno tracciati',
+        body: 'Con snap-to-trail sui sentieri reali.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.graph_square,
+        title: 'Distanza, dislivello e profilo altimetrico',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.arrow_down_doc,
+        title: 'Salvataggio locale, GPX e mappe offline',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.cloud,
+        title: 'Sync su Google Drive e iCloud Drive',
+      ),
     ],
   ),
 ];
 
-/// Prossime priorità di sviluppo (tab "Roadmap"), in forma sintetica e in
-/// linguaggio semplice (niente nomi di file/provider) — versione completa,
-/// con dettagli e ordine di priorità, in `docs/ROADMAP.md` (sezione P1).
+/// Un gruppo della tab "Roadmap": un'etichetta di stato e le voci che ci
+/// stanno dentro. L'ordine dei gruppi **è** l'ordine di priorità.
+class RoadmapGroup {
+  const RoadmapGroup({required this.label, required this.items});
+
+  /// Etichetta breve mostrata in maiuscoletto (es. "In lavorazione").
+  final String label;
+
+  final List<NoteItem> items;
+}
+
+/// Prossime priorità di sviluppo (tab "Roadmap"), in linguaggio semplice
+/// (niente nomi di file/provider) — versione completa, con dettagli e ordine
+/// di priorità, in `docs/ROADMAP.md` (sezioni P1 e P2).
+///
 /// **Tenere allineata**: quando cambiano le priorità in cima alla roadmap,
-/// riportare qui a mano le 3-6 voci più rilevanti per chi usa l'app, nella
-/// stessa sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa
-/// convenzione di [kReleaseNotes], vedi anche `CLAUDE.md` §9).
-const List<String> kUpcomingHighlights = [
-  'Foto più leggere: si aprono subito e si scorrono senza scatti',
-  'Tempo di percorrenza stimato, calcolato con il metodo del CAI',
-  'Tocca un segnavia per vederlo intero: da dove parte, dove arriva, la scheda ufficiale',
-  'Tasto per eliminare una traccia direttamente dalla sua scheda',
-  'Foto lungo il percorso: vista a griglia, importazione dalla card, zoom sul punto di scatto',
+/// riportare qui a mano le voci più rilevanti per chi usa l'app, nella stessa
+/// sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa convenzione di
+/// [kReleaseNotes], vedi anche `CLAUDE.md` §9). Da 2 a 3 voci per gruppo: è
+/// un'anteprima, non il documento completo.
+const List<RoadmapGroup> kRoadmapGroups = [
+  RoadmapGroup(
+    label: 'In lavorazione',
+    items: [
+      NoteItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Foto più leggere',
+        body: 'Si aprono subito e si scorrono senza scatti, anche su '
+            'escursioni con molti scatti.',
+      ),
+    ],
+  ),
+  RoadmapGroup(
+    label: 'Prossime',
+    items: [
+      NoteItem(
+        icon: CupertinoIcons.clock,
+        title: 'Tempo di percorrenza stimato',
+        body: 'Calcolato con il metodo del CAI, come sui cartelli dei '
+            'sentieri.',
+      ),
+      NoteItem(
+        // Diramazione: il segnavia seguito da un capo all'altro. Non
+        // `signature`/`scribble`, che a 18px sono due scarabocchi
+        // indistinguibili l'uno dall'altro.
+        icon: CupertinoIcons.arrow_branch,
+        title: 'Un segnavia per intero',
+        body: 'Tocca un numero sulla mappa e vedi dove parte, dove arriva e '
+            'la scheda ufficiale.',
+      ),
+    ],
+  ),
+  RoadmapGroup(
+    label: 'Più avanti',
+    items: [
+      NoteItem(
+        icon: CupertinoIcons.delete,
+        title: 'Elimina una traccia dalla sua scheda',
+        body: 'Senza passare dalla lista dei tracciati.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.eye,
+        title: 'Traccia selezionata più in evidenza',
+        body: 'Le altre diventano più trasparenti.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.square_grid_2x2,
+        title: 'Foto in griglia, con selezione multipla',
+        body: 'Più zoom sulla mappa nel punto dello scatto.',
+      ),
+    ],
+  ),
 ];
 
 enum _NotesTab { changelog, roadmap }
@@ -254,21 +424,26 @@ class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),
-                child: isChangelog
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final n in kReleaseNotes) _VersionBlock(note: n),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: isChangelog
+                      ? [
+                          for (var i = 0; i < kReleaseNotes.length; i++)
+                            _VersionBlock(
+                              note: kReleaseNotes[i],
+                              // La prima versione apre la lista: senza linea
+                              // sopra, altrimenti sembra staccata dal titolo.
+                              showDivider: i > 0,
+                            ),
+                        ]
+                      : [
+                          for (final g in kRoadmapGroups) _RoadmapBlock(group: g),
                         ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _bulletRows(kUpcomingHighlights, palette),
-                      ),
+                ),
               ),
             ),
           ],
@@ -278,49 +453,155 @@ class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
   }
 }
 
-/// Righe puntate condivise da changelog e roadmap (stesso stile).
-List<Widget> _bulletRows(List<String> items, AppPalette palette) => [
-      for (final h in items)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('•  ', style: AppText.body.copyWith(color: palette.secondaryLabel)),
-              Expanded(
-                child: Text(h,
-                    style: AppText.body.copyWith(color: palette.bodyText, height: 1.3)),
-              ),
-            ],
-          ),
-        ),
-    ];
+/// Riga di una voce di Novità/Roadmap: icona lineare in un quadratino tinto
+/// d'accento, titolo in grassetto e — se c'è — una riga di spiegazione.
+///
+/// Condivisa da entrambe le tab e dalla card di primo avvio
+/// (`whats_new.dart`), così le tre superfici non divergono nell'aspetto.
+class NoteRow extends StatelessWidget {
+  const NoteRow({super.key, required this.item});
 
-class _VersionBlock extends StatelessWidget {
-  const _VersionBlock({required this.note});
-  final ReleaseNote note;
+  final NoteItem item;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: palette.accent.withValues(alpha: 0.14),
+            borderRadius: AppRadii.rMd,
+          ),
+          child: Icon(item.icon ?? CupertinoIcons.sparkles,
+              size: 18, color: palette.accent),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 2px di padding in alto: allinea la prima riga di testo al
+              // centro ottico del quadratino, che è più alto della riga.
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  item.title,
+                  style: AppText.value.copyWith(
+                    color: palette.label,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              if (item.body != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  item.body!,
+                  style: AppText.bodyDetail.copyWith(color: palette.secondaryLabel),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Intestazione di gruppo in maiuscoletto (`DESIGN_GUIDELINES.md` §3,
+/// "Caption/etichetta sezione"): 13/600 uppercase, spaziatura ampia.
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: AppText.caption.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.5,
+        color: context.palette.secondaryLabel,
+      ),
+    );
+  }
+}
+
+class _VersionBlock extends StatelessWidget {
+  const _VersionBlock({required this.note, required this.showDivider});
+
+  final ReleaseNote note;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showDivider) ...[
+          Divider(
+            height: 32,
+            thickness: 0.5,
+            color: palette.hairline.withValues(alpha: 0.25),
+          ),
+        ],
+        Row(
+          children: [
+            // Pillola con la versione: il numero è l'ancora della lista, va
+            // trovato a colpo d'occhio scorrendo.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: palette.accent.withValues(alpha: 0.14),
+                borderRadius: AppRadii.rPill,
+              ),
+              child: Text(
+                '${note.version} (${note.build})',
+                style: AppText.captionSmall.copyWith(
+                    color: palette.accent, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(note.date,
+                style:
+                    AppText.footnote.copyWith(color: palette.secondaryLabel)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        for (final item in note.highlights) ...[
+          NoteRow(item: item),
+          const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+}
+
+class _RoadmapBlock extends StatelessWidget {
+  const _RoadmapBlock({required this.group});
+
+  final RoadmapGroup group;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text('${note.version} (${note.build})',
-                  style: AppText.value.copyWith(color: palette.accent)),
-              const SizedBox(width: 8),
-              Text(note.date,
-                  style: AppText.footnote.copyWith(color: palette.secondaryLabel)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ..._bulletRows(note.highlights, palette),
+          _GroupHeader(group.label),
+          const SizedBox(height: 12),
+          for (final item in group.items) ...[
+            NoteRow(item: item),
+            const SizedBox(height: 16),
+          ],
         ],
       ),
     );

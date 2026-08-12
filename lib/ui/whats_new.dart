@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Theme;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,11 +63,10 @@ class _WhatsNewBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    // `spotlight` quando c'è (voci con titolo + spiegazione), altrimenti gli
-    // stessi `highlights` della tab "Novità", come sole righe di titolo.
-    final items = note.spotlight.isNotEmpty
-        ? note.spotlight
-        : [for (final h in note.highlights) WhatsNewItem(title: h)];
+    // `spotlight` quando c'è (le stesse voci raccontate più per esteso),
+    // altrimenti gli `highlights` della tab "Novità".
+    final items =
+        note.spotlight.isNotEmpty ? note.spotlight : note.highlights;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -115,7 +113,7 @@ class _WhatsNewBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final item in items) ...[
-                  _WhatsNewRow(item: item),
+                  NoteRow(item: item),
                   const SizedBox(height: 18),
                 ],
               ],
@@ -133,52 +131,3 @@ class _WhatsNewBody extends StatelessWidget {
   }
 }
 
-class _WhatsNewRow extends StatelessWidget {
-  const _WhatsNewRow({required this.item});
-
-  final WhatsNewItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: palette.accent.withValues(alpha: 0.14),
-            borderRadius: AppRadii.rMd,
-          ),
-          child: Icon(item.icon ?? CupertinoIcons.sparkles,
-              size: 18, color: palette.accent),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item.title,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: palette.label,
-                    ),
-              ),
-              if (item.body != null) ...[
-                const SizedBox(height: 3),
-                Text(
-                  item.body!,
-                  style: AppText.footnote
-                      .copyWith(height: 1.35, color: palette.secondaryLabel),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
