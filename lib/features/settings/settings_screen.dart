@@ -149,8 +149,8 @@ class _HikingSection extends ConsumerWidget {
         CupertinoListTile(
           leading: const _SettingsIcon(CupertinoIcons.speedometer),
           title: const Text('Passo'),
-          subtitle: const Text(
-              'Regola il tempo di percorrenza stimato. Non include le soste'),
+          subtitle:
+              const Text('Il tempo stimato non include le soste'),
           additionalInfo: Text(pace.label),
           trailing: const CupertinoListTileChevron(),
           onTap: () => _showPaceSheet(context, ref, pace),
