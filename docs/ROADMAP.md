@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 15 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
+**Aggiornato:** 16 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
 modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
 rilasciato").
 
@@ -161,10 +161,9 @@ rivisto una volta spezzato.*
       mostrare/nascondere le anteprime esistenti (oggi "Trova foto vicine" importa, ma non
       c'è un modo per nascondere/mostrare la striscia già collegata);
     - serve una **vista a griglia** con tutte le foto della traccia, con selezione multipla
-      e azioni bulk (es. eliminazione massiva);
-    - toccando un'anteprima (dalla griglia o dal punto in mappa) ci si aspetta anche lo
-      **zoom/focus della mappa** sul punto di scatto (oggi si apre solo la card di dettaglio,
-      la mappa non si sposta);
+      e azioni bulk (es. eliminazione massiva) — quando esisterà, anche i suoi tap dovranno
+      passare da `_selectPhoto` (vedi voce "un solo pallino" sotto, 16 ago 2026) per centrare
+      la mappa come fanno già tutti i punti di tap attuali;
     - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
       in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
       altrove con `DefaultTextStyle(decoration:none)`).

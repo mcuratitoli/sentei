@@ -1129,8 +1129,10 @@ class PhotoDetailCard extends ConsumerWidget {
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: () => openFullPhoto(
-                          context, trackId, session.photos, current),
+                      onTap: () {
+                        _selectPhoto(ref, current);
+                        openFullPhoto(context, trackId, session.photos, current);
+                      },
                       child: ClipRRect(
                         borderRadius: AppRadii.rMd,
                         child: SizedBox(

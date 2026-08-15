@@ -42,6 +42,12 @@ casi la mappa deve anche centrarsi lì.
   era un modo per scoprire le foto direttamente dalla mappa, ora quell'affordance sparisce
   insieme ai pallini permanenti: è esattamente ciò che l'utente ha chiesto ("vanno fatti
   sparire").
+- **Terzo punto mancato al primo giro**, trovato in verifica su simulatore: la miniatura
+  grande in cima a `PhotoDetailCard` (quella che apre il visualizzatore a schermo intero,
+  `openFullPhoto`) non passava da `_selectPhoto` — apriva la foto ma non spostava il
+  pallino né centrava la mappa, a differenza della riga sessione e del filmstrip già
+  sistemati. Stesso fix: `onTap` ora chiama `_selectPhoto(ref, current)` prima di
+  `openFullPhoto`. Verificato sul simulatore.
 
 ## 15 agosto 2026 — Tempo di percorrenza stimato (metodo CAI)
 
