@@ -72,6 +72,14 @@ cartelli**, non con una media inventata.
   `TrackMetricsCalculator` (quindi D+ con deadband, non il grezzo), nessuna dipendenza dalla
   UI. Coperto da test (`test/domain/hiking_time_test.dart`): piano/salita/discesa isolati,
   combinato, verticale dominante, passo lento/veloce, input a zero.
+- [x] **Salita/discesa distinte sui percorsi chiusi** (aggiunta 15 ago 2026, su richiesta
+  esplicita) — `HikingTimeCalculator.estimateForTrack`: se partenza e arrivo del percorso
+  sono a meno di 150 m (andata e ritorno, o anello — tipico "su al rifugio e giù"), il
+  profilo altimetrico viene diviso nel punto di **quota massima** e ogni metà ha il proprio
+  tempo (D+/D- ricalcolati con deadband sulla sola tratta, non l'aggregato). Un sentiero
+  punto-a-punto resta **una previsione sola**. Mostrato in `draw_route_controls.dart`
+  (`_HikingTimeRow`, frecce ↗/↘ come D+/D-); la lista tracciati mostra solo il totale
+  (compatta), il dettaglio si apre dalla card.
 - [x] **Applicato ovunque c'è un percorso** — la stima legge `DrawnTrack.metrics`, quindi
   vale per traccia in disegno/selezionata (`draw_route_controls.dart`), traccia salvata
   nella lista (`tracks_list_screen.dart`) e GPX importato: nessun percorso diverso, stesso

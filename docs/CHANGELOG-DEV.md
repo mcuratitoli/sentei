@@ -55,6 +55,37 @@ metto" — il dato che ogni cartello CAI riporta.
   cartelli CAI reali lungo un'escursione nota — i casi di test sono sintetici, non presi da
   un percorso vero.
 
+**Secondo giro, stesso giorno** (l'utente segnala un caso non coperto: andata e ritorno, o
+salita a un rifugio con partenza/arrivo nello stesso punto — lì il totale non basta, serve
+sapere quanto è la salita e quanto la discesa separatamente; su un sentiero punto-a-punto
+resta invece giusto avere una sola previsione):
+
+- **`HikingTimeCalculator.estimateForTrack(ElevationProfile, ...)`** — nuovo metodo accanto
+  a `estimate()` (rimasto invariato, usato anche internamente). Percorso **chiuso** se
+  distanza fra primo e ultimo campione del profilo < 150 m (`closedLoopThresholdMeters`):
+  copre sia l'andata-e-ritorno esatto sia un anello che rientra vicino alla partenza. In
+  quel caso divide il profilo nel punto di **quota massima** — non a metà distanza, che sul
+  ramo di rientro non coincide col punto di svolta — e ricalcola D+/D- **con deadband**
+  separatamente sulle due metà (non l'aggregato: altrimenti la salita si vedrebbe anche il
+  D- della discesa). Niente split se il picco è a meno del 10% della distanza totale da un
+  capo (es. un percorso che sale per tutta la tratta senza un vero punto di svolta).
+  `HikingTimeEstimate` porta sempre `total`; `ascent`/`descent` sono `null` sui percorsi
+  punto-a-punto. Quando c'è lo split, `total` è la **somma** di `ascent` e `descent`, non
+  una terza stima applicando la formula SAC all'intero percorso: quella darebbe un numero
+  leggermente più basso (lo sconto `min(t_oriz,t_vert)/2` si applicherebbe una volta sola
+  invece che una per tratta) — **scoperto verificando a schermo** sul simulatore con una
+  traccia di prova scritta a mano nel DB (`test-rifugio-1`, 6 km / D+300 / D-300): la lista
+  mostrava "2h 21min" mentre la card "Salita 1h23 + Discesa 1h03" = 2h26min, un
+  disallineamento che sembrava un bug. Coperto da 4 nuovi test in `hiking_time_test.dart`:
+  andata e ritorno esatta (verificati a mano i minuti attesi con la formula SAC, incluso
+  che `total == ascent + descent`), anello con rientro vicino ma non identico,
+  punto-a-punto (nessuno split), picco troppo vicino a un capo (nessuno split).
+- **`_HikingTimeRow`** in `draw_route_controls.dart` — sostituisce la riga a icona singola:
+  se `isSplit`, mostra "↗ Salita" / "↘ Discesa" con le stesse frecce/colori di `_GainLoss`
+  (coerenza visiva col D+/D- appena sopra), altrimenti la riga singola "Circa Xh Ymin di
+  cammino" di prima. La lista tracciati (`tracks_list_screen.dart`) mostra solo `.total`,
+  compatta: il dettaglio salita/discesa si apre dalla card.
+
 ## 12 agosto 2026 — Foto: anteprime alla dimensione dello schermo, precarico, miniature più leggere
 
 **Causa-radice della lentezza** (P1.1 della roadmap): il visualizzatore a schermo intero

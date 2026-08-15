@@ -133,14 +133,20 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         const PathGeometry().totalDistance(t.routedPath);
     final gain = t.metrics?.elevation.gain;
     final metrics = t.metrics;
+    // Solo il totale in lista (compatta): la salita/discesa separate — per
+    // un percorso chiuso, es. su e giù da un rifugio — si vedono aprendo la
+    // card della traccia (`draw_route_controls.dart`, `_HikingTimeRow`).
     final hikingTime = metrics == null
         ? null
-        : _hikingTimeCalculator.estimate(
-            distanceMeters: metrics.distanceMeters,
-            gainMeters: metrics.elevation.gain,
-            lossMeters: metrics.elevation.loss,
-            pace: pace,
-          );
+        : _hikingTimeCalculator
+            .estimateForTrack(
+              metrics.profile,
+              distanceMeters: metrics.distanceMeters,
+              gainMeters: metrics.elevation.gain,
+              lossMeters: metrics.elevation.loss,
+              pace: pace,
+            )
+            .total;
     return CupertinoListTile(
       // Pallino colore tracciato: cerchio pieno 12-13px (`new
       // design/DESIGN_GUIDELINES.md` §6), non più 16px.
