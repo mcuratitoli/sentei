@@ -111,6 +111,40 @@ stesso percorso (D+ 732 m, quasi identico):
 - **Resta da fare**: passo Lento/Medio/Veloce non ancora confrontato con tempi reali; la
   velocità di discesa (500 m/h) non validata da un caso reale a discesa dominante.
 
+**Quarto giro, stesso giorno — la prima correzione non bastava**: l'utente ha aperto la
+traccia reale "Alpe Toso" nell'app (non il caso semplificato usato per verificare a mano) e
+riporta **3h15** anziché i ~2h48 attesi — sulla traccia vera D+ è 810 m e D- 107 m (non 0),
+leggermente più del caso di prova. Ancora troppo lontano dalle fonti (2h15-2h20).
+
+- **La causa non era (solo) la velocità di salita, ma il correttivo della formula.**
+  Verificati due esempi numerici del modello ufficiale svizzero (Schweizer Wanderwege, la
+  fonte del metodo CAI — [geopop.it](https://www.geopop.it/come-si-calcolano-i-tempi-di-percorrenza-nei-sentieri-di-montagna-il-modello-cai/)):
+  +100 m di dislivello su 1000 m orizzontali ≈ 20 min; +300 m su 1000 m ≈ 49 min. Con la
+  formula `max + min/2` e ascesa a 400 m/h questi due casi escono rispettivamente **22 min**
+  e **52 min** — plausibili isolatamente, ma il pattern è sistematico: il correttivo (metà
+  del tempo minore) è tarato per percorsi con distanza e dislivello **bilanciati** (è il
+  caso per cui esiste la formula SAC completa). Su un percorso dove uno dei due domina
+  nettamente — una salita diretta come Alpe Toso, dove il verticale (2h) supera parecchio
+  l'orizzontale (1,6h) — il correttivo pieno aggiunge più tempo di quanto il modello
+  ufficiale suggerirebbe.
+- **Corretto il peso del correttivo da `/2` a `/4`.** Stessi due esempi con `/4`: **18,6
+  min** (atteso 20) e **48,6 min** (atteso 49) — molto più vicini. Su Alpe Toso (traccia
+  reale, D+810/D-107): verticale 2,24h, orizzontale 1,61h → max(2,24,1,61) + min/4 = 2,64h
+  = **~2h39**, contro 3h15 di prima. Resta un margine (~15-25%) verso le fonti — atteso: il
+  trail è un T (mulattiera/carrozzabile) e il modello non pesa ancora la difficoltà CAI per
+  tratto (`TrailSegment.caiScale`), decisione già rimandata in P1.2 — un T si cammina più
+  veloce del riferimento medio, un EE/EEA più lento.
+- **Ridenominata la formula** nei commenti: non è più "la formula SAC" tal quale (quella
+  usa `/2`), ma una variante calibrata sugli stessi riferimenti di velocità con un
+  correttivo più leggero — spiegato nel doc di classe di `HikingTimeCalculator`.
+- **Aggiornati tutti i test** che usavano `/2` nei numeri attesi (`hiking_time_test.dart`):
+  combinato, verticale dominante, i due lati dello split andata/ritorno, il test di
+  regressione Alpe Toso (ora attende 2h24 sul caso semplificato D-0, invariato l'assert di
+  non-regressione sotto le 3h).
+- **Resta da fare**: la difficoltà CAI per tratto come possibile prossimo correttivo, se il
+  margine residuo (~15-25%) risultasse fastidioso su altre tracce reali — vedi P1.2 in
+  `docs/ROADMAP.md`.
+
 ## 12 agosto 2026 — Foto: anteprime alla dimensione dello schermo, precarico, miniature più leggere
 
 **Causa-radice della lentezza** (P1.1 della roadmap): il visualizzatore a schermo intero

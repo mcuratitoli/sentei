@@ -46,20 +46,20 @@ void main() {
       expect(d, const Duration(hours: 1));
     });
 
-    test('combinato: formula SAC max + min/2', () {
+    test('combinato: max + min/4', () {
       // Orizzontale: 4 km / 4 km/h = 1h. Verticale: 400/400 + 0/500 = 1h.
-      // max(1,1) + min(1,1)/2 = 1.5h = 90 min.
+      // max(1,1) + min(1,1)/4 = 1.25h = 75 min.
       final d = calc.estimate(
           distanceMeters: 4000, gainMeters: 400, lossMeters: 0);
-      expect(d, const Duration(minutes: 90));
+      expect(d, const Duration(minutes: 75));
     });
 
     test('verticale dominante: orizzontale trascurabile, salita ripida', () {
       // Orizzontale: 1 km / 4 km/h = 15 min. Verticale: 1200/400 = 3h.
-      // max(3, 0.25) + min(3, 0.25)/2 = 3h7.5min ~ 3h08min.
+      // max(3, 0.25) + min(3, 0.25)/4 = 3h3.75min ~ 3h04min.
       final d = calc.estimate(
           distanceMeters: 1000, gainMeters: 1200, lossMeters: 0);
-      expect(d, const Duration(hours: 3, minutes: 8));
+      expect(d, const Duration(hours: 3, minutes: 4));
     });
 
     test('nessuna distanza né dislivello => zero', () {
@@ -75,16 +75,17 @@ void main() {
     test('Rassa → Alpe Toso: entro margine ragionevole dal tempo CAI reale', () {
       // Traccia utente: 6,4 km, D+ 800 m (mulattiera/carrozzabile T, D- ~0).
       // Fonti CAI (caivarallo.com, escursionismo.it): D+ 732 m, tempo
-      // indicato 2h15-2h20. Con la vecchia velocità di salita (300 m/h) la
-      // stima usciva 3h43 — 60% più lenta. Corretta a 400 m/h (valore SAC
-      // standard, non l'estremo prudente scelto inizialmente): la stima
-      // scende a ~2h48, entro un margine ragionevole (~20%) per una formula
-      // generica confrontata con un tempo di cartello di un sentiero
-      // specifico. Regressione: non deve tornare a superare le 3h.
+      // indicato 2h15-2h20. Prima correzione (velocità di salita 300→400
+      // m/h, invariato qui): 3h43 → 2h48, ancora troppo lento secondo
+      // l'utente sulla traccia reale (D+ 810, D- 107: 3h15 misurati in
+      // app). Seconda correzione (correttivo max+min/2 → max+min/4,
+      // ricalibrato sugli esempi numerici del modello svizzero ufficiale —
+      // vedi la nota su [HikingTimeCalculator]): scende a 2h24 su questo
+      // caso semplificato (D- 0). Regressione: non deve tornare sopra le 3h.
       final d = calc.estimate(
           distanceMeters: 6400, gainMeters: 800, lossMeters: 0);
-      expect(d, const Duration(hours: 2, minutes: 48));
-      expect(d.inMinutes, lessThan(200)); // meno di 3h20, non più 3h43
+      expect(d, const Duration(hours: 2, minutes: 24));
+      expect(d.inMinutes, lessThan(180)); // meno di 3h, non più 3h43/3h15
     });
   });
 
@@ -118,11 +119,11 @@ void main() {
 
     test('andata e ritorno (stesso punto): salita e discesa distinte', () {
       // Salita: 3000 m, D+ 300 → oriz 0.75h, vert 300/400=0.75h.
-      // max(0.75,0.75) + min/2 = 1.125h = 67.5min → 68min.
+      // max(0.75,0.75) + min/4 = 0.9375h = 56.25min → 56min.
       // Discesa: 3000 m, D- 300 → oriz 0.75h, vert 300/500=0.6h.
-      // max(0.75,0.6) + min/2 = 1.05h = 63min.
-      // Totale = somma delle due tratte (non l'aggregato SAC sull'intero
-      // percorso: lo sconto min/2 si applicherebbe una sola volta invece
+      // max(0.75,0.6) + min/4 = 0.9h = 54min.
+      // Totale = somma delle due tratte (non l'aggregato sull'intero
+      // percorso: lo sconto min/4 si applicherebbe una sola volta invece
       // che una per tratta, disallineandosi dalla card).
       final r = calc.estimateForTrack(
         _rifugioProfile(),
@@ -131,9 +132,9 @@ void main() {
         lossMeters: 300,
       );
       expect(r.isSplit, isTrue);
-      expect(r.ascent, const Duration(minutes: 68));
-      expect(r.descent, const Duration(minutes: 63));
-      expect(r.total, const Duration(minutes: 131));
+      expect(r.ascent, const Duration(minutes: 56));
+      expect(r.descent, const Duration(minutes: 54));
+      expect(r.total, const Duration(minutes: 110));
     });
 
     test('anello: arrivo vicino alla partenza ma non identico → comunque split',

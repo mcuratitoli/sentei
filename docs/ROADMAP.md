@@ -234,14 +234,19 @@ su un telefono fisico:
 - [ ] Download mappe + elevazione offline in modalità aereo.
 - [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
 - [ ] Difficoltà CAI su tracce reali.
-- [x] **Tempo di percorrenza stimato — validato su una traccia reale** (P1.2, 15 ago
-  2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI (D+ quasi
-  identico) per Rassa → Alpe Toso (VC). Causa: velocità di salita di default a 300 m/h,
-  l'estremo prudente scelto inizialmente, più lenta del valore standard della formula SAC
-  stessa (400 m/h). Corretta la costante (`HikingTimeCalculator.ascentMetersPerHour`):
-  stima ora ~2h48, entro un margine ragionevole. Non ancora verificato: passo
-  Lento/Medio/Veloce con numeri reali, e la velocità di discesa (500 m/h, invariata) su un
-  percorso a discesa dominante.
+- [x] **Tempo di percorrenza stimato — validato su una traccia reale, due correzioni**
+  (P1.2, 15 ago 2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI
+  (D+ quasi identico) per Rassa → Alpe Toso (VC). **Prima correzione:** velocità di salita
+  300→400 m/h (era l'estremo prudente scelto inizialmente, più lento del valore standard
+  della formula svizzera) → 3h43 diventa 2h48 sul caso semplificato, ma sulla traccia reale
+  (D+810/D-107) restava 3h15 — ancora troppo. **Seconda correzione**, dopo aver verificato
+  due esempi numerici del modello ufficiale (Schweizer Wanderwege): il correttivo
+  `+ min(t_oriz,t_vert)/2` esagera quando le due componenti non sono bilanciate (il caso
+  più comune — salita diretta o cammino quasi pianeggiante); cambiato in `/4`. Risultato:
+  ~2h39 sulla traccia reale dell'utente, entro un margine ragionevole. Dettagli e numeri
+  completi in `docs/CHANGELOG-DEV.md`. Non ancora verificato: passo Lento/Medio/Veloce con
+  numeri reali, e la velocità di discesa (500 m/h, invariata) su un percorso a discesa
+  dominante.
 - [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
   dell'ambiente di sviluppo, va provato su rete reale.
 

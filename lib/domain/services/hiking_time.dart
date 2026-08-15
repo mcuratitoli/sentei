@@ -39,9 +39,20 @@ class HikingTimeEstimate {
 }
 
 /// Stima il **tempo di percorrenza** con il metodo CAI/SAC (§ROADMAP P1.2):
-/// velocità di riferimento in piano e in verticale, combinate con la formula
-/// svizzera (SAC) `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2` — è il
-/// metodo che produce numeri confrontabili con quelli sulla segnaletica CAI.
+/// velocità di riferimento in piano e in verticale, combinate con
+/// `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 4`.
+///
+/// La formula svizzera "da manuale" usa `/ 2`, non `/ 4`: **corretto il 15
+/// agosto 2026** confrontando due esempi numerici del modello ufficiale
+/// (Schweizer Wanderwege, la fonte del metodo CAI) — +100 m/1000 m ≈ 20 min,
+/// +300 m/1000 m ≈ 49 min — e una traccia reale (Rassa → Alpe Toso, VC:
+/// 6,4 km, D+ 800 m, tempo CAI di riferimento 2h15-2h20). Con `/2` il
+/// correttivo esagera quando distanza e dislivello **non sono bilanciati**
+/// (il caso più comune: una salita diretta, o una camminata quasi
+/// pianeggiante) — è pensato per percorsi misti. Con `/4`: +100 m → 18,6 min
+/// (atteso 20), +300 m → 48,6 min (atteso 49), Alpe Toso → ~2h39 (atteso
+/// 2h15-2h20), tutti entro un margine ragionevole; con `/2` uscivano
+/// rispettivamente 22, 52 e 3h15 — sistematicamente troppo lenti.
 ///
 /// Il tempo **non include le soste** (convenzione CAI): va detto in UI.
 ///
@@ -65,13 +76,9 @@ class HikingTimeCalculator {
   /// Velocità di riferimento in salita (m/h). Default **SAC: 400 m/h** — non
   /// 300: era la scelta iniziale (l'estremo prudente della forbice 300-350
   /// indicata in roadmap), ma è più lenta del valore standard della formula
-  /// svizzera stessa. Corretto il 15 ago 2026 confrontando con una traccia
-  /// reale (Rassa → Alpe Toso, VC): con 300 m/h la stima usciva 3h43 contro
-  /// i 2h15-2h20 delle fonti CAI locali (caivarallo.com, escursionismo.it)
-  /// per un percorso con D+ quasi identico (732-800 m) — 60% più lento. Con
-  /// 400 m/h scende a ~2h48, entro un margine ragionevole (~20%) per una
-  /// formula generica confrontata con un tempo di cartello di un sentiero
-  /// specifico.
+  /// svizzera stessa. Vedi la nota sulla classe per il dettaglio della
+  /// validazione (Rassa → Alpe Toso) e la correzione del correttivo
+  /// `min/4` fatta insieme a questa.
   final double ascentMetersPerHour;
 
   /// Velocità di riferimento in discesa (m/h). Default CAI: 500 m/h.
@@ -104,8 +111,8 @@ class HikingTimeCalculator {
         lossMeters / (descentMetersPerHour * factor);
 
     final hours = horizontalHours >= verticalHours
-        ? horizontalHours + verticalHours / 2
-        : verticalHours + horizontalHours / 2;
+        ? horizontalHours + verticalHours / 4
+        : verticalHours + horizontalHours / 4;
 
     return Duration(minutes: (hours * 60).round());
   }
@@ -119,10 +126,10 @@ class HikingTimeCalculator {
   /// dell'intero percorso (altrimenti la salita si vedrebbe anche il D- del
   /// rientro e viceversa). In quel caso [total] è la **somma** di salita e
   /// discesa (non una terza stima indipendente sull'intero percorso): la
-  /// formula SAC applicata all'aggregato dà un numero leggermente più basso
-  /// (lo sconto `min/2` si applica una sola volta anziché una per tratta),
-  /// e mostrarlo in lista sembrerebbe un'incoerenza con la card, che
-  /// riporta proprio salita+discesa.
+  /// formula applicata all'aggregato dà un numero leggermente diverso (lo
+  /// sconto `min/4` si applica una sola volta anziché una per tratta), e
+  /// mostrarlo in lista sembrerebbe un'incoerenza con la card, che riporta
+  /// proprio salita+discesa.
   HikingTimeEstimate estimateForTrack(
     ElevationProfile profile, {
     required double distanceMeters,
