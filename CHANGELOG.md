@@ -30,6 +30,9 @@ novità consegnate, non cose da fare.
   rifugio) mostra **salita e discesa separate**, non solo il totale. In
   Impostazioni → Escursionismo si può regolare il passo (Lento/Medio/Veloce)
   — il tempo mostrato non include le soste.
+- 📸 **Mappa più pulita: niente più pallini gialli lungo tutta la traccia.**
+  Ne compare uno solo, quello della foto che si sta guardando, toccando una
+  miniatura o l'icona posizione — e la mappa si centra lì.
 - 📸 **Le foto si aprono e si scorrono molto più in fretta.** Prima l'app
   caricava ogni scatto alla sua risoluzione piena — su una foto da 48 megapixel
   è come srotolare un poster per guardarlo in cartolina — e lo rifaceva da capo

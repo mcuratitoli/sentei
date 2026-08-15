@@ -11,6 +11,38 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 16 agosto 2026 — Foto: un solo pallino sulla mappa, non tutto il filo
+
+L'utente segnala che i pallini gialli lungo tutta la traccia (uno per ogni foto collegata)
+sono fastidiosi — su un'escursione con molti scatti coprivano il percorso. Richiesta
+precisa: nessun pallino di default; ne compare **uno solo**, quello della foto attualmente
+guardata, toccando una miniatura o l'icona location nel visualizzatore — e in entrambi i
+casi la mappa deve anche centrarsi lì.
+
+- **`_renderPhotos()`** in `map_gl_screen.dart` — prima iterava su `track.photos` e
+  disegnava un `CircleAnnotation` per ognuna; ora legge solo `selectedPhotoProvider` e
+  disegna **al più un pallino** (quello selezionato, sempre nello stile "grande" che prima
+  era riservato all'evidenziazione). Nessuna foto selezionata → nessun pallino, `mgr`
+  svuotato con `deleteAll()`.
+- **`_selectPhoto(WidgetRef, TrackPhoto)`** — nuovo helper in `draw_route_controls.dart`:
+  imposta `selectedPhotoProvider` **e** chiama `mapFlyToPointProvider.notifier.flyTo(...)`
+  nella stessa chiamata, così le due azioni (mostra il pallino, centra la mappa) restano
+  sempre accoppiate. Sostituisce le chiamate dirette a `selectedPhotoProvider.notifier.set()`
+  nei due punti dove si tocca una miniatura: la riga sessione nella sezione FOTO (prima
+  foto del gruppo) e il filmstrip dentro `PhotoDetailCard` (foto specifica). L'icona
+  location nel visualizzatore a schermo intero (`_FullPhotoTopBar.onShowOnMap`) **già**
+  chiamava `mapFlyToPointProvider` da prima (aggiunta con "Vedi sulla mappa", 29 luglio
+  2026) — non toccata, si comporta già come richiesto.
+- **Non toccato**: lo swipe fra le foto nel `PageView` del visualizzatore a schermo intero
+  non muove la mappa né cambia il pallino (solo stato locale `_page`) — l'utente ha chiesto
+  esplicitamente solo tap su miniatura/icona location, non un "segui" continuo durante lo
+  swipe.
+- Effetto collaterale accettato: tappare un pallino **sulla mappa** per selezionare una
+  foto (`_onPhotoTap`, rimasto) ora ha senso solo quando un pallino è già visibile — prima
+  era un modo per scoprire le foto direttamente dalla mappa, ora quell'affordance sparisce
+  insieme ai pallini permanenti: è esattamente ciò che l'utente ha chiesto ("vanno fatti
+  sparire").
+
 ## 15 agosto 2026 — Tempo di percorrenza stimato (metodo CAI)
 
 P1.2 della roadmap: una traccia mostrava distanza, D+/D- e difficoltà, ma non "quanto ci

@@ -34,6 +34,15 @@ import 'route_editor_provider.dart';
 
 const _hikingTimeCalculator = HikingTimeCalculator();
 
+/// Seleziona una foto (mostra il pallino sulla mappa, `_renderPhotos` in
+/// `map_gl_screen.dart`) e centra la mappa sul suo punto di scatto — stessa
+/// coppia di azioni ovunque si tocchi una miniatura, così il pallino non
+/// resta mai "silenzioso" fuori dallo schermo.
+void _selectPhoto(WidgetRef ref, TrackPhoto photo) {
+  ref.read(selectedPhotoProvider.notifier).set(photo);
+  ref.read(mapFlyToPointProvider.notifier).flyTo(photo.position);
+}
+
 /// Pannello inferiore di controllo della traccia attiva.
 ///
 /// - **Creazione/modifica**: nome, distanza live, impostazioni avanzate
@@ -638,9 +647,7 @@ class _PhotoSectionState extends ConsumerState<_PhotoSection> {
                 // alla prima foto dell'escursione in `PhotoDetailCard`, che
                 // ha già il carosello di tutto il gruppo sotto — la griglia
                 // era un passaggio in più per la stessa informazione.
-                onTap: () => ref
-                    .read(selectedPhotoProvider.notifier)
-                    .set(sessions[i].photos.first),
+                onTap: () => _selectPhoto(ref, sessions[i].photos.first),
               ),
               if (i < sessions.length - 1) const SizedBox(height: 6),
             ],
@@ -1231,9 +1238,7 @@ class PhotoDetailCard extends ConsumerWidget {
                   _PhotoFilmstrip(
                     photos: session.photos,
                     selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
-                    onSelect: (i) => ref
-                        .read(selectedPhotoProvider.notifier)
-                        .set(session.photos[i]),
+                    onSelect: (i) => _selectPhoto(ref, session.photos[i]),
                     selectedColor: palette.accent,
                     placeholderColor: palette.hairline.withValues(alpha: 0.08),
                     placeholderIconColor: palette.tertiaryIcon,

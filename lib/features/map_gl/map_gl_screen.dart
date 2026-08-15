@@ -415,31 +415,31 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ));
   }
 
-  /// Marker delle foto collegate alla traccia **attiva** (in modifica o
-  /// selezionata): pallino ambra alla posizione GPS **reale** dello scatto —
-  /// non agganciato al percorso (più onesto: si vede anche se un po' fuori
-  /// sentiero). Tap → [_onPhotoTap] mostra l'anteprima. Quella **selezionata**
-  /// (stessa `selectedPhotoProvider` della card/pin sul grafico) è più grande
-  /// con un anello giallo invece del bianco.
+  /// Marker della foto **selezionata** (`selectedPhotoProvider`) alla sua
+  /// posizione GPS **reale** — non agganciato al percorso (più onesto: si
+  /// vede anche se un po' fuori sentiero). Un pallino ambra solo, non uno
+  /// per ogni foto collegata: la traccia con molti scatti diventava un filo
+  /// di pallini gialli che coprivano il percorso. Compare toccando una
+  /// miniatura (sessione o filmstrip, `draw_route_controls.dart`) o l'icona
+  /// location nel visualizzatore a schermo intero — entrambe spostano anche
+  /// la mappa lì (`mapFlyToPointProvider`). Tap sul pallino → [_onPhotoTap].
   Future<void> _renderPhotos() async {
     final mgr = _photoDots;
     if (mgr == null) return;
     await mgr.deleteAll();
     _photoById.clear();
-    final track = ref.read(tracksProvider).active;
-    final selectedId = ref.read(selectedPhotoProvider)?.id;
-    for (final p in track?.photos ?? const <TrackPhoto>[]) {
-      final isSelected = p.id == selectedId;
-      final a = await mgr.create(CircleAnnotationOptions(
-        geometry:
-            Point(coordinates: Position(p.position.longitude, p.position.latitude)),
-        circleRadius: isSelected ? 10 : 7,
-        circleColor: 0xFFFFB300,
-        circleStrokeColor: isSelected ? 0xFFFFD600 : 0xFFFFFFFF,
-        circleStrokeWidth: isSelected ? 3 : 2,
-      ));
-      _photoById[a.id] = p;
-    }
+    final selected = ref.read(selectedPhotoProvider);
+    if (selected == null) return;
+    final a = await mgr.create(CircleAnnotationOptions(
+      geometry: Point(
+          coordinates:
+              Position(selected.position.longitude, selected.position.latitude)),
+      circleRadius: 10,
+      circleColor: 0xFFFFB300,
+      circleStrokeColor: 0xFFFFD600,
+      circleStrokeWidth: 3,
+    ));
+    _photoById[a.id] = selected;
   }
 
   void _onPhotoTap(CircleAnnotation a) {
