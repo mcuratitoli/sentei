@@ -66,10 +66,10 @@ class DrawRouteControls extends ConsumerWidget {
     // `SafeArea(top: false)` qui sotto lo riapplica solo al contenuto.
     return AppSheetSurface(
       floating: false,
-      // Chiusura trascinando l'handle: sostituisce la × in alto a destra
-      // (tolta dall'header), solo però quando la card *mostra* una traccia —
-      // durante il disegno chiudere per sbaglio con uno scorrimento farebbe
-      // perdere il lavoro, lì si esce dal pulsante "Annulla" con conferma.
+      // Chiusura trascinando l'handle, oltre alla × nell'header (traccia
+      // selezionata): solo quando la card *mostra* una traccia — durante il
+      // disegno chiudere per sbaglio con uno scorrimento farebbe perdere il
+      // lavoro, lì si esce dal pulsante "Annulla" con conferma.
       onDismiss:
           drawing ? null : () => ref.read(tracksProvider.notifier).deselect(),
       child: SafeArea(
@@ -239,8 +239,11 @@ class _SelectedBody extends ConsumerWidget {
           collapseTooltip: expanded ? 'Riduci' : 'Espandi',
           onCollapseToggle: () =>
               ref.read(trackCardExpandedProvider.notifier).toggle(),
-          // Niente ×: la card si chiude trascinando l'handle verso il basso
-          // (vedi `AppSheetSurface.onDismiss` in `DrawRouteControls`).
+          // × oltre al chevron: si affianca al trascinamento dell'handle
+          // (`AppSheetSurface.onDismiss` in `DrawRouteControls`), non lo
+          // sostituisce — più comoda quando la card è espansa e l'handle è
+          // fuori dalla vista comoda del pollice.
+          onClose: () => ref.read(tracksProvider.notifier).deselect(),
         ),
         if (expanded) ...[
           if (saving)
