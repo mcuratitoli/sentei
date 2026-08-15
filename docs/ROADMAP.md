@@ -234,9 +234,14 @@ su un telefono fisico:
 - [ ] Download mappe + elevazione offline in modalità aereo.
 - [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
 - [ ] Difficoltà CAI su tracce reali.
-- [ ] **Tempo di percorrenza stimato** (P1.2, 15 ago 2026) — confrontare la stima
-  dell'app con i tempi riportati sui cartelli CAI lungo un'escursione nota (non solo con i
-  casi di test sintetici); verificare che il passo Lento/Medio/Veloce dia numeri sensati.
+- [x] **Tempo di percorrenza stimato — validato su una traccia reale** (P1.2, 15 ago
+  2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI (D+ quasi
+  identico) per Rassa → Alpe Toso (VC). Causa: velocità di salita di default a 300 m/h,
+  l'estremo prudente scelto inizialmente, più lenta del valore standard della formula SAC
+  stessa (400 m/h). Corretta la costante (`HikingTimeCalculator.ascentMetersPerHour`):
+  stima ora ~2h48, entro un margine ragionevole. Non ancora verificato: passo
+  Lento/Medio/Veloce con numeri reali, e la velocità di discesa (500 m/h, invariata) su un
+  percorso a discesa dominante.
 - [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
   dell'ambiente di sviluppo, va provato su rete reale.
 

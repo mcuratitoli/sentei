@@ -86,6 +86,31 @@ resta invece giusto avere una sola previsione):
   cammino" di prima. La lista tracciati (`tracks_list_screen.dart`) mostra solo `.total`,
   compatta: il dettaglio salita/discesa si apre dalla card.
 
+**Terzo giro, stesso giorno — validazione su una traccia reale**: l'utente segnala che per
+la traccia "alpe toso" (Rassa → punto d'appoggio Alpe Toso, VC — 6,4 km, D+ 800 m, D- ~0)
+l'app stima **3h43**, mentre due fonti CAI indipendenti riportano **2h15-2h20** per lo
+stesso percorso (D+ 732 m, quasi identico):
+[caivarallo.com](https://www.caivarallo.com/rifugi-cai-varallo/punto-appoggio-alpe-toso-val-sorba/)
+(2h15), [escursionismo.it](https://www.escursionismo.it/rifugi-bivacchi/alpe-toso-14777)
+(2h20, D+732, T).
+
+- **Causa: `ascentMetersPerHour` di default a 300 m/h.** Era stato scelto come l'estremo
+  prudente della forbice 300-350 indicata nell'analisi iniziale della roadmap (P1.2), ma è
+  **più lento del valore standard della formula SAC stessa**, che usa 400 m/h. Con 300 m/h
+  la stima su questa traccia usciva 60% più lenta del tempo reale.
+- **Corretto a 400 m/h.** Ricalcolando: verticale 800/400=2h, orizzontale 6,4/4=1,6h →
+  max(2, 1.6) + min/2 = 2,8h = **2h48**. Resta ~20% più lento delle fonti, ma è un margine
+  ragionevole per una formula generica confrontata con un tempo di cartello di un sentiero
+  specifico (le fonti locali riportano tempi misurati/vissuti, non calcolati con una
+  formula). La velocità di discesa (500 m/h) resta invariata — non validabile con questa
+  traccia, quasi tutta in salita.
+- **Aggiornati i test esistenti** che usavano il vecchio default (300 m/h) nei loro numeri
+  di comodo, e aggiunto un test di regressione con i dati reali di Alpe Toso
+  (`test/domain/hiking_time_test.dart`, gruppo "validazione su traccia reale"): verifica il
+  risultato esatto (2h48) e che non torni sopra le 3h20.
+- **Resta da fare**: passo Lento/Medio/Veloce non ancora confrontato con tempi reali; la
+  velocità di discesa (500 m/h) non validata da un caso reale a discesa dominante.
+
 ## 12 agosto 2026 — Foto: anteprime alla dimensione dello schermo, precarico, miniature più leggere
 
 **Causa-radice della lentezza** (P1.1 della roadmap): il visualizzatore a schermo intero

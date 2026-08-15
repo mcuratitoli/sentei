@@ -53,16 +53,25 @@ class HikingTimeEstimate {
 class HikingTimeCalculator {
   const HikingTimeCalculator({
     this.flatSpeedKmh = 4.0,
-    this.ascentMetersPerHour = 300,
+    this.ascentMetersPerHour = 400,
     this.descentMetersPerHour = 500,
     this.elevationCalculator = const ElevationCalculator(),
     this.closedLoopThresholdMeters = 150,
   });
 
-  /// Velocità di riferimento in piano (km/h). Default CAI: 4 km/h.
+  /// Velocità di riferimento in piano (km/h). Default SAC/CAI: 4 km/h.
   final double flatSpeedKmh;
 
-  /// Velocità di riferimento in salita (m/h). Default CAI: 300 m/h.
+  /// Velocità di riferimento in salita (m/h). Default **SAC: 400 m/h** — non
+  /// 300: era la scelta iniziale (l'estremo prudente della forbice 300-350
+  /// indicata in roadmap), ma è più lenta del valore standard della formula
+  /// svizzera stessa. Corretto il 15 ago 2026 confrontando con una traccia
+  /// reale (Rassa → Alpe Toso, VC): con 300 m/h la stima usciva 3h43 contro
+  /// i 2h15-2h20 delle fonti CAI locali (caivarallo.com, escursionismo.it)
+  /// per un percorso con D+ quasi identico (732-800 m) — 60% più lento. Con
+  /// 400 m/h scende a ~2h48, entro un margine ragionevole (~20%) per una
+  /// formula generica confrontata con un tempo di cartello di un sentiero
+  /// specifico.
   final double ascentMetersPerHour;
 
   /// Velocità di riferimento in discesa (m/h). Default CAI: 500 m/h.
