@@ -305,17 +305,17 @@ const List<RoadmapGroup> kRoadmapGroups = [
         body: 'Si aprono subito e si scorrono senza scatti, anche su '
             'escursioni con molti scatti.',
       ),
-    ],
-  ),
-  RoadmapGroup(
-    label: 'Prossime',
-    items: [
       NoteItem(
         icon: CupertinoIcons.clock,
         title: 'Tempo di percorrenza stimato',
         body: 'Calcolato con il metodo del CAI, come sui cartelli dei '
             'sentieri.',
       ),
+    ],
+  ),
+  RoadmapGroup(
+    label: 'Prossime',
+    items: [
       NoteItem(
         // Diramazione: il segnavia seguito da un capo all'altro. Non
         // `signature`/`scribble`, che a 18px sono due scarabocchi

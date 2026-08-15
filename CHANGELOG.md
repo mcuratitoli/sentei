@@ -18,9 +18,16 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 Modifiche già su `main` ma non ancora distribuite: alla prossima release questa
 sezione prende il numero di build (`1.0.0 (9)`) e le sue voci vanno riportate in
 `kReleaseNotes` (`lib/ui/release_notes.dart`) — vedi `CLAUDE.md` §9. Nella stessa
-occasione va tolta da `kRoadmapGroups` la voce "Foto più leggere" (ora in "In
-lavorazione"): a quel punto è una novità consegnata, non una cosa da fare.
+occasione va tolta da `kRoadmapGroups` la voce "Foto più leggere" e "Tempo di
+percorrenza stimato" (entrambe ora in "In lavorazione"): a quel punto sono
+novità consegnate, non cose da fare.
 
+- ⏱️ **Tempo di percorrenza stimato**, calcolato con lo stesso metodo dei
+  cartelli CAI (distanza in piano + dislivello, combinati con la formula
+  svizzera). Compare sulla card di ogni traccia e nella lista dei tracciati
+  salvati; vale anche per i GPX importati. In Impostazioni → Escursionismo si
+  può regolare il passo (Lento/Medio/Veloce) — il tempo mostrato non include
+  le soste.
 - 📸 **Le foto si aprono e si scorrono molto più in fretta.** Prima l'app
   caricava ogni scatto alla sua risoluzione piena — su una foto da 48 megapixel
   è come srotolare un poster per guardarlo in cartolina — e lo rifaceva da capo

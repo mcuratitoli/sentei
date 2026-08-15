@@ -15,6 +15,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/theme.dart';
 import '../../app/theme_provider.dart';
+import '../../domain/services/hiking_time.dart';
 import '../../ui/app_bottom_sheet.dart';
 import '../../ui/app_list_section.dart';
 import '../../ui/ios_toast.dart';
@@ -23,6 +24,7 @@ import '../../ui/release_notes.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
+import 'hiking_pace_provider.dart';
 
 /// Contenitore icona uniforme per le righe di Impostazioni (`new
 /// design/DESIGN_GUIDELINES.md` §5): quadrato arrotondato 30×30, sfondo
@@ -95,6 +97,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const _HikingSection(),
           const _AppearanceSection(),
           const _CloudSection(),
           AppListSection(
@@ -127,6 +130,46 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Sezione **Escursionismo**: passo dell'escursionista, moltiplicatore sulla
+/// stima del tempo di percorrenza mostrata su ogni traccia (§ROADMAP P1.2).
+class _HikingSection extends ConsumerWidget {
+  const _HikingSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pace = ref.watch(hikingPaceProvider);
+    return AppListSection(
+      header: 'Escursionismo',
+      children: [
+        CupertinoListTile(
+          leading: const _SettingsIcon(CupertinoIcons.speedometer),
+          title: const Text('Passo'),
+          subtitle: const Text(
+              'Regola il tempo di percorrenza stimato. Non include le soste'),
+          additionalInfo: Text(pace.label),
+          trailing: const CupertinoListTileChevron(),
+          onTap: () => _showPaceSheet(context, ref, pace),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPaceSheet(
+      BuildContext context, WidgetRef ref, HikingPace current) {
+    final notifier = ref.read(hikingPaceProvider.notifier);
+    return showAppBottomSheet<void>(
+      context: context,
+      builder: (_) => _SelectionSheet<HikingPace>(
+        title: 'Passo',
+        values: HikingPace.values,
+        current: current,
+        labelOf: (p) => p.label,
+        onSelected: notifier.set,
       ),
     );
   }

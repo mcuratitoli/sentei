@@ -9,6 +9,18 @@ abstract final class Format {
   /// Quota/dislivello in metri arrotondati.
   static String meters(double m) => '${m.round()} m';
 
+  /// Durata: "Xh Ymin" oltre l'ora, altrimenti "Y min" (arrotondata al
+  /// minuto). Sotto il minuto: "meno di 1 min".
+  static String duration(Duration d) {
+    final totalMinutes = d.inMinutes;
+    if (totalMinutes < 1) return 'meno di 1 min';
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    if (hours == 0) return '$minutes min';
+    if (minutes == 0) return '${hours}h';
+    return '${hours}h ${minutes}min';
+  }
+
   /// Coordinate in gradi decimali con emisfero (N/S, E/O) — stesso formato
   /// ovunque siano mostrate (punto ispezionato in esplorazione, foto).
   static String coordinates(double latitude, double longitude) {

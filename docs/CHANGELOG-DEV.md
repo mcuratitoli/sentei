@@ -11,6 +11,50 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 15 agosto 2026 — Tempo di percorrenza stimato (metodo CAI)
+
+P1.2 della roadmap: una traccia mostrava distanza, D+/D- e difficoltà, ma non "quanto ci
+metto" — il dato che ogni cartello CAI riporta.
+
+- **Formula: CAI / "ora di marcia"**, combinata alla svizzera (SAC). Velocità di
+  riferimento **4 km/h in piano**, **300 m/h in salita**, **500 m/h in discesa** (estremo
+  prudente delle forbici 300-350/500-600 valutate in roadmap). Combinazione:
+  `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2`, dove `t_vert = t_salita + t_discesa`.
+  Scartate Naismith (sottostima sui sentieri alpini) e Tobler per-segmento (richiederebbe
+  una taratura sul tipo di terreno che non abbiamo).
+- **`lib/domain/services/hiking_time.dart`** — `HikingTimeCalculator.estimate()`, servizio
+  di dominio puro: input distanza + D+/D- (non i punti grezzi — il D+/D- passato è già
+  quello **con deadband** calcolato da `ElevationCalculator`, altrimenti il tempo si gonfia
+  come si gonfiava il dislivello prima del filtro). `HikingPace` (lento/medio/veloce) come
+  fattore moltiplicativo sulle tre velocità di riferimento; "medio" = fattore 1 = il
+  riferimento CAI. Coperto da test (`test/domain/hiking_time_test.dart`): piano/salita/
+  discesa isolati, combinato, caso con verticale dominante, passo lento/veloce, input a
+  zero.
+- **Applicato ovunque c'è un `TrackMetrics`** — non un calcolo separato per traccia in
+  disegno/salvata/importata: tutte e tre leggono `DrawnTrack.metrics` (già popolato da
+  `TrackMetricsCalculator`), quindi il tempo compare in `draw_route_controls.dart`
+  (`_SelectedBody`, riga con icona orologio sotto le metriche) e in
+  `tracks_list_screen.dart` (subtitle della riga tracciato) senza logica duplicata. I GPX
+  importati passano dallo stesso `route_editor_provider.dart` e quindi dallo stesso
+  `TrackMetrics` — nessun codice aggiuntivo necessario.
+- **Passo dell'escursionista** — `features/settings/hiking_pace_provider.dart`
+  (`HikingPaceController`), stesso pattern di `AppThemeModeController`
+  (`app/theme_provider.dart`): `Notifier` persistito in `shared_preferences`, restore
+  best-effort (silenzioso se non disponibile, es. nei test). Riga "Passo" in
+  Impostazioni → Escursionismo (`settings_screen.dart`, `_HikingSection`), stesso
+  bottom sheet di selezione già usato per tema/variante scura.
+- **Il tempo mostrato non include le soste** (convenzione CAI): dichiarato in UI ("Circa
+  Xh Ymin **di cammino**") invece di lasciarlo implicito.
+- **Decisione presa: `TrailSegment.caiScale` resta fuori dalla formula** per questa
+  iterazione — pesare EE/EEA come "più lenti" richiederebbe una taratura che oggi non
+  abbiamo dati per fare bene, e il passo lento/veloce copre già in parte lo stesso bisogno
+  lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei tester segnala
+  stime sistematicamente ottimiste sui tratti impegnativi.
+- `Format.duration(Duration)` aggiunto a `core/util/format.dart` ("Xh Ymin" / "Y min").
+- **Resta da fare** (spostato in P4 della roadmap): confrontare la stima con i tempi sui
+  cartelli CAI reali lungo un'escursione nota — i casi di test sono sintetici, non presi da
+  un percorso vero.
+
 ## 12 agosto 2026 — Foto: anteprime alla dimensione dello schermo, precarico, miniature più leggere
 
 **Causa-radice della lentezza** (P1.1 della roadmap): il visualizzatore a schermo intero

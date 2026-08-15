@@ -14,6 +14,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/util/format.dart';
 import '../../data/gpx/gpx_service.dart';
+import '../../domain/services/hiking_time.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../ui/app_buttons.dart';
 import '../../ui/app_list_section.dart';
@@ -23,7 +24,10 @@ import '../../ui/tokens.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
+import '../settings/hiking_pace_provider.dart';
 import 'tracks_sort_provider.dart';
+
+const _hikingTimeCalculator = HikingTimeCalculator();
 
 /// Libreria dei tracciati salvati (1.D) + export/import GPX (§6.4), con
 /// ordinamento (data/alfabetico) e ricerca sul titolo.
@@ -47,6 +51,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   Widget build(BuildContext context) {
     final all = ref.watch(tracksProvider).tracks;
     final sort = ref.watch(tracksSortProvider);
+    final pace = ref.watch(hikingPaceProvider);
 
     final q = _query.trim().toLowerCase();
     final filtered = q.isEmpty
@@ -115,7 +120,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
               children: [
                 AppListSection(
                   children: [
-                    for (final t in filtered) _trackTile(t),
+                    for (final t in filtered) _trackTile(t, pace),
                   ],
                 ),
               ],
@@ -123,10 +128,19 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     );
   }
 
-  Widget _trackTile(DrawnTrack t) {
+  Widget _trackTile(DrawnTrack t, HikingPace pace) {
     final distance = t.metrics?.distanceMeters ??
         const PathGeometry().totalDistance(t.routedPath);
     final gain = t.metrics?.elevation.gain;
+    final metrics = t.metrics;
+    final hikingTime = metrics == null
+        ? null
+        : _hikingTimeCalculator.estimate(
+            distanceMeters: metrics.distanceMeters,
+            gainMeters: metrics.elevation.gain,
+            lossMeters: metrics.elevation.loss,
+            pace: pace,
+          );
     return CupertinoListTile(
       // Pallino colore tracciato: cerchio pieno 12-13px (`new
       // design/DESIGN_GUIDELINES.md` §6), non più 16px.
@@ -139,6 +153,8 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       subtitle: Text([
         Format.distance(distance),
         if (gain != null) 'D+ ${Format.meters(gain)}',
+        if (hikingTime != null && hikingTime > Duration.zero)
+          Format.duration(hikingTime),
         if (t.trailRefs.isNotEmpty) t.trailRefs.join(", "),
       ].join(' · ')),
       trailing: AppIconButton(

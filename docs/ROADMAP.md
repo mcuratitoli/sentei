@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 12 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
+**Aggiornato:** 15 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
 modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
 rilasciato").
 
@@ -55,36 +55,38 @@ Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
   reali e memoria, e lo **zoom oltre 1,6×** (caricamento dell'originale) non è verificabile
   senza pinch.
 
-### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — *SP 5*
+### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — ✅ fatto (15 ago 2026)
 
 Manca del tutto: una traccia mostra distanza, D+/D- e difficoltà, ma non "quanto ci metto".
 È il dato che ogni cartello CAI riporta, quindi va calcolato **con lo stesso metodo dei
 cartelli**, non con una media inventata.
 
-- [ ] **Scegliere e documentare la formula.** Le tre famiglie in gioco:
-  - *CAI / "ora di marcia"* — velocità di riferimento ~**4 km/h in piano**, ~**300-350 m/h
-    in salita**, ~**500-600 m/h in discesa**; tempo orizzontale e verticale combinati alla
-    svizzera (SAC): `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2`. È quello che
-    produce numeri confrontabili con la segnaletica italiana → **candidato di default**.
-  - *Naismith + correzione Langmuir/Aitken* — 5 km/h più un'ora ogni 600 m di salita, con
-    sconto/penalità in discesa secondo la pendenza. Più anglosassone, tende a sottostimare
-    sui sentieri alpini.
-  - *Tobler* — velocità come funzione esponenziale della pendenza, calcolata **per
-    segmento**. È la più adatta ai nostri dati (il path è già densificato ogni ~15 m con
-    quota da Terrarium), ma va tarata perché non conosce il tipo di terreno.
-- [ ] **Implementare come servizio di dominio puro** — `lib/domain/services/hiking_time.dart`,
-  input = punti densificati + quote (gli stessi che alimentano `track_metrics.dart`),
-  nessuna dipendenza dalla UI, **coperto da test** con casi noti (§9 di `CLAUDE.md`).
-  Attenzione al D+ da usare: quello **con deadband** (già filtrato dal rumore DEM), non il
-  grezzo, altrimenti il tempo si gonfia come si gonfiava il dislivello.
-- [ ] **Applicarlo ovunque ci sia un percorso** — traccia in disegno (aggiornato mentre si
-  aggiungono punti), traccia salvata, GPX importato: è lo stesso dato calcolato dallo stesso
-  servizio.
-- [ ] **Esporre il passo dell'escursionista** — un'impostazione lento/medio/veloce come
-  semplice moltiplicatore, con "medio" = il riferimento CAI. Decidere se il tempo mostrato
-  **include le soste** (la convenzione CAI è: no) e dirlo esplicitamente in UI.
-- [ ] Valutare se la **difficoltà CAI per tratto** (`TrailSegment.caiScale`, già disponibile)
-  debba pesare sulla stima (EE/EEA più lenti) o restare fuori dalla formula.
+- [x] **Formula scelta: CAI / "ora di marcia"** — velocità di riferimento **4 km/h in
+  piano**, **300 m/h in salita**, **500 m/h in discesa** (estremo prudente delle forbici
+  indicate in analisi, coerente con la segnaletica italiana), combinate con la formula
+  svizzera (SAC): `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2`. Scartate Naismith
+  (sottostima sui sentieri alpini) e Tobler per-segmento (avrebbe richiesto una taratura sul
+  tipo di terreno che oggi non abbiamo).
+- [x] **Servizio di dominio puro** — `lib/domain/services/hiking_time.dart`
+  (`HikingTimeCalculator.estimate`), input = distanza + D+/D- **già calcolati** da
+  `TrackMetricsCalculator` (quindi D+ con deadband, non il grezzo), nessuna dipendenza dalla
+  UI. Coperto da test (`test/domain/hiking_time_test.dart`): piano/salita/discesa isolati,
+  combinato, verticale dominante, passo lento/veloce, input a zero.
+- [x] **Applicato ovunque c'è un percorso** — la stima legge `DrawnTrack.metrics`, quindi
+  vale per traccia in disegno/selezionata (`draw_route_controls.dart`), traccia salvata
+  nella lista (`tracks_list_screen.dart`) e GPX importato: nessun percorso diverso, stesso
+  `TrackMetrics` per tutti e tre.
+- [x] **Passo dell'escursionista** — impostazione Lento/Medio/Veloce persistita
+  (`features/settings/hiking_pace_provider.dart`, stesso pattern del tema), "Medio" = il
+  riferimento CAI (fattore ×1). Riga "Passo" in Impostazioni → Escursionismo. Il tempo
+  mostrato **non include le soste** (convenzione CAI), dichiarato in UI ("di cammino").
+- [x] **Difficoltà CAI per tratto tenuta fuori dalla formula** — decisione presa per questa
+  iterazione: `TrailSegment.caiScale` già esiste ma pesarlo (EE/EEA più lenti) richiede una
+  taratura che oggi non abbiamo dati per fare bene; il passo lento/veloce copre già in parte
+  lo stesso bisogno lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei
+  tester segnala stime sistematicamente ottimiste sui tratti EE/EEA.
+- [ ] **Da validare su device** (vedi P4): confrontare la stima con i tempi sui cartelli CAI
+  reali lungo un'escursione nota, non solo con i casi di test sintetici.
 
 ### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — *SP 13 (epica)*
 
@@ -114,8 +116,8 @@ geometria finisce dove finisce lo schermo. Va spezzata così:
 - [ ] **Da tenere separato** (non in questa epica, ma è l'estensione naturale): "usa questo
   segnavia come traccia" — import diretto del GPX della relazione nell'editor.
 
-*Totale indicativo: ~23 story point, di cui 5 già fatti (punto 1) — il punto 3 va rivisto
-una volta spezzato.*
+*Totale indicativo: ~23 story point, di cui 10 già fatti (punti 1 e 2) — il punto 3 va
+rivisto una volta spezzato.*
 
 ---
 
@@ -224,6 +226,9 @@ su un telefono fisico:
 - [ ] Download mappe + elevazione offline in modalità aereo.
 - [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
 - [ ] Difficoltà CAI su tracce reali.
+- [ ] **Tempo di percorrenza stimato** (P1.2, 15 ago 2026) — confrontare la stima
+  dell'app con i tempi riportati sui cartelli CAI lungo un'escursione nota (non solo con i
+  casi di test sintetici); verificare che il passo Lento/Medio/Veloce dia numeri sensati.
 - [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
   dell'ambiente di sviluppo, va provato su rete reale.
 

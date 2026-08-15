@@ -15,6 +15,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/util/format.dart';
 import '../../domain/models/photo_session.dart';
 import '../../domain/models/track_photo.dart';
+import '../../domain/services/hiking_time.dart';
 import '../../domain/services/photo_session_grouper.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/app_bottom_sheet.dart';
@@ -26,9 +27,12 @@ import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
+import '../settings/hiking_pace_provider.dart';
 import 'nearby_photos_action.dart';
 import 'photo_location_panel.dart';
 import 'route_editor_provider.dart';
+
+const _hikingTimeCalculator = HikingTimeCalculator();
 
 /// Pannello inferiore di controllo della traccia attiva.
 ///
@@ -208,6 +212,15 @@ class _SelectedBody extends ConsumerWidget {
     final cursor = ref.watch(profileCursorProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
+    final pace = ref.watch(hikingPaceProvider);
+    final hikingTime = hasMetrics
+        ? _hikingTimeCalculator.estimate(
+            distanceMeters: metrics.distanceMeters,
+            gainMeters: metrics.elevation.gain,
+            lossMeters: metrics.elevation.loss,
+            pace: pace,
+          )
+        : null;
 
     final expanded = ref.watch(trackCardExpandedProvider);
 
@@ -261,6 +274,22 @@ class _SelectedBody extends ConsumerWidget {
                 ],
               ],
             ),
+            if (hikingTime != null && hikingTime > Duration.zero)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(CupertinoIcons.clock,
+                        size: 14, color: context.palette.secondaryLabel),
+                    const SizedBox(width: 4),
+                    // "Circa": è una stima col metodo CAI (§ROADMAP P1.2),
+                    // non un cronometro — non include le soste.
+                    Text('Circa ${Format.duration(hikingTime)} di cammino',
+                        style: AppText.captionSmall),
+                  ],
+                ),
+              ),
             if (resolvingTrails)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
