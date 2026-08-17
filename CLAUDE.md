@@ -218,8 +218,10 @@ test/
 > servizio → UI, con test sulla logica geo (distanza/dislivello/GPX) — è il cuore dell'app e
 > deve restare deterministica e separata dalla UI.
 >
-> Stato dettagliato, priorità e story point dei prossimi passi: **`docs/ROADMAP.md`**.
-> Cronologia completa di cosa è già stato fatto: **`docs/CHANGELOG-DEV.md`**.
+> Stato dettagliato, priorità e story point dei prossimi passi: **`docs/ROADMAP.md`**
+> (l'ultimo capitolo, P8, rimanda a **`docs/validazione-device.md`**: fix/feature
+> implementati ma non ancora confermati su un telefono fisico). Cronologia completa di cosa
+> è già stato fatto: **`docs/CHANGELOG-DEV.md`**.
 
 ---
 
@@ -304,6 +306,14 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   che elenca solo versioni realmente uscite (ci pesca anche la card "Novità" al primo
   avvio). Al rilascio quella sezione prende il numero di build e si riporta in
   `kReleaseNotes` nella stessa sessione.
+- **Ad ogni bump di versione in `pubspec.yaml`** (nuova build rilasciata ai tester): rivedere
+  e allineare, **nella stessa sessione**, sia i file interni (`docs/CHANGELOG-DEV.md`,
+  `docs/ROADMAP.md` — header di stato + punti risolti da spuntare) sia quelli condivisi con
+  l'utente (`CHANGELOG.md`, `README.md`, `kReleaseNotes`/`kUpcomingHighlights`). Non fidarsi
+  dello stato "da fare" già scritto in `docs/ROADMAP.md`: incrociarlo con `CHANGELOG.md`
+  prima di lasciarlo com'è, perché un punto può essere stato risolto senza che la roadmap
+  fosse aggiornata di conseguenza. Checklist passo-passo:
+  **[`docs/release-checklist.md`](docs/release-checklist.md)**.
 
 ---
 
@@ -317,8 +327,10 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
   l'app non ha (privacy-first, zero backend) — decisione indipendente dalle analitiche
   d'uso (vedi `docs/eval-usage-analytics.md`: il login non è un prerequisito per quelle).
   Dettagli in `docs/ROADMAP.md`.
-- [ ] **Unità di misura / localizzazione:** oggi solo metrico e italiano — valutare se serve
-  i18n.
+- [ ] **Unità di misura:** oggi solo metrico — valutare se serve un'opzione imperiale.
+
+> Multilingua (aggiunta della versione inglese): decisione presa, in roadmap — vedi
+> `docs/ROADMAP.md` §P7.
 
 > Le questioni **operative** (cosa implementare, in che ordine, con che priorità) vivono in
 > `docs/ROADMAP.md`, non qui: questa sezione è solo per decisioni architetturali di fondo
@@ -340,14 +352,21 @@ flutter pub run flutter_native_splash:create # rigenera splash (sorgente: brandi
 ## 12. Stato del progetto
 
 Sentèi è in **beta privata** (TestFlight + APK Android, distribuita ad amici). Per lo stato
-aggiornato, non duplicarlo qui — è mantenuto in tre punti, ciascuno con uno scopo preciso:
+aggiornato, non duplicarlo qui — è mantenuto in questi punti, ciascuno con uno scopo preciso:
 
-- **`docs/ROADMAP.md`** — cosa resta da fare, in ordine di priorità, con peso di complessità.
+- **`docs/ROADMAP.md`** — cosa resta da fare, in ordine di priorità, con peso di complessità;
+  l'ultimo capitolo (P8) rimanda a `docs/validazione-device.md`.
+- **`docs/validazione-device.md`** — fix/feature già implementati (codice + test/simulatore)
+  ma non ancora confermati a schermo su un telefono fisico; elenco separato dal resto della
+  roadmap perché non sono "da fare" ma "da verificare dove il simulatore non basta", ma
+  comunque un capitolo della roadmap (P8) per non perderlo di vista.
 - **`docs/CHANGELOG-DEV.md`** — cronologia tecnica dettagliata di ciò che è stato implementato
   (con cause-radice dei bug, decisioni, file coinvolti).
 - **`CHANGELOG.md`** (radice del repo) — novità per versione in linguaggio semplice, la stessa
   lista mostrata in-app (Impostazioni → Informazioni → Sentèi, insieme a un'anteprima sintetica
   delle prossime priorità).
+- **`docs/release-checklist.md`** — checklist da eseguire ad ogni bump di versione per tenere
+  allineati tutti i punti sopra (richiamata anche in §9).
 
 Architettura e stack restano quelli descritti in questo documento (§2-§6); quando cambiano in
 modo duraturo, questo file va aggiornato — lo stato di avanzamento **contingente**, invece, no.

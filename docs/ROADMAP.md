@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 16 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
+**Aggiornato:** 17 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
 modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
 rilasciato").
 
@@ -50,10 +50,6 @@ Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
   di miniatura non serve.*
 - [x] **Peso dei metadati sincronizzati** — misurato su 8 foto collegate: JSON della traccia
   da **843,6 KB a 255,0 KB** (105,5 → 31,9 KB per foto), 3,3× in meno su ogni sync.
-- [ ] **Da validare su device** (vedi P4): la resa su una **libreria reale** con scatti
-  HEIC da 48 MP e una traccia con decine di foto — il simulatore non dice nulla su tempi
-  reali e memoria, e lo **zoom oltre 1,6×** (caricamento dell'originale) non è verificabile
-  senza pinch.
 
 ### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — ✅ fatto (15 ago 2026)
 
@@ -93,8 +89,6 @@ cartelli**, non con una media inventata.
   taratura che oggi non abbiamo dati per fare bene; il passo lento/veloce copre già in parte
   lo stesso bisogno lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei
   tester segnala stime sistematicamente ottimiste sui tratti EE/EEA.
-- [ ] **Da validare su device** (vedi P4): confrontare la stima con i tempi sui cartelli CAI
-  reali lungo un'escursione nota, non solo con i casi di test sintetici.
 
 ### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — *SP 13 (epica)*
 
@@ -195,61 +189,12 @@ rivisto una volta spezzato.*
 - [ ] **Separazione strade/sentieri su Mapbox** — nascondere i layer strada-sterrata dello
   stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
+- [ ] **[TASK] Studiare la grafica della mappa in ottica GaiaGPS** — valutare come
+  avvicinare stile/leggibilità della mappa (colori, spessori sentieri, etichette, terreno)
+  a quello di GaiaGPS, nei limiti dello stile Mapbox Outdoors in uso (§2 CLAUDE.md); capire
+  cosa è personalizzabile via stile Mapbox custom vs cosa richiederebbe layer aggiuntivi.
 
-## P4 — Validazione pendente su device
-
-Implementato in codice e coperto da test automatici, ma non ancora confermato a schermo
-su un telefono fisico:
-
-- [ ] **Foto più veloci ad aprirsi e scorrere** (P1.1, 12 ago 2026) — provato sul
-  simulatore con 14 foto generate ad hoc, di cui **6 da 48 MP** (8064×6048): la foto è a
-  schermo entro ~250 ms anche saltando da una miniatura all'altra. Restano da vedere su un
-  telefono vero: **HEIC** veri (decodifica diversa dal JPEG), foto ancora **solo in iCloud**
-  (è lì che l'indicatore di caricamento deve comparire, ed è il caso più lento), una traccia
-  con decine di foto (memoria scorrendo veloce la striscia) e lo **zoom oltre 1,6×**, non
-  provabile sul simulatore perché i click sintetici non fanno pinch.
-
-- [ ] **"Trova foto vicine" su una libreria reale e grande** — è il bug che ha originato
-  tutto il lavoro sulle foto (1.0.0+7): `photoLocations()` scandiva solo le 3000 foto più
-  recenti dell'intera libreria, quindi con più di 3000 scatti *dopo* l'escursione quelle
-  del percorso restavano fuori dalla finestra e non ne trovava mai nessuna. Ora scandisce
-  tutta la libreria a blocchi di 500. **Non verificabile sul simulatore** (serve una
-  libreria vera, con GPS negli EXIF): provare al rilascio sul dispositivo reale, con un
-  rullino da più di 3000 foto e una traccia vecchia.
-- [ ] Import GPX riallineato (flusso a 2 fasi: caricamento annullabile → editing →
-  Salva) — comportamento atteso descritto in `docs/CHANGELOG-DEV.md`. *(Selettore file su
-  iOS, focus mappa e nome della traccia corretti e provati sul simulatore in 1.0.0+8;
-  resta da validare il **riallineamento** vero su tracce reali — vedi anche la nota sui
-  fallimenti BRouter in P8.)*
-- [ ] Card **Novità** al primo avvio dopo un aggiornamento — provata sul simulatore
-  forzando la build precedente nelle preferenze; da vedere in un aggiornamento vero
-  (TestFlight/Play), dove il salto di versione arriva dallo store e non da un `flutter run`.
-- [ ] Dark mode, le 3 varianti (Standard/Notturno/Risparmio energetico) su schermate
-  reali — leggibilità testo/vetro/hairline; **Automatico** deve seguire il cambio di Dark
-  Mode di sistema mentre l'app è aperta.
-- [ ] Mappa scura automatica — coerenza col tema, leggibilità label sentieri CAI e
-  attribuzione "i" su un'area con sentieri/rilievo reali (non solo zona urbana).
-- [ ] Legende aggiornate (difficoltà T/E/EE/EEA + F/PD + Welzenbach, Abbreviazioni).
-- [ ] Download mappe + elevazione offline in modalità aereo.
-- [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
-- [ ] Difficoltà CAI su tracce reali.
-- [x] **Tempo di percorrenza stimato — validato su una traccia reale, due correzioni**
-  (P1.2, 15 ago 2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI
-  (D+ quasi identico) per Rassa → Alpe Toso (VC). **Prima correzione:** velocità di salita
-  300→400 m/h (era l'estremo prudente scelto inizialmente, più lento del valore standard
-  della formula svizzera) → 3h43 diventa 2h48 sul caso semplificato, ma sulla traccia reale
-  (D+810/D-107) restava 3h15 — ancora troppo. **Seconda correzione**, dopo aver verificato
-  due esempi numerici del modello ufficiale (Schweizer Wanderwege): il correttivo
-  `+ min(t_oriz,t_vert)/2` esagera quando le due componenti non sono bilanciate (il caso
-  più comune — salita diretta o cammino quasi pianeggiante); cambiato in `/4`. Risultato:
-  ~2h39 sulla traccia reale dell'utente, entro un margine ragionevole. Dettagli e numeri
-  completi in `docs/CHANGELOG-DEV.md`. Non ancora verificato: passo Lento/Medio/Veloce con
-  numeri reali, e la velocità di discesa (500 m/h, invariata) su un percorso a discesa
-  dominante.
-- [ ] Smoke test OSM2CAI on-device — `osm2cai.cai.it` è bloccato dalla network policy
-  dell'ambiente di sviluppo, va provato su rete reale.
-
-## P5 — Build & toolchain
+## P4 — Build & toolchain
 
 - [ ] **Dimensione dell'APK: `--split-per-abi`** → ~40-50 MB per architettura invece di un
   unico APK universale. Misure reali su 1.0.0+8 (29 lug 2026): **APK 124 MB**, contro
@@ -262,19 +207,19 @@ su un telefono fisico:
   - Priorità legata al canale di distribuzione: **irrilevante su Play Store** (lo store
     serve già solo l'ABI del dispositivo, e con `--release` si userebbe comunque un
     App Bundle), **rilevante subito** se si continua a passare l'APK a mano — vedi la
-    strategia in P7.
+    strategia in P6.
 - [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
   sessione dedicata dopo la beta, rischio regressioni mapbox/drift/riverpod.
 - [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — non ancora
   configurata.
 
-## P6 — Rimandati
+## P5 — Rimandati
 
 - [ ] Bundling font offline (ora scaricati a runtime via `google_fonts`... nota: su iOS si
   usa già il font di sistema, verificare se il bundling serve ancora su Android).
 - [ ] Registrazione traccia live (background location, Fase 2 del CLAUDE.md).
 
-## P7 — Distribuzione & accesso
+## P6 — Distribuzione & accesso
 
 **Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
 closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
@@ -301,7 +246,7 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   richiede. Vedi `docs/eval-usage-analytics.md` §6. Riaprire solo per un motivo diverso
   dalle analitiche (continuità multi-dispositivo, supporto utenti).
 
-## P8 — Backlog tecnico (bassa priorità)
+## P7 — Backlog tecnico (bassa priorità)
 
 - [ ] **Affidabilità del BRouter pubblico**: durante l'import di una traccia alpina reale
   (29 lug 2026) il server ha rifiutato molti segmenti con `HTTP 400: operation killed by
@@ -318,8 +263,20 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   gestione dei conflitti più fine se servisse.
 - [ ] Routing offline (BRouter embedded, Fase 2 del CLAUDE.md) — confermare la fattibilità
   reale in Flutter (dimensione dei segment file) prima di impegnarsi.
-- [ ] Unità di misura / localizzazione: oggi solo metrico e italiano — valutare se serve
-  i18n.
+- [ ] Unità di misura: oggi solo metrico — valutare se serve un'opzione imperiale.
+- [ ] **Multilingua (i18n)**: oggi l'app è solo in italiano — aggiungere il supporto per
+  l'inglese (`flutter_localizations` + `intl`, estrazione delle stringhe UI in ARB),
+  partendo dalle schermate principali (mappa, disegno traccia, lista tracciati,
+  impostazioni). Decisione aperta collegata in `CLAUDE.md` §10.
+
+## P8 — Validazione su device
+
+> Fix/feature **già implementati e coperti da test automatici o dal simulatore**, ma non
+> ancora confermati a schermo su un **telefono fisico** — capitolo a parte apposta (invece
+> di infilarli nei punti "da fare" sopra) per tenerne traccia man mano che ciascuno viene
+> confermato, senza dimenticarsene tra una sessione e l'altra. Elenco dettagliato, spuntato
+> voce per voce con data e note quando validato:
+> **[`docs/validazione-device.md`](./validazione-device.md)**.
 
 ---
 
@@ -327,6 +284,8 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 
 - **[`docs/CHANGELOG-DEV.md`](./CHANGELOG-DEV.md)** — changelog tecnico esteso: tutto ciò
   che è stato completato, con dettagli implementativi, bug e decisioni.
+- **[`docs/release-checklist.md`](./release-checklist.md)** — checklist da eseguire ad ogni
+  bump di versione per tenere allineati roadmap, changelog e file utente.
 - **[`CHANGELOG.md`](../CHANGELOG.md)** — changelog sintetico per chi usa l'app (anche
   in-app, Impostazioni → Informazioni → Sentèi).
 - **[`CLAUDE.md`](../CLAUDE.md)** — visione di prodotto, decisioni architetturali fisse,

@@ -89,9 +89,9 @@ metto" — il dato che ogni cartello CAI riporta.
   lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei tester segnala
   stime sistematicamente ottimiste sui tratti impegnativi.
 - `Format.duration(Duration)` aggiunto a `core/util/format.dart` ("Xh Ymin" / "Y min").
-- **Resta da fare** (spostato in P4 della roadmap): confrontare la stima con i tempi sui
-  cartelli CAI reali lungo un'escursione nota — i casi di test sono sintetici, non presi da
-  un percorso vero.
+- **Resta da fare** (spostato in `docs/validazione-device.md`): confrontare la stima con i
+  tempi sui cartelli CAI reali lungo un'escursione nota — i casi di test sono sintetici, non
+  presi da un percorso vero.
 
 **Secondo giro, stesso giorno** (l'utente segnala un caso non coperto: andata e ritorno, o
 salita a un rifugio con partenza/arrivo nello stesso punto — lì il totale non basta, serve
