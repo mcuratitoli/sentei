@@ -1127,8 +1127,7 @@ questa volta a schermata mostrata.
 5. **Riordino card**: nome → distanza (se ≥2 waypoint) → Impostazioni avanzate → (se
    selezionato) dettagli punto → azioni (Annulla/Undo/Salva).
 
-Aggiornati `docs/eval-waypoint-editing.md` (Step 4 superato) e i test
-(`route_editor_test.dart`, `draw_route_controls_test.dart`).
+Aggiornati i test (`route_editor_test.dart`, `draw_route_controls_test.dart`).
 
 ---
 
@@ -1317,7 +1316,7 @@ Waypoint più afferrabili (raggio 7→11); **undo a stack**; tap = seleziona + e
 conferma (niente più cancellazioni accidentali); **inserimento di un punto intermedio**
 con maniglie di metà-segmento (`insertPoint` + split); **ri-instradamento incrementale**
 (`segmentRouteProvider` family con cache per-chiave → sposta/inserisci ricalcola solo i
-segmenti adiacenti). Analisi/piano: `docs/eval-waypoint-editing.md`.
+segmenti adiacenti).
 
 > Limite noto in questa prima versione (maniglie al centro della corda, non del sentiero) →
 > ripensato e sostituito, vedi `ROADMAP.md` P1.
@@ -1530,8 +1529,11 @@ GPX (`gpx`, `file_selector`, `share_plus`).
 ### Migrazione a Mapbox GL (5 fasi, validata su iPhone)
 Da `flutter_map` a `mapbox_maps_flutter`: motore unico, stile Outdoors, terreno 3D
 (gesto nativo a due dita), numeri CAI come etichette lungo i sentieri, editing
-(tap/drag/seleziona) wired a `Tracks`. `flutter_map` rimosso. Piano:
-`docs/plan-mapbox-gl-migration.md`, `docs/eval-3d-map.md`.
+(tap/drag/seleziona) wired a `Tracks`. `flutter_map` rimosso. *(Decisa in due passi: prima
+un ibrido — 2D `flutter_map` + una vista 3D separata su `mapbox_maps_flutter` — poi
+superato dalla migrazione totale qui sopra, un solo motore per 2D e 3D; i documenti di
+analisi di quei due passi sono stati rimossi una volta completata la migrazione, il loro
+esito è tutto in questa voce.)*
 
 ### Offline (mappa + elevazione)
 Mappa: Mapbox OfflineManager + TileStore (`loadStylePack` + `loadTileRegion` sulla bbox
