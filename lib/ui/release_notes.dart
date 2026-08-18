@@ -317,6 +317,16 @@ const List<RoadmapGroup> kRoadmapGroups = [
     label: 'Prossime',
     items: [
       NoteItem(
+        icon: CupertinoIcons.delete,
+        title: 'Elimina una traccia dalla sua scheda',
+        body: 'Senza passare dalla lista dei tracciati.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.eye,
+        title: 'Traccia selezionata più in evidenza',
+        body: 'Le altre diventano più trasparenti.',
+      ),
+      NoteItem(
         // Diramazione: il segnavia seguito da un capo all'altro. Non
         // `signature`/`scribble`, che a 18px sono due scarabocchi
         // indistinguibili l'uno dall'altro.
@@ -330,16 +340,6 @@ const List<RoadmapGroup> kRoadmapGroups = [
   RoadmapGroup(
     label: 'Più avanti',
     items: [
-      NoteItem(
-        icon: CupertinoIcons.delete,
-        title: 'Elimina una traccia dalla sua scheda',
-        body: 'Senza passare dalla lista dei tracciati.',
-      ),
-      NoteItem(
-        icon: CupertinoIcons.eye,
-        title: 'Traccia selezionata più in evidenza',
-        body: 'Le altre diventano più trasparenti.',
-      ),
       NoteItem(
         icon: CupertinoIcons.square_grid_2x2,
         title: 'Foto in griglia, con selezione multipla',
@@ -401,7 +401,7 @@ class _ReleaseNotesSheetState extends State<_ReleaseNotesSheet> {
             Text(
               isChangelog
                   ? 'Le versioni più recenti.'
-                  : 'Le prossime priorità di sviluppo — l\'ordine può cambiare.',
+                  : 'Le prossime priorità di sviluppo.',
               style: AppText.body.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 16),
