@@ -17,6 +17,9 @@ rilasciato").
   (minuti), 3 qualche ora, 5 mezza giornata, 8 giornata piena su più file, 13 epica da
   spezzare in sotto-task prima di iniziare.
 - `[ ]` = da fare, `[~]` = iniziato/parziale.
+- **Dentro ogni sezione P, i punti sono ordinati per SP crescente** (i più rapidi prima),
+  eccetto dove un punto è citato per posizione altrove nel repo (es. `P1.1`/`P1.2` in
+  `docs/CHANGELOG-DEV.md`) — in quel caso resta fisso, segnalato nella sezione.
 
 ---
 
@@ -28,8 +31,13 @@ rilasciato").
 > **Il 18 agosto** si sono aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
 > evidenziazione della traccia selezionata) — rifiniture piccole ma dirette della UI mappa,
 > valeva la pena anticiparle invece di lasciarle in coda al feedback generico.
+>
+> *Numerazione 1-3 fissa* (citata per posizione altrove: `P1.1`/`P1.2` in
+> `docs/CHANGELOG-DEV.md`/`docs/validazione-device.md`, "P1, punto 3" in P3) — non riordinata
+> per SP come il resto del documento, per non rompere quei rimandi. I punti 4-5 sono liberi e
+> già in ordine SP crescente.
 
-### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — ✅ fatto (12 ago 2026)
+### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — *SP 8* — ✅ fatto (12 ago 2026)
 
 Causa-radice confermata: il visualizzatore caricava **l'originale a piena risoluzione**
 (~48 MB di bitmap per uno scatto da 12 MP) per riempire un riquadro che ne usa ~4 MB.
@@ -54,7 +62,7 @@ Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
 - [x] **Peso dei metadati sincronizzati** — misurato su 8 foto collegate: JSON della traccia
   da **843,6 KB a 255,0 KB** (105,5 → 31,9 KB per foto), 3,3× in meno su ogni sync.
 
-### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — ✅ fatto (15 ago 2026)
+### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — *SP 8* — ✅ fatto (15 ago 2026)
 
 Manca del tutto: una traccia mostra distanza, D+/D- e difficoltà, ma non "quanto ci metto".
 È il dato che ogni cartello CAI riporta, quindi va calcolato **con lo stesso metodo dei
@@ -144,13 +152,15 @@ tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
 > primo lavoro dopo P1. **Il 18 agosto** due punti sono stati promossi a P1 (tasto elimina,
 > evidenziazione traccia selezionata) e uno tolto perché già rilasciato in `1.0.0+8`
 > (focus mappa dopo l'import — 29 luglio 2026, vedi `docs/CHANGELOG-DEV.md`), risultava
-> ancora aperto qui per una svista.
+> ancora aperto qui per una svista. Ordine aggiornato per SP crescente.
 
-1. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
+1. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+    sotto, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
+2. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
    come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
    pannello).
-2. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+3. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 8* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`). **Fatto** (27 luglio 2026, vedi
     `docs/CHANGELOG-DEV.md`): card di dettaglio foto unificata (stessa sia dal pin mappa sia
@@ -168,58 +178,56 @@ tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
     - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
       in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
       altrove con `DefaultTextStyle(decoration:none)`).
-3. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
-    sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
 *Totale indicativo: ~11 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
-## P3 — Editing tracce & UX mappa (aperti)
+## P3 — Editing tracce & UX mappa (aperti, ordine per SP crescente)
 
-- [ ] **[FEATURE] Traccia mista: sentiero + tratti liberi** — *SP 5, priorità media*. Oggi
-  ogni segmento del disegno viene sempre instradato lungo i sentieri (BRouter, catena
-  `hiking-mountain` → `trekking`, §6.2 CLAUDE.md), con la retta solo come fallback quando il
-  servizio fallisce. Serve invece una scelta esplicita dell'utente: alcuni tratti seguono il
-  sentiero (comportamento attuale), altri restano **liberi** (disegnati a mano, senza
-  snap-to-trail) — per uscite che escono dai sentieri CAI per i motivi più diversi
-  (fuoripista, neve, cresta, varianti non segnate). Da definire in fase di analisi:
-  interazione per marcare un tratto come "libero" durante il disegno (toggle in barra? gesto
-  dedicato sul segmento/waypoint?); impatto atteso minimo su distanza/D+/D- (calcolati sul
-  path risultante, indipendentemente da come è stato tracciato — nessuna modifica al
-  dominio); nessun segnavia/difficoltà CAI atteso sui tratti liberi (comportamento già
-  naturale: la ricerca segnavia semplicemente non trova nulla lì).
-- [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
-  (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P2, punto 2**.
-- [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
-  su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
-  già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non
-  disponibile su web), sync cloud lato browser. Prima decisione da prendere: MVP
-  sola-visualizzazione vs editing completo.
-- [ ] **Linee sentieri visibili sul layer mappa** — costo quasi zero: la geometria dei
-  sentieri (`sentei-trails`) è già scaricata per posizionare le etichette, manca solo una
+- [ ] **Linee sentieri visibili sul layer mappa** — *SP 2*. Costo quasi zero: la geometria
+  dei sentieri (`sentei-trails`) è già scaricata per posizionare le etichette, manca solo una
   `LineLayer` che la disegni. *Naturale da fare insieme a **P1, punto 3**: serve comunque un
   layer selezionabile su cui fare `queryRenderedFeatures`.*
-- [ ] **Migrazione layer sentieri a OSM2CAI** — stessa idea sopra ma con `ref`/
-  `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
-  gestire con zoom minimo/fallback). *Anche questo confluisce in **P1, punto 3**, che
-  richiede id e tag della relazione.*
-- [ ] **Separazione strade/sentieri su Mapbox** — nascondere i layer strada-sterrata dello
-  stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
+- [ ] **Separazione strade/sentieri su Mapbox** — *SP 3*. Nascondere i layer strada-sterrata
+  dello stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
-- [ ] **[TASK] Studiare la grafica della mappa in ottica GaiaGPS** — valutare come
+- [ ] **[TASK] Studiare la grafica della mappa in ottica GaiaGPS** — *SP 3*. Valutare come
   avvicinare stile/leggibilità della mappa (colori, spessori sentieri, etichette, terreno)
   a quello di GaiaGPS, nei limiti dello stile Mapbox Outdoors in uso (§2 CLAUDE.md); capire
   cosa è personalizzabile via stile Mapbox custom vs cosa richiederebbe layer aggiuntivi.
+- [ ] **[FEATURE] Traccia mista: sentiero + tratti liberi** — *SP 5*. Oggi ogni segmento del
+  disegno viene sempre instradato lungo i sentieri (BRouter, catena `hiking-mountain` →
+  `trekking`, §6.2 CLAUDE.md), con la retta solo come fallback quando il servizio fallisce.
+  Serve invece una scelta esplicita dell'utente: alcuni tratti seguono il sentiero
+  (comportamento attuale), altri restano **liberi** (disegnati a mano, senza snap-to-trail) —
+  per uscite che escono dai sentieri CAI per i motivi più diversi (fuoripista, neve, cresta,
+  varianti non segnate). Da definire in fase di analisi: interazione per marcare un tratto
+  come "libero" durante il disegno (toggle in barra? gesto dedicato sul segmento/waypoint?);
+  impatto atteso minimo su distanza/D+/D- (calcolati sul path risultante, indipendentemente
+  da come è stato tracciato — nessuna modifica al dominio); nessun segnavia/difficoltà CAI
+  atteso sui tratti liberi (comportamento già naturale: la ricerca segnavia semplicemente non
+  trova nulla lì).
+- [ ] **Migrazione layer sentieri a OSM2CAI** — *SP 5*. Stessa idea sopra ma con `ref`/
+  `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
+  gestire con zoom minimo/fallback). *Anche questo confluisce in **P1, punto 3**, che
+  richiede id e tag della relazione.*
+- [~] **Sync foto lungo il percorso** — *SP 8, vedi P2 punto 3*. Analisi e decisione
+  architetturale fatte (`docs/eval-photo-sync.md`), implementazione UI in corso su branch
+  dedicato: vedi i requisiti dettagliati in **P2, punto 3**.
+- [ ] **Versione Web** (browser desktop) — *SP 13 (epica)*. PoC necessario:
+  `mapbox_maps_flutter` non gira su Flutter Web (richiede Mapbox GL JS o
+  `flutter_map`/MapLibre dietro l'astrazione mappa già engine-agnostica); da verificare
+  anche `drift` (WASM), `path_provider` (non disponibile su web), sync cloud lato browser.
+  Prima decisione da prendere: MVP sola-visualizzazione vs editing completo.
 
-## P4 — Build & toolchain
+## P4 — Build & toolchain (ordine per SP crescente)
 
-- [ ] **Dimensione dell'APK: `--split-per-abi`** → ~40-50 MB per architettura invece di un
-  unico APK universale. Misure reali su 1.0.0+8 (29 lug 2026): **APK 124 MB**, contro
-  **42 MB dell'IPA** della stessa versione — il grosso è il codice nativo compilato per
-  tutte le ABI insieme (arm64-v8a, armeabi-v7a, x86_64), che l'IPA non porta. In crescita:
-  erano ~122 MB alla misura precedente.
+- [ ] **Dimensione dell'APK: `--split-per-abi`** — *SP 1*. ~40-50 MB per architettura
+  invece di un unico APK universale. Misure reali su 1.0.0+8 (29 lug 2026): **APK 124 MB**,
+  contro **42 MB dell'IPA** della stessa versione — il grosso è il codice nativo compilato
+  per tutte le ABI insieme (arm64-v8a, armeabi-v7a, x86_64), che l'IPA non porta. In
+  crescita: erano ~122 MB alla misura precedente.
   - È solo un flag di build, nessuna modifica al codice:
     `flutter build apk --release --split-per-abi` produce un file per architettura
     (agli amici si dà quello **arm64-v8a**, che copre tutti i telefoni recenti).
@@ -227,28 +235,29 @@ tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
     serve già solo l'ABI del dispositivo, e con `--release` si userebbe comunque un
     App Bundle), **rilevante subito** se si continua a passare l'APK a mano — vedi la
     strategia in P6.
-- [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
-  sessione dedicata dopo la beta, rischio regressioni mapbox/drift/riverpod.
-- [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — non ancora
+- [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — *SP 3*. Non ancora
   configurata.
+- [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —
+  *SP 8*. Sessione dedicata dopo la beta, rischio regressioni mapbox/drift/riverpod.
 
-## P5 — Rimandati
+## P5 — Rimandati (ordine per SP crescente)
 
-- [ ] Bundling font offline (ora scaricati a runtime via `google_fonts`... nota: su iOS si
-  usa già il font di sistema, verificare se il bundling serve ancora su Android).
-- [ ] Registrazione traccia live (background location, Fase 2 del CLAUDE.md).
+- [ ] **Bundling font offline** — *SP 2*. Ora scaricati a runtime via `google_fonts`... nota:
+  su iOS si usa già il font di sistema, verificare se il bundling serve ancora su Android.
+- [ ] **Registrazione traccia live** — *SP 13 (epica)*. Background location, Fase 2 del
+  CLAUDE.md.
 
-## P6 — Distribuzione & accesso
+## P6 — Distribuzione & accesso (ordine per SP crescente)
 
 **Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
 closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
 Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
 
-- [ ] iOS: submit review della build corrente + richiesta Unlisted.
+- [ ] iOS: submit review della build corrente + richiesta Unlisted. — *SP 2*
+- [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`). — *SP 2*
 - [ ] Android: creare Play Console, generare upload keystore, build `.aab` (non più APK),
-  track closed testing + Google Group come lista tester.
-- [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`).
-- [ ] **Analitiche d'uso** — analisi completa fatta e aggiornata (24 luglio 2026,
+  track closed testing + Google Group come lista tester. — *SP 5*
+- [ ] **Analitiche d'uso** — *SP 13 (epica)*. Analisi completa fatta e aggiornata (24 luglio 2026,
   `docs/eval-usage-analytics.md`): privacy policy non è un vincolo (2 tester consapevoli),
   login **escluso** (decisione presa dall'utente). Mapbox Dashboard + **alert di soglia**
   Mapbox (zero costo, avvisa prima di sforare il tier gratuito) + App Store Connect
@@ -260,33 +269,35 @@ Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
   **Umami o endpoint fatto in casa** (adozione feature) + **Grafana** sopra entrambi per
   la dashboard unica. Decisione da prendere: Umami vs fatto-in-casa per il Layer 2/3, e
   specifiche della VM per dimensionare lo stack.
-- [x] **Login autenticato (Google/Apple):** escluso — l'utente ha deciso di restarne fuori
+- [x] **Login autenticato (Google/Apple)** — *decisione, non SP-ordinabile*: escluso — l'utente ha deciso di restarne fuori
   per non "slegarsi da problematiche" non necessarie; nessuna delle analitiche sopra lo
   richiede. Vedi `docs/eval-usage-analytics.md` §6. Riaprire solo per un motivo diverso
   dalle analitiche (continuità multi-dispositivo, supporto utenti).
 
-## P7 — Backlog tecnico (bassa priorità)
+## P7 — Backlog tecnico (bassa priorità, ordine per SP crescente)
 
-- [ ] **Affidabilità del BRouter pubblico**: durante l'import di una traccia alpina reale
-  (29 lug 2026) il server ha rifiutato molti segmenti con `HTTP 400: operation killed by
-  thread-priority-watchdog`, su **entrambi** i profili della catena (`hiking-mountain` e
+- [ ] **Densificazione del path** — *SP 3*. Passo fisso 15 m di default — valutare passo
+  adattivo alla pendenza.
+- [ ] **Precisione D+/D-** — *SP 3*. Campionamento DEM Terrarium a z13 di default —
+  verificare contro z14/15 sulle Alpi.
+- [ ] **Unità di misura** — *SP 3*. Oggi solo metrico — valutare se serve un'opzione
+  imperiale.
+- [ ] **Affidabilità del BRouter pubblico** — *SP 5*. Durante l'import di una traccia alpina
+  reale (29 lug 2026) il server ha rifiutato molti segmenti con `HTTP 400: operation killed
+  by thread-priority-watchdog`, su **entrambi** i profili della catena (`hiking-mountain` e
   `trekking`), degradando parecchi tratti a linea retta. Il fallback funziona come
   progettato, ma la resa sulla singola traccia ne risente: se il fenomeno si ripete,
   riconsiderare le alternative con API key già valutate (GraphHopper/Valhalla/ORS, vedi
   `CLAUDE.md` §6.2) o un retry più paziente.
-- [ ] Densificazione del path: passo fisso 15 m di default — valutare passo adattivo alla
-  pendenza.
-- [ ] Precisione D+/D-: campionamento DEM Terrarium a z13 di default — verificare contro
-  z14/15 sulle Alpi.
-- [ ] Modello di sync cloud: oggi solo file + last-write-wins — valutare un indice o una
-  gestione dei conflitti più fine se servisse.
-- [ ] Routing offline (BRouter embedded, Fase 2 del CLAUDE.md) — confermare la fattibilità
-  reale in Flutter (dimensione dei segment file) prima di impegnarsi.
-- [ ] Unità di misura: oggi solo metrico — valutare se serve un'opzione imperiale.
-- [ ] **Multilingua (i18n)**: oggi l'app è solo in italiano — aggiungere il supporto per
-  l'inglese (`flutter_localizations` + `intl`, estrazione delle stringhe UI in ARB),
-  partendo dalle schermate principali (mappa, disegno traccia, lista tracciati,
+- [ ] **Modello di sync cloud** — *SP 8*. Oggi solo file + last-write-wins — valutare un
+  indice o una gestione dei conflitti più fine se servisse.
+- [ ] **Multilingua (i18n)** — *SP 8*. Oggi l'app è solo in italiano — aggiungere il
+  supporto per l'inglese (`flutter_localizations` + `intl`, estrazione delle stringhe UI in
+  ARB), partendo dalle schermate principali (mappa, disegno traccia, lista tracciati,
   impostazioni). Decisione aperta collegata in `CLAUDE.md` §10.
+- [ ] **Routing offline** (BRouter embedded, Fase 2 del CLAUDE.md) — *SP 13 (epica)*.
+  Confermare la fattibilità reale in Flutter (dimensione dei segment file) prima di
+  impegnarsi.
 
 ## P8 — Validazione su device
 
