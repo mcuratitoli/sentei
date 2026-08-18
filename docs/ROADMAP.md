@@ -20,11 +20,14 @@ rilasciato").
 
 ---
 
-## P1 — Priorità massima (12 agosto 2026)
+## P1 — Priorità massima (12 agosto 2026, integrata 18 agosto 2026)
 
-> Tre temi decisi come **prime cose da fare**, prima di riprendere il feedback di test in P2:
-> la fluidità delle foto, la stima del tempo di percorrenza e la comprensione dei segnavia
-> sulla mappa. I primi due sono lavori chiusi e stimabili, il terzo è un'epica da spezzare.
+> I primi tre temi decisi il 12 agosto come **prime cose da fare**: la fluidità delle foto, la
+> stima del tempo di percorrenza e la comprensione dei segnavia sulla mappa. I primi due sono
+> lavori chiusi e stimabili (validazione su device in P8), il terzo è un'epica da spezzare.
+> **Il 18 agosto** si sono aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
+> evidenziazione della traccia selezionata) — rifiniture piccole ma dirette della UI mappa,
+> valeva la pena anticiparle invece di lasciarle in coda al feedback generico.
 
 ### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — ✅ fatto (12 ago 2026)
 
@@ -121,29 +124,33 @@ geometria finisce dove finisce lo schermo. Va spezzata così:
 *Totale indicativo: ~23 story point, di cui 10 già fatti (punti 1 e 2) — il punto 3 va
 rivisto una volta spezzato.*
 
+### 4. [FEATURE] Tasto elimina nella card traccia selezionata — *SP 2*
+
+Oggi l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
+un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card che
+appare selezionando una traccia sulla mappa. *(Promosso da P2, 18 agosto 2026.)*
+
+### 5. [FEATURE] Evidenziazione della traccia selezionata — *SP 3*
+
+Quando una traccia è selezionata la sua linea deve risaltare (più spessa/satura), mentre le
+altre tracce visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più
+tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
+
 ---
 
-## P2 — Feedback test su device (24 luglio 2026)
+## P2 — Feedback test su device (24 luglio 2026, ridotta 18 agosto 2026)
 
 > Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Restano il
-> primo lavoro dopo P1.
+> primo lavoro dopo P1. **Il 18 agosto** due punti sono stati promossi a P1 (tasto elimina,
+> evidenziazione traccia selezionata) e uno tolto perché già rilasciato in `1.0.0+8`
+> (focus mappa dopo l'import — 29 luglio 2026, vedi `docs/CHANGELOG-DEV.md`), risultava
+> ancora aperto qui per una svista.
 
 1. [ ] **[FIX] Interazione poco intuitiva per annullare la ricerca luogo** — *SP 2*. Nel
    pannello di ricerca l'unico modo per uscire è il chevron verso sinistra, poco leggibile
    come "annulla ricerca". Valutare una X esplicita o un gesto più standard (tap fuori dal
    pannello).
-2. [ ] **[FEATURE] Focus mappa sull'area importata** — *SP 2*. Dopo l'import di un GPX la
-   mappa deve inquadrare automaticamente (camera fit-bounds) l'area del tracciato
-   importato, invece di restare sull'inquadratura precedente.
-3. [ ] **[FEATURE] Tasto elimina nella card traccia selezionata** — *SP 2*. Oggi
-   l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
-   un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card
-   che appare selezionando una traccia sulla mappa.
-4. [ ] **[FEATURE] Evidenziazione della traccia selezionata** — *SP 3*. Quando una traccia
-   è selezionata la sua linea deve risaltare (più spessa/satura), mentre le altre tracce
-   visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più tracce
-   sovrapposte.
-5. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
+2. [ ] **[FEATURE] Epica "Foto lungo il percorso" — completare l'esperienza immagini** —
     *SP 8* (da spezzare in sotto-task in fase di implementazione; l'analisi architetturale
     è già fatta in `docs/eval-photo-sync.md`). **Fatto** (27 luglio 2026, vedi
     `docs/CHANGELOG-DEV.md`): card di dettaglio foto unificata (stessa sia dal pin mappa sia
@@ -161,10 +168,10 @@ rivisto una volta spezzato.*
     - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
       in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
       altrove con `DefaultTextStyle(decoration:none)`).
-6. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
+3. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sopra, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
 
-*Totale indicativo: ~20 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~11 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 
@@ -184,7 +191,7 @@ rivisto una volta spezzato.*
   naturale: la ricerca segnavia semplicemente non trova nulla lì).
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
-  requisiti dettagliati in **P2, punto 5**.
+  requisiti dettagliati in **P2, punto 2**.
 - [ ] **Versione Web** (browser desktop) — PoC necessario: `mapbox_maps_flutter` non gira
   su Flutter Web (richiede Mapbox GL JS o `flutter_map`/MapLibre dietro l'astrazione mappa
   già engine-agnostica); da verificare anche `drift` (WASM), `path_provider` (non
