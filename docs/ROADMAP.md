@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 17 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
+**Aggiornato:** 18 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
 modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
 rilasciato").
 
@@ -170,6 +170,18 @@ rivisto una volta spezzato.*
 
 ## P3 — Editing tracce & UX mappa (aperti)
 
+- [ ] **[FEATURE] Traccia mista: sentiero + tratti liberi** — *SP 5, priorità media*. Oggi
+  ogni segmento del disegno viene sempre instradato lungo i sentieri (BRouter, catena
+  `hiking-mountain` → `trekking`, §6.2 CLAUDE.md), con la retta solo come fallback quando il
+  servizio fallisce. Serve invece una scelta esplicita dell'utente: alcuni tratti seguono il
+  sentiero (comportamento attuale), altri restano **liberi** (disegnati a mano, senza
+  snap-to-trail) — per uscite che escono dai sentieri CAI per i motivi più diversi
+  (fuoripista, neve, cresta, varianti non segnate). Da definire in fase di analisi:
+  interazione per marcare un tratto come "libero" durante il disegno (toggle in barra? gesto
+  dedicato sul segmento/waypoint?); impatto atteso minimo su distanza/D+/D- (calcolati sul
+  path risultante, indipendentemente da come è stato tracciato — nessuna modifica al
+  dominio); nessun segnavia/difficoltà CAI atteso sui tratti liberi (comportamento già
+  naturale: la ricerca segnavia semplicemente non trova nulla lì).
 - [~] **Sync foto lungo il percorso** — analisi e decisione architetturale fatte
   (`docs/eval-photo-sync.md`), implementazione UI in corso su branch dedicato: vedi i
   requisiti dettagliati in **P2, punto 5**.
