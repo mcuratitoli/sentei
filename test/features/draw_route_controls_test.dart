@@ -527,6 +527,32 @@ void main() {
   });
 
   testWidgets(
+      'tasto Elimina nella card traccia selezionata: conferma e rimuove la '
+      'traccia (deseleziona da sé, la card sparisce)', (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await notifier.finishDrawing();
+    await tester.pumpAndSettle();
+
+    expect(container.read(tracksProvider).tracks, hasLength(1));
+
+    await tester.tap(find.byTooltip('Elimina'));
+    await tester.pumpAndSettle();
+    expect(find.text('Eliminare la traccia?'), findsOneWidget);
+
+    await tester.tap(find.text('Elimina'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(tracksProvider).tracks, isEmpty);
+    expect(container.read(tracksProvider).selectedId, isNull);
+  });
+
+  testWidgets(
       'coerenza grafica: PhotoDetailCard usa una superficie opaca come la '
       'card traccia (non più il "vetro" semitrasparente)', (tester) async {
     final container = ProviderContainer(overrides: [

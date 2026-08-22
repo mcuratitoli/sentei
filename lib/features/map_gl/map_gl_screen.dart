@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data' show Uint8List;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart'
@@ -61,6 +62,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // percorso live in modifica.
   PolylineAnnotationManager? _savedLines;
   CircleAnnotationManager? _savedEnds;
+  // Bandiera a scacchi (arrivo): icona raster registrata nello stile, uno
+  // solo per traccia selezionata (vedi _buildFinishFlagImageData).
+  PointAnnotationManager? _finishFlags;
   CircleAnnotationManager? _waypointDots;
   CircleAnnotationManager? _cursorDot;
   CircleAnnotationManager? _inspectedDot;
@@ -354,6 +358,20 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       lineCap: LineCap.ROUND,
     ));
     _savedEnds = await map.annotations.createCircleAnnotationManager();
+    await map.style.addStyleImage(
+      _finishFlagImageId,
+      _finishFlagImageScale,
+      MbxImage(
+        width: _finishFlagImageSize,
+        height: _finishFlagImageSize,
+        data: await _buildFinishFlagImageData(),
+      ),
+      false,
+      const [],
+      const [],
+      null,
+    );
+    _finishFlags = await map.annotations.createPointAnnotationManager();
     _liveLine = await map.annotations.createPolylineAnnotationManager();
     _waypointDots = await map.annotations.createCircleAnnotationManager();
     _waypointDots!.dragEvents(onEnd: _onWaypointDragEnd);
@@ -526,6 +544,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       final importing = ref.read(importLoadingProvider) != null;
       await _savedLines!.deleteAll();
       await _savedEnds!.deleteAll();
+      await _finishFlags!.deleteAll();
       await _liveLine!.deleteAll();
       await _importRawLine!.deleteAll();
       await _waypointDots!.deleteAll();
@@ -555,16 +574,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           // nascondi TUTTE le altre: mappa pulita, editing più facile.
           if (state.editingId != null || importing) continue;
           if (path.length < 2) continue;
-          // La traccia selezionata è più spessa e con bordo più marcato.
+          // La traccia selezionata è più spessa e con bordo più marcato; le
+          // altre, quando c'è una selezione, si attenuano per leggibilità
+          // nelle aree con più tracce sovrapposte.
           final isSelected = t.id == state.selectedId;
+          final dimmed = state.selectedId != null && !isSelected;
           await _savedLines!.create(PolylineAnnotationOptions(
             geometry: _lineOf(path),
             lineColor: t.color.toARGB32(),
             lineWidth: isSelected ? 7 : 4.5,
+            lineOpacity: dimmed ? 0.35 : 1,
             lineBorderColor: 0xFFFFFFFF,
             lineBorderWidth: isSelected ? 2.5 : 1.5,
           ));
-          await _drawEndpoints(t.waypoints);
+          // Pallini inizio/fine solo sulla traccia selezionata: con più
+          // tracce vicine, mostrarli tutti confondeva più che aiutare.
+          if (isSelected) await _drawEndpoints(t.waypoints);
         } else {
           // Traccia in modifica: percorso live + waypoint trascinabili.
           if (path.length >= 2) {
@@ -604,15 +629,58 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       circleStrokeWidth: 2,
     ));
     if (wps.length > 1) {
-      await _savedEnds!.create(CircleAnnotationOptions(
+      await _finishFlags!.create(PointAnnotationOptions(
         geometry:
             Point(coordinates: Position(wps.last.longitude, wps.last.latitude)),
-        circleRadius: 6,
-        circleColor: 0xFFC62828,
-        circleStrokeColor: 0xFFFFFFFF,
-        circleStrokeWidth: 2,
+        iconImage: _finishFlagImageId,
       ));
     }
+  }
+
+  static const String _finishFlagImageId = 'finish-flag-icon';
+  // Dimensione fisica (px) e scala: risultano ~18pt logici, in linea con il
+  // pallino verde di partenza (raggio 6 + bordo 2 → diametro ~16pt).
+  static const int _finishFlagImageSize = 54;
+  static const double _finishFlagImageScale = 3.0;
+
+  /// Bandiera a scacchi bianco/nero su bordo bianco, stesso stile "a pallino
+  /// con alone" del punto di partenza. Generata via Canvas (nessun asset) e
+  /// codificata PNG: `MbxImage.data` si aspetta i byte di un'immagine
+  /// codificata (come da esempio ufficiale del plugin), non pixel RGBA grezzi
+  /// — passare RGBA grezzo fallisce con PlatformException a runtime.
+  Future<Uint8List> _buildFinishFlagImageData() async {
+    final size = _finishFlagImageSize.toDouble();
+    final center = Offset(size / 2, size / 2);
+    final outerRadius = size / 2 - 1;
+    const strokeWidth = 6.0;
+    final innerRadius = outerRadius - strokeWidth;
+    final checker = size / 4;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+    canvas.drawCircle(
+        center, outerRadius, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.save();
+    canvas.clipPath(Path()
+      ..addOval(Rect.fromCircle(center: center, radius: innerRadius)));
+    for (var cy = 0; cy < 4; cy++) {
+      for (var cx = 0; cx < 4; cx++) {
+        final black = (cx + cy).isEven;
+        canvas.drawRect(
+          Rect.fromLTWH(cx * checker, cy * checker, checker, checker),
+          Paint()
+            ..color =
+                black ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+        );
+      }
+    }
+    canvas.restore();
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(
+        _finishFlagImageSize, _finishFlagImageSize);
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
   }
 
   /// Maniglie draggabili al centro di ogni segmento (tra waypoint consecutivi).

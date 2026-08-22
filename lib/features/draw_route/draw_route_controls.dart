@@ -353,6 +353,15 @@ class _SelectedBody extends ConsumerWidget {
                     : () => downloadTrackOffline(context, ref, track),
                 icon: CupertinoIcons.cloud_download,
               ),
+              const SizedBox(width: 6),
+              AppIconButton(
+                tooltip: 'Elimina',
+                tint: AppColors.destructive,
+                onPressed: saving || track == null
+                    ? null
+                    : () => _confirmDeleteTrack(context, ref, track),
+                icon: CupertinoIcons.delete,
+              ),
             ],
           ),
           if (showingChart) ...[
@@ -412,6 +421,22 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     confirmLabel: 'Annulla modifiche',
     cancelLabel: 'Continua a modificare',
     onConfirm: () => ref.read(tracksProvider.notifier).cancelEditing(),
+  );
+}
+
+/// Conferma ed elimina la traccia [track] dalla card di selezione sulla
+/// mappa (stessa conferma della lista tracciati, `tracks_list_screen.dart`).
+/// `Tracks.remove` deseleziona da sé se l'id rimosso è quello attivo, quindi
+/// la card si chiude senza altro intervento.
+Future<void> _confirmDeleteTrack(
+    BuildContext context, WidgetRef ref, DrawnTrack track) async {
+  final name = track.name.isNotEmpty ? track.name : 'Senza nome';
+  await showIosConfirm(
+    context: context,
+    title: 'Eliminare la traccia?',
+    message: '«$name» verrà eliminata definitivamente.',
+    confirmLabel: 'Elimina',
+    onConfirm: () => ref.read(tracksProvider.notifier).remove(track.id),
   );
 }
 
