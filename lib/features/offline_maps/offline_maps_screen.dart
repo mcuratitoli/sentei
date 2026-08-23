@@ -30,6 +30,26 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
   bool _downloading = false;
   double _progress = 0;
   String _phase = '';
+  int? _terrariumBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTerrariumSize();
+  }
+
+  Future<void> _loadTerrariumSize() async {
+    final bytes = await ref.read(terrariumCacheProvider).sizeBytes();
+    if (mounted) setState(() => _terrariumBytes = bytes);
+  }
+
+  Future<void> _clearTerrarium() async {
+    await ref.read(terrariumCacheProvider).clear();
+    if (mounted) {
+      showIosToast(context, 'Cache elevazione svuotata');
+      await _loadTerrariumSize();
+    }
+  }
 
   Future<void> _download(MapAreaBounds b) async {
     final service = ref.read(offlineMapsServiceProvider);
@@ -206,6 +226,32 @@ class _OfflineMapsScreenState extends ConsumerState<OfflineMapsScreen> {
                         ),
                     ],
                   ),
+          ),
+          AppListSection(
+            header: 'Cache elevazione',
+            children: [
+              CupertinoListTile(
+                leading: Icon(CupertinoIcons.chart_bar_alt_fill,
+                    color: context.palette.accent),
+                title: const Text('Tile Terrarium salvate'),
+                subtitle: Text(
+                  _terrariumBytes == null
+                      ? 'Calcolo…'
+                      : '${_fmtSize(_terrariumBytes!)} · usate per il '
+                          'dislivello di ogni traccia, non solo le aree '
+                          'scaricate',
+                ),
+                trailing: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(36, 36),
+                  onPressed: (_terrariumBytes ?? 0) == 0
+                      ? null
+                      : _clearTerrarium,
+                  child: const Icon(CupertinoIcons.delete,
+                      size: 22, color: AppColors.destructive),
+                ),
+              ),
+            ],
           ),
         ],
       ),

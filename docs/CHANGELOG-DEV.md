@@ -120,6 +120,53 @@ fuori/swipe (`isDismissible: false, enableDrag: false` — nuovo parametro `enab
 
 ---
 
+## 23 agosto 2026 — Cache elevazione senza limiti: causa del "l'app pesa centinaia di mega"
+
+Segnalato dall'utente su **iPhone fisico**, prima di questo rilascio: "Sentèi pesa
+veramente molto (centinaia di mega)". Indagine (analisi, non riproducibile sul
+simulatore — serve una libreria d'uso reale accumulata nel tempo) prima di procedere.
+
+**Causa individuata**, `data/offline/terrarium_tile_cache.dart`: la cache delle tile
+Terrarium (terrain-RGB, usate per il calcolo del dislivello) scrive un PNG per tile senza
+alcun tetto, eviction o pulsante per svuotarla — e non è legata solo alle aree scaricate
+offline: `terrariumCacheProvider` (`route_editor_provider.dart`) è condiviso da **ogni**
+calcolo di dislivello, quindi ogni traccia mai disegnata/vista/importata lascia lì delle
+tile per sempre. Viveva inoltre in `getApplicationDocumentsDirectory()` — sbagliata per
+dati rigenerabili: `Documents` è incluso nel backup iCloud e non viene mai ripulito
+dal sistema per pressione di spazio.
+
+Verificato anche il secondo sospetto, la cache tile di Mapbox (`TileStore`, condivisa fra
+aree scaricate e navigazione online): il codice sorgente del plugin conferma che **è già
+esclusa dal backup iCloud** by design, ma `mapbox_maps_flutter` 2.25 non espone alcun
+metodo Dart per limitarne la dimensione (nessun `setDiskQuota` nei binding) — capirla a
+fondo richiederebbe codice nativo (Swift/Kotlin), rimandato: il Terrarium cache era la
+causa a più alta confidenza (visibile e correggibile lato Dart) e il rischio di toccare
+codice nativo prima di un rilascio non valeva la pena per un sospetto non confermato.
+
+**Fix**, tutto in `terrarium_tile_cache.dart`:
+- Spostata in `getApplicationCacheDirectory()` (`Library/Caches` su iOS) — escluso dal
+  backup, purgabile dall'OS.
+- **Tetto 200 MB** con eviction LRU per data di modifica (non c'è un registro degli
+  accessi): al superamento, si scende all'80% del tetto invece di rientrare esatti, per
+  non dover rifare la scansione della cartella ad ogni scrittura successiva. Running total
+  tenuto in memoria (`_approxBytes`), evita di scansionare il disco a ogni tile scritta —
+  solo quando lo si supera.
+- **Migrazione una tantum**: alla prima apertura della cache, cancella la vecchia cartella
+  in `Documents/terrarium_cache` se esiste — senza, il fix non avrebbe liberato lo spazio
+  già occupato su chi ha già installato l'app, cioè esattamente chi ha segnalato il
+  problema.
+- Nuova sezione "Cache elevazione" in Impostazioni → Mappe offline
+  (`offline_maps_screen.dart`): dimensione corrente + pulsante per svuotarla a mano, prima
+  invisibile e non azionabile dall'utente.
+- **Non testato su platform-channel** (path_provider): nessun test automatico aggiunto,
+  stessa convenzione già in uso per `offline_maps_service.dart`/`terrarium_http_fetcher.dart`
+  (wrapper sottili su plugin nativi, verificati a schermo non con `flutter test`).
+- **Non verificato su device fisico** in questa sessione: la migrazione one-shot va
+  confermata proprio sul telefono che ha segnalato il problema (è l'unico con una cache
+  vecchia da migrare) — annotato in `docs/validazione-device.md`.
+
+---
+
 ## 23 agosto 2026 — Export immagine del percorso; card traccia: Elimina, "Altro", tracce attenuate; Impostazioni riorganizzate
 
 Tre pezzi di lavoro nella stessa sessione, in ordine.

@@ -70,6 +70,13 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
   è divisa in "In lavorazione", "Prossime" e "Più avanti".
 - 🐛 Tolte le righe gialle sotto la data e "Altitudine" nella foto a schermo
   intero (un residuo di debug).
+- 🐛 **Corretta una cache che cresceva senza limiti**: i dati di elevazione
+  usati per calcolare il dislivello di ogni traccia si accumulavano sul
+  telefono senza un tetto né un modo per svuotarli — su un uso prolungato
+  potevano arrivare a pesare centinaia di megabyte. Con questo aggiornamento
+  lo spazio già occupato viene liberato automaticamente, la cache resta
+  entro un limite (200 MB) e si può svuotare a mano da Impostazioni →
+  Mappe offline → "Cache elevazione".
 - ✨ **Log di debug consultabili in-app**, per chi vuole segnalare un
   problema senza collegare il telefono a un Mac: si trovano toccando 7
   volte il nome/versione in fondo a Impostazioni, con possibilità di

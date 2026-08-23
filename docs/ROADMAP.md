@@ -240,6 +240,16 @@ rivisto una volta spezzato.*
     serve già solo l'ABI del dispositivo, e con `--release` si userebbe comunque un
     App Bundle), **rilevante subito** se si continua a passare l'APK a mano — vedi la
     strategia in P6.
+- [ ] **Tetto sulla cache tile di Mapbox (`TileStore`)** — *SP 5*. Segnalato dall'utente su
+  device fisico (23 ago 2026, "l'app pesa centinaia di mega"): risolta la causa più a
+  monte, la cache di elevazione senza limiti (vedi `docs/CHANGELOG-DEV.md`), ma resta il
+  secondo sospetto verificato e non escluso — la cache tile di Mapbox (condivisa fra aree
+  scaricate offline e navigazione online normale) non ha un tetto configurato. Il codice
+  sorgente del plugin conferma che è già esclusa dal backup iCloud, ma
+  `mapbox_maps_flutter` 2.25 **non espone `setDiskQuota` (o equivalente) nei binding
+  Dart** — servirebbe codice nativo (Swift `AppDelegate`/Kotlin) per richiamare l'API
+  nativa del `TileStore`. Da riconsiderare se il problema di spazio si ripresenta dopo il
+  fix della cache elevazione.
 - [ ] **CI base** (GitHub Actions: `flutter analyze` + `flutter test`) — *SP 3*. Non ancora
   configurata.
 - [ ] **Aggiornamento Flutter** (`flutter upgrade` + `pub upgrade --major-versions`) —

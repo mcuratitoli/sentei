@@ -52,7 +52,10 @@ class ReleaseNote {
   /// Data testuale breve (es. "5 luglio 2026").
   final String date;
 
-  /// Punti salienti, 2-4 voci.
+  /// Punti salienti, tipicamente 3-6 voci (di più solo per una release
+  /// grande che ne accumula molte). Se ci sono fix minori non elencati uno
+  /// per uno, chiudere con una voce generica "Bugfix e rifiniture" invece di
+  /// lasciarli fuori — l'elenco completo resta comunque in `CHANGELOG.md`.
   final List<NoteItem> highlights;
 
   /// Versione "raccontata" degli [highlights] — le stesse voci con una
@@ -86,6 +89,27 @@ const List<ReleaseNote> kReleaseNotes = [
       NoteItem(
         icon: CupertinoIcons.clock,
         title: 'Tempo di percorrenza stimato (metodo CAI)',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Foto più veloci e leggere',
+        body: 'Si aprono e scorrono più in fretta, pesano meno nel cloud.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.trash_circle,
+        title: 'Corretta una cache che cresceva senza limiti',
+        body: 'I dati di elevazione ora hanno un tetto e liberano lo '
+            'spazio già occupato prima d\'ora.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.doc_text_search,
+        title: 'Log di debug per segnalare un problema',
+        body: 'Tocca 7 volte nome e versione in fondo a Impostazioni.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.wrench,
+        title: 'Bugfix e rifiniture',
+        body: 'Piccole correzioni grafiche sparse, non tutte elencate qui.',
       ),
     ],
   ),
@@ -494,9 +518,9 @@ class NoteRow extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   item.title,
-                  style: AppText.value.copyWith(
+                  style: AppText.body.copyWith(
                     color: palette.label,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     height: 1.25,
                   ),
                 ),

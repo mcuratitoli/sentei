@@ -17,6 +17,13 @@
   (permesso foto reale, non simulato), condivisione di sistema, tempo di risposta di
   `Snapshotter`/Overpass su rete reale (non wifi dev), col percorso più lungo della libreria
   (Giro di Viso, 37 km — tanti POI, elenco scelta lungo).
+- [ ] **Migrazione cache elevazione** (23 ago 2026, `docs/CHANGELOG-DEV.md`) — il fix del
+  bug "l'app pesa centinaia di mega" (cache Terrarium senza limiti) cancella al primo
+  avvio la vecchia cartella in `Documents/terrarium_cache`. Da confermare **proprio sul
+  telefono che ha segnalato il problema**: è l'unico con una cache vecchia abbastanza da
+  migrare — verificare che lo spazio venga effettivamente liberato (Impostazioni iOS →
+  Generali → Spazio [nome] iPhone → Sentèi) e che il nuovo tetto (200 MB, sezione "Cache
+  elevazione" in Impostazioni → Mappe offline) regga con l'uso normale.
 - [ ] **Log di debug in-app** (23 ago 2026) — `AppLogService`/`DebugLogsScreen`, sblocco 7
   tap sul footer versione: cattura e visualizzazione verificate sul simulatore, ma la
   **rotazione** (oltre 512 KB, oltre 4 file, purge a 7 giorni) non è mai stata esercitata
