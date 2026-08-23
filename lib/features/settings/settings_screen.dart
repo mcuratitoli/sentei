@@ -24,6 +24,7 @@ import '../../ui/release_notes.dart';
 import '../../ui/tokens.dart';
 import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
+import 'debug_logs_screen.dart';
 import 'hiking_pace_provider.dart';
 
 /// Contenitore icona uniforme per le righe di Impostazioni (`new
@@ -119,17 +120,61 @@ class SettingsScreen extends ConsumerWidget {
           // Footer di schermata (non di sezione): nome app + versione, stesso
           // ruolo informativo della vecchia riga "Sentèi" in Informazioni —
           // qui perché riguarda l'app nel suo insieme, non una sezione sola.
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 24),
-            child: Center(
-              child: Text(
-                'Sentèi · v${ref.watch(appVersionProvider).value ?? '…'}',
-                style: AppText.footnote
-                    .copyWith(color: context.palette.secondaryLabel),
-              ),
-            ),
-          ),
+          // Nasconde anche lo sblocco dei log (7 tap, vedi `_VersionFooter`).
+          const _VersionFooter(),
         ],
+      ),
+    );
+  }
+}
+
+/// Nome app + versione in fondo a Impostazioni. **Sblocco nascosto** della
+/// schermata dei log (§export non pianificato, 24 ago 2026): 7 tap entro
+/// [_tapWindow] l'uno dall'altro. Volutamente non un bottone come gli altri
+/// — è per chi segue da vicino la beta, non per l'uso quotidiano.
+class _VersionFooter extends ConsumerStatefulWidget {
+  const _VersionFooter();
+
+  @override
+  ConsumerState<_VersionFooter> createState() => _VersionFooterState();
+}
+
+class _VersionFooterState extends ConsumerState<_VersionFooter> {
+  static const _requiredTaps = 4;
+  static const _tapWindow = Duration(seconds: 3);
+
+  int _tapCount = 0;
+  DateTime? _firstTapAt;
+
+  void _onTap() {
+    final now = DateTime.now();
+    if (_firstTapAt == null || now.difference(_firstTapAt!) > _tapWindow) {
+      _firstTapAt = now;
+      _tapCount = 1;
+    } else {
+      _tapCount++;
+    }
+    if (_tapCount >= _requiredTaps) {
+      _tapCount = 0;
+      _firstTapAt = null;
+      context.pushNamed(DebugLogsScreen.routeName);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 24),
+        child: Center(
+          child: Text(
+            'Sentèi · v${ref.watch(appVersionProvider).value ?? '…'}',
+            style: AppText.footnote
+                .copyWith(color: context.palette.secondaryLabel),
+          ),
+        ),
       ),
     );
   }

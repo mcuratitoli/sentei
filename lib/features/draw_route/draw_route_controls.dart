@@ -10,6 +10,7 @@ import 'package:flutter/cupertino.dart'
         CupertinoTextField;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/util/format.dart';
@@ -26,9 +27,11 @@ import '../../ui/elevation_profile_chart.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
 import '../map/map_providers.dart';
+import '../offline_maps/offline_maps_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 import '../settings/hiking_pace_provider.dart';
-import 'export/export_sheet.dart';
+import 'export/export_gpx.dart';
+import 'export/export_image_screen.dart';
 import 'nearby_photos_action.dart';
 import 'photo_location_panel.dart';
 import 'route_editor_provider.dart';
@@ -409,8 +412,12 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
 /// Menu "altro" della card traccia selezionata: azioni sulla traccia che
 /// prima erano icone dirette in riga (§export immagine, `docs/ROADMAP.md`
 /// aggiunta non pianificata) — spostate qui per non affollare la riga sopra.
+/// "Esporta GPX"/"Esporta immagine" sono voci dirette (non un sotto-foglio):
+/// essendo già dentro un menu, un secondo livello di scelta era ridondante.
 Future<void> _showTrackMenu(
     BuildContext context, WidgetRef ref, DrawnTrack track) async {
+  final regions = ref.read(downloadedRegionsProvider).value;
+  final isOffline = regions?.any((r) => r.id == 'track-${track.id}') ?? false;
   await showIosMenu(
     context: context,
     title: track.name.isNotEmpty ? track.name : 'Senza nome',
@@ -421,13 +428,23 @@ Future<void> _showTrackMenu(
         onPressed: () => ref.read(tracksProvider.notifier).editSelected(),
       ),
       IosMenuItem(
-        label: 'Esporta',
+        label: 'Esporta GPX',
         icon: CupertinoIcons.square_arrow_up,
-        onPressed: () => showExportSheet(context, track),
+        onPressed: () => exportTrackGpx(context, track),
       ),
       IosMenuItem(
-        label: 'Salva offline',
-        icon: CupertinoIcons.cloud_download,
+        label: 'Esporta immagine',
+        icon: CupertinoIcons.photo,
+        onPressed: () => context.pushNamed(ExportImageScreen.routeName,
+            pathParameters: {'trackId': track.id}),
+      ),
+      IosMenuItem(
+        // Già scaricata: resta comunque toccabile per riscaricare (es. dopo
+        // aver modificato il percorso), ma icona/testo lo segnalano.
+        label: isOffline ? 'Salvata offline' : 'Salva offline',
+        icon: isOffline
+            ? CupertinoIcons.checkmark_seal_fill
+            : CupertinoIcons.cloud_download,
         onPressed: () => downloadTrackOffline(context, ref, track),
       ),
       IosMenuItem(

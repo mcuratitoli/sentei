@@ -43,7 +43,9 @@ Future<ReleaseNote?> pendingWhatsNew() async {
   return null;
 }
 
-/// Mostra la card delle novità di [note].
+/// Mostra la card delle novità di [note]. **Non richiudibile** se non con
+/// "Continua" (né tocco fuori né swipe verso il basso): l'utente deve
+/// prendere atto delle novità, non può farla sparire per sbaglio.
 ///
 /// Bottom sheet e non dialog centrato, come **ogni** pannello modale dell'app
 /// (`new design/DESIGN_GUIDELINES.md` §7/§10): il mockup di riferimento era
@@ -51,6 +53,8 @@ Future<ReleaseNote?> pendingWhatsNew() async {
 Future<void> showWhatsNew(BuildContext context, ReleaseNote note) {
   return showAppBottomSheet<void>(
     context: context,
+    isDismissible: false,
+    enableDrag: false,
     builder: (sheetContext) => _WhatsNewBody(note: note),
   );
 }
@@ -71,19 +75,6 @@ class _WhatsNewBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: palette.accent,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(CupertinoIcons.map,
-                size: 32, color: Color(0xFFFFFFFF)),
-          ),
-        ),
-        const SizedBox(height: 14),
         Center(
           child: Text('Novità in Sentèi',
               style: AppText.sheetTitle.copyWith(fontSize: 22)),

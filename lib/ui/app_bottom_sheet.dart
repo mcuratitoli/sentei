@@ -195,6 +195,11 @@ Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isDismissible = true,
+  // `false` solo per i pochi fogli che l'utente **deve** chiudere con
+  // un'azione esplicita (es. "Novità in Sentèi": un tocco fuori o uno swipe
+  // verso il basso non devono bastare a farla sparire senza che l'utente
+  // l'abbia letta).
+  bool enableDrag = true,
   // Righe azione full-bleed (menu/conferme, `ios_menu.dart`) passano
   // `EdgeInsets.zero` e gestiscono da sé il padding orizzontale di titolo/
   // messaggio, per poter disegnare divisori a tutta larghezza.
@@ -206,6 +211,7 @@ Future<T?> showAppBottomSheet<T>({
     backgroundColor: const Color(0x00000000),
     barrierColor: const Color(0x73000000), // ~45% nero
     isDismissible: isDismissible,
+    enableDrag: enableDrag,
     shape: const RoundedRectangleBorder(
       borderRadius:
           BorderRadius.vertical(top: Radius.circular(AppRadii.sheet)),

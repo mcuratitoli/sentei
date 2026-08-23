@@ -529,8 +529,8 @@ void main() {
   });
 
   testWidgets(
-      'menu "Altro" → Esporta apre il foglio con le scelte GPX/Immagine',
-      (tester) async {
+      'menu "Altro": Esporta GPX ed Esporta immagine sono voci dirette '
+      '(niente sotto-foglio, già dentro un menu)', (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
     final notifier = container.read(tracksProvider.notifier);
@@ -543,11 +543,10 @@ void main() {
 
     await tester.tap(find.byTooltip('Altro'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Esporta'));
-    await tester.pumpAndSettle();
 
-    expect(find.text('Traccia GPX'), findsOneWidget);
-    expect(find.text('Immagine'), findsOneWidget);
+    expect(find.text('Esporta GPX'), findsOneWidget);
+    expect(find.text('Esporta immagine'), findsOneWidget);
+    expect(find.text('Salva offline'), findsOneWidget);
   });
 
   testWidgets(

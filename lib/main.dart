@@ -5,9 +5,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'app/theme_provider.dart';
+import 'data/logging/app_log_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Presto, prima di ogni altra cosa che potrebbe loggare (routing, export,
+  // ecc.): nessuna riga persa. Vedi `app_log_service.dart`.
+  await AppLogService.instance.install();
   // Token pubblico Mapbox (lo stesso `pk....` usato per le tile raster),
   // necessario alla vista 3D. Iniettato via --dart-define=MAPBOX_TOKEN.
   const mapboxToken = String.fromEnvironment('MAPBOX_TOKEN');

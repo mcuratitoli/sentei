@@ -178,8 +178,27 @@ tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
     - fix minore: il testo "Trovate X immagini" (import foto) risulta ancora sottolineato
       in giallo (probabile residuo di sottolineatura di debug, stesso bug già risolto
       altrove con `DefaultTextStyle(decoration:none)`).
+4. [ ] **[FEATURE] Export immagine: zoom/angolazione della mappa personalizzabili** —
+    *SP 3*. Oggi la camera (zoom, inquadratura, bearing dal dislivello) è calcolata **una
+    sola volta**, in automatico (`route_snapshot.dart`), senza possibilità di modifica prima
+    di generare. Due strade valutate (23 agosto 2026), nessuna implementata:
+    - **A. Mappa interattiva libera come passo intermedio** (pizzica/trascina/ruota
+      standard Mapbox, poi "Conferma inquadratura"). Più potente ma richiede riorganizzare
+      il flusso (fetch POI → **editing camera** → cattura con quella camera → pronto, invece
+      dell'attuale fetch POI → cattura automatica → pronto: i pixel dei POI vanno ricalcolati
+      **dopo** la conferma, non prima) e mostrare quella mappa alla sua dimensione naturale,
+      non ridimensionata — lezione di questa sessione: le view native Mapbox dentro
+      trasformazioni Flutter (`FittedBox`/scale) si disallineano tra la dimensione usata per
+      `pixelForCoordinate` e quella effettivamente renderizzata (vedi `docs/
+      CHANGELOG-DEV.md`, 23 agosto 2026, il bug del "pallino nel nulla").
+    - **B. Slider semplici (zoom +/-, rotazione) sopra l'anteprima già generata** —
+      **consigliata**: nessuna mappa interattiva da gestire, solo due controlli numerici che
+      al rilascio richiamano di nuovo lo Snapshotter con la nuova camera. Copre la maggior
+      parte del bisogno reale (più/meno zoom, ruota un po') con molto meno rischio tecnico
+      di A; A vale la pena solo se serve controllo davvero libero (pan per spostare il
+      centro, tilt libero).
 
-*Totale indicativo: ~11 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~14 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 

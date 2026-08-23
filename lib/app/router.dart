@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/draw_route/export/export_image_screen.dart';
 import '../features/map_gl/map_gl_screen.dart';
 import '../features/offline_maps/offline_maps_screen.dart';
+import '../features/settings/debug_logs_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/tracks_list/tracks_list_screen.dart';
 
@@ -37,6 +38,11 @@ final appRouter = GoRouter(
       builder: (context, state) => ExportImageScreen(
         trackId: state.pathParameters['trackId']!,
       ),
+    ),
+    GoRoute(
+      path: DebugLogsScreen.routePath,
+      name: DebugLogsScreen.routeName,
+      builder: (context, state) => const DebugLogsScreen(),
     ),
   ],
 );

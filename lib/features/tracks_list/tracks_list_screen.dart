@@ -20,6 +20,7 @@ import '../draw_route/export/export_gpx.dart';
 import '../draw_route/export/export_image_screen.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
+import '../offline_maps/offline_maps_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 import '../settings/hiking_pace_provider.dart';
 import 'tracks_sort_provider.dart';
@@ -125,6 +126,13 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     );
   }
 
+  /// La traccia [t] ha già un'area offline scaricata? Stesso `id` usato da
+  /// `downloadTrackOffline` (`track_offline_download.dart`): `'track-<id>'`.
+  bool _isOffline(DrawnTrack t) {
+    final regions = ref.watch(downloadedRegionsProvider).value;
+    return regions?.any((r) => r.id == 'track-${t.id}') ?? false;
+  }
+
   Widget _trackTile(DrawnTrack t, HikingPace pace) {
     final distance = t.metrics?.distanceMeters ??
         const PathGeometry().totalDistance(t.routedPath);
@@ -144,6 +152,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
               pace: pace,
             )
             .total;
+    final isOffline = _isOffline(t);
     return CupertinoListTile(
       // Pallino colore tracciato: cerchio pieno 12-13px (`new
       // design/DESIGN_GUIDELINES.md` §6), non più 16px.
@@ -160,11 +169,27 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
           Format.duration(hikingTime),
         if (t.trailRefs.isNotEmpty) t.trailRefs.join(", "),
       ].join(' · ')),
-      trailing: AppIconButton(
-        tooltip: 'Altre azioni',
-        icon: CupertinoIcons.ellipsis,
-        size: 36,
-        onPressed: () => _showTrackActions(t),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isOffline)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Tooltip(
+                message: 'Salvata offline',
+                // Stesso verde del pallino di partenza sulla mappa
+                // (`map_gl_screen.dart`): unico "verde" già in uso nell'app.
+                child: Icon(CupertinoIcons.checkmark_seal_fill,
+                    color: Color(0xFF2E7D32), size: 18),
+              ),
+            ),
+          AppIconButton(
+            tooltip: 'Altre azioni',
+            icon: CupertinoIcons.ellipsis,
+            size: 36,
+            onPressed: () => _showTrackActions(t),
+          ),
+        ],
       ),
       onTap: () {
         ref.read(tracksProvider.notifier).select(t.id);
@@ -211,6 +236,7 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
   }
 
   Future<void> _showTrackActions(DrawnTrack t) async {
+    final isOffline = _isOffline(t);
     await showIosMenu(
       context: context,
       title: t.name.isNotEmpty ? t.name : 'Senza nome',
@@ -227,8 +253,12 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
               pathParameters: {'trackId': t.id}),
         ),
         IosMenuItem(
-          label: 'Salva offline',
-          icon: CupertinoIcons.cloud_download,
+          // Già scaricata: resta comunque toccabile per riscaricare (es.
+          // dopo aver modificato il percorso), ma icona/testo lo segnalano.
+          label: isOffline ? 'Salvata offline' : 'Salva offline',
+          icon: isOffline
+              ? CupertinoIcons.checkmark_seal_fill
+              : CupertinoIcons.cloud_download,
           onPressed: () => downloadTrackOffline(context, ref, t),
         ),
         IosMenuItem(

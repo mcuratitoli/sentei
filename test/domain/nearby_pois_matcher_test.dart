@@ -81,4 +81,48 @@ void main() {
     expect(result, hasLength(2));
     expect(result.map((r) => r.id), isNot(contains('c')));
   });
+
+  test('POI vicinissimi tra loro (< minSpacingMeters): tiene solo il primo '
+      'incontrato camminando', () {
+    final first = poi('first', const LatLng(45.0, 7.005));
+    // ~39 m da "first": stesso "posto" ai fini dell'immagine esportata.
+    final tooClose = poi('too-close', const LatLng(45.0, 7.0055));
+    // Ben oltre 150 m da entrambi: resta un punto a parte.
+    final far = poi('far', const LatLng(45.0, 7.015));
+    final result = matcher.match(routedPath: path, pois: [tooClose, far, first]);
+
+    expect(result.map((r) => r.id).toList(), ['first', 'far']);
+  });
+
+  test('due punti vicini di categorie diverse: vince il rifugio anche se '
+      'l\'alpeggio si incontra prima camminando (caso reale: Rifugio Vallè / '
+      'Alpe Vallè di Sopra, stesso punto)', () {
+    final alpeFirst = poi('alpe-first', const LatLng(45.0, 7.005),
+        category: PoiCategory.alpe, name: 'Alpe Vallè di Sopra');
+    // ~39 m da "alpeFirst", incontrato leggermente dopo camminando.
+    final rifugioAfter = poi('rifugio-after', const LatLng(45.0, 7.0055),
+        category: PoiCategory.rifugio, name: 'Rifugio Vallè');
+    final result =
+        matcher.match(routedPath: path, pois: [alpeFirst, rifugioAfter]);
+
+    expect(result.map((r) => r.id).toList(), ['rifugio-after']);
+  });
+
+  test('soglia di deduplicazione personalizzata', () {
+    final first = poi('first', const LatLng(45.0, 7.005));
+    final close = poi('close', const LatLng(45.0, 7.0055)); // ~39 m
+    expect(
+      matcher
+          .match(routedPath: path, pois: [first, close], minSpacingMeters: 10)
+          .map((r) => r.id),
+      containsAll(['first', 'close']),
+    );
+    expect(
+      matcher
+          .match(routedPath: path, pois: [first, close], minSpacingMeters: 60)
+          .map((r) => r.id)
+          .toList(),
+      ['first'],
+    );
+  });
 }

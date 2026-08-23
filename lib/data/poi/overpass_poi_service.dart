@@ -44,8 +44,9 @@ class OverpassPoiService {
 
   static final RegExp _alpNamePattern = RegExp(r'\balp\w*', caseSensitive: false);
 
-  /// Scarica i nodi OSM rilevanti nel raggio del percorso. Nessuna eccezione:
-  /// qualunque errore (rete, timeout, parsing) ritorna lista vuota.
+  /// Scarica gli elementi OSM (nodi, way, relation) rilevanti nel raggio del
+  /// percorso. Nessuna eccezione: qualunque errore (rete, timeout, parsing)
+  /// ritorna lista vuota.
   Future<List<RawPointOfInterest>> fetch(List<LatLng> path) async {
     if (path.length < 2) return const [];
     try {
@@ -59,17 +60,22 @@ class OverpassPoiService {
     final sample = _sample(path, maxPoints);
     final coords = sample.map((p) => '${p.latitude},${p.longitude}').join(',');
     final r = aroundMeters;
+    // `nwr` (non solo `node`): un rifugio "vero" (edificio) è spesso mappato
+    // come **way** (il perimetro), non come punto — verificato su un caso
+    // reale ("Rifugio Vallè", `tourism=alpine_hut` ma via `way`, invisibile
+    // con una query solo su `node`). Anche i laghi sono spesso poligoni. Per
+    // way/relation serve `out center` (nessun `lat`/`lon` diretto).
     final query = '[out:json][timeout:25];'
         '('
-        'node["tourism"~"^(alpine_hut|wilderness_hut|hut)\$"](around:$r,$coords);'
-        'node["amenity"="shelter"](around:$r,$coords);'
-        'node["place"~"^(locality|isolated_dwelling)\$"]["name"](around:$r,$coords);'
-        'node["natural"="water"]["name"](around:$r,$coords);'
-        'node["mountain_pass"="yes"](around:$r,$coords);'
-        'node["natural"="saddle"]["name"](around:$r,$coords);'
-        'node["natural"="peak"]["name"](around:$r,$coords);'
+        'nwr["tourism"~"^(alpine_hut|wilderness_hut|hut)\$"](around:$r,$coords);'
+        'nwr["amenity"="shelter"](around:$r,$coords);'
+        'nwr["place"~"^(locality|isolated_dwelling)\$"]["name"](around:$r,$coords);'
+        'nwr["natural"="water"]["name"](around:$r,$coords);'
+        'nwr["mountain_pass"="yes"](around:$r,$coords);'
+        'nwr["natural"="saddle"]["name"](around:$r,$coords);'
+        'nwr["natural"="peak"]["name"](around:$r,$coords);'
         ');'
-        'out body;';
+        'out body center;';
 
     final res = await _client
         .post(Uri.parse(endpoint),
@@ -85,9 +91,18 @@ class OverpassPoiService {
     final out = <RawPointOfInterest>[];
     for (final e in elements) {
       final el = e as Map<String, dynamic>;
-      if (el['type'] != 'node') continue;
-      final lat = (el['lat'] as num?)?.toDouble();
-      final lon = (el['lon'] as num?)?.toDouble();
+      // Nodo: coordinate dirette. Way/relation: `center` calcolato da Overpass
+      // (`out body center`) — il perimetro di un edificio non ha un `lat`/`lon`
+      // proprio.
+      double? lat, lon;
+      if (el['type'] == 'node') {
+        lat = (el['lat'] as num?)?.toDouble();
+        lon = (el['lon'] as num?)?.toDouble();
+      } else {
+        final center = el['center'] as Map<String, dynamic>?;
+        lat = (center?['lat'] as num?)?.toDouble();
+        lon = (center?['lon'] as num?)?.toDouble();
+      }
       if (lat == null || lon == null) continue;
       final tags = (el['tags'] as Map<String, dynamic>?) ?? const {};
       final name = (tags['name'] as String?)?.trim();

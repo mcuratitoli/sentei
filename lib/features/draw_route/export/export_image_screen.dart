@@ -14,6 +14,7 @@ import '../../../core/util/format.dart';
 import '../../../data/photos/photo_library_service.dart' show PhotoLibraryPermission;
 import '../../../data/poi/overpass_poi_service.dart';
 import '../../../domain/models/point_of_interest.dart';
+import '../../../domain/services/elevation_orientation.dart';
 import '../../../domain/services/hiking_time.dart';
 import '../../../domain/services/nearby_pois_matcher.dart';
 import '../../../domain/services/track_metrics.dart' show TrackMetrics;
@@ -55,6 +56,10 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
   DrawnTrack? _track;
   List<PoiCandidate> _pois = const [];
   Set<String> _selectedPoiIds = {};
+  // Scostamento manuale (drag) di ogni etichetta rispetto alla posizione
+  // calcolata automaticamente — solo l'etichetta si sposta, il pallino sul
+  // punto resta fisso e corretto (§export immagine).
+  final Map<String, Offset> _labelDragOffsets = {};
   RouteSnapshotResult? _snapshot;
   bool _busy = false;
 
@@ -82,10 +87,13 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
     }
     _track = track;
 
+    debugPrint('[export] avvio: ${track.routedPath.length} punti percorso');
     final raw = await OverpassPoiService().fetch(track.routedPath);
+    debugPrint('[export] POI grezzi da Overpass: ${raw.length}');
     if (!mounted) return;
     final matched = const NearbyPoisMatcher()
         .match(routedPath: track.routedPath, pois: raw);
+    debugPrint('[export] POI abbinati al percorso: ${matched.length}');
     setState(() {
       _pois = matched;
       // Tutti selezionati di default: l'utente toglie quelli che non vuole
@@ -93,6 +101,16 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
       _selectedPoiIds = matched.map((p) => p.id).toSet();
       _stage = _Stage.capturingMap;
     });
+  }
+
+  /// Orientamento della camera: segue il dislivello (punto più basso in
+  /// basso, più alto in alto), non il nord — 0 (nord in alto) se il profilo
+  /// non basta a calcolarlo (traccia senza quote, o punto più basso/alto
+  /// coincidenti).
+  double _bearing() {
+    final profile = _track?.metrics?.profile;
+    if (profile == null) return 0;
+    return elevationOrientationBearing(profile) ?? 0;
   }
 
   void _onSnapshotResult(RouteSnapshotResult? result) {
@@ -176,30 +194,12 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
     return Scaffold(
       backgroundColor: palette.scaffoldBg,
       appBar: AppBar(
-        title: const Text('Immagine'),
+        title: const Text('Esporta'),
         centerTitle: true,
         backgroundColor: palette.scaffoldBg,
         surfaceTintColor: Colors.transparent,
       ),
-      body: Stack(
-        children: [
-          _buildBody(context),
-          // Rig di cattura offscreen: fuori dallo schermo (coordinate
-          // negative), rimosso appena `_onSnapshotResult` ha il risultato.
-          if (_stage == _Stage.capturingMap && _track != null)
-            Positioned(
-              left: -6000,
-              top: 0,
-              child: RouteSnapshotCapture(
-                path: _track!.routedPath,
-                routeColor: _track!.color,
-                pois: _pois,
-                size: _kExportSize,
-                onResult: _onSnapshotResult,
-              ),
-            ),
-        ],
-      ),
+      body: _buildBody(context),
     );
   }
 
@@ -208,7 +208,18 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
       case _Stage.loadingPois:
         return const _CenteredProgress(message: 'Rilevo punti di interesse…');
       case _Stage.capturingMap:
-        return const _CenteredProgress(message: 'Genero l\'anteprima…');
+        // La mappa interattiva mostrata qui non è più quella da cui esce
+        // l'immagine finale (quella arriva da uno `Snapshotter` headless,
+        // vedi `route_snapshot.dart`): serve solo a calcolare le posizioni
+        // pixel di partenza/arrivo/POI. Resta comunque visibile — nessun
+        // problema noto a mostrarla, e l'utente vede la mappa 3D assemblarsi
+        // dal vivo mentre si genera l'immagine dietro le quinte.
+        return _CapturingPreview(
+          track: _track!,
+          pois: _pois,
+          bearing: _bearing(),
+          onResult: _onSnapshotResult,
+        );
       case _Stage.error:
         return _ErrorBody(message: _errorMessage ?? 'Errore');
       case _Stage.ready:
@@ -231,6 +242,10 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
           snapshot: _snapshot!,
           pois: _pois,
           selectedPoiIds: _selectedPoiIds,
+          dragOffsets: _labelDragOffsets,
+          onDragUpdate: (id, delta) => setState(() {
+            _labelDragOffsets[id] = (_labelDragOffsets[id] ?? Offset.zero) + delta;
+          }),
           busy: _busy,
           onTogglePoi: (id) => setState(() {
             if (!_selectedPoiIds.remove(id)) _selectedPoiIds.add(id);
@@ -239,6 +254,97 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
           onShare: _share,
         );
     }
+  }
+}
+
+/// Mappa 3D **visibile** mentre viene inquadrata e catturata (vedi il
+/// commento in `_buildBody`): stessa cornice/proporzioni della card finale,
+/// con un'etichetta di stato sovrapposta in basso.
+class _CapturingPreview extends StatelessWidget {
+  const _CapturingPreview({
+    required this.track,
+    required this.pois,
+    required this.bearing,
+    required this.onResult,
+  });
+
+  final DrawnTrack track;
+  final List<PoiCandidate> pois;
+  final double bearing;
+  final ValueChanged<RouteSnapshotResult?> onResult;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: AspectRatio(
+            aspectRatio: _kExportSize.width / _kExportSize.height,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // **Non** un `FittedBox`/scala qui (a differenza
+                  // dell'anteprima statica finale, dove va benissimo): una
+                  // vista nativa Mapbox (platform view iOS) dentro un
+                  // ancestor che applica una trasformazione di scala Flutter
+                  // può disallinearsi tra la dimensione logica usata per
+                  // `pixelForCoordinate` e quella effettivamente
+                  // renderizzata a schermo — verificato: i pallini calcolati
+                  // risultavano matematicamente sul percorso (log
+                  // `[export]`, differenza di pochi pixel) ma apparivano
+                  // altrove nell'immagine. `OverflowBox` mantiene la mappa
+                  // alla sua dimensione logica reale (`_kExportSize`, senza
+                  // scala), al costo di mostrarla ritagliata invece che
+                  // rimpicciolita durante questo stato di caricamento
+                  // transitorio — non è l'immagine finale.
+                  OverflowBox(
+                    minWidth: 0,
+                    minHeight: 0,
+                    maxWidth: _kExportSize.width,
+                    maxHeight: _kExportSize.height,
+                    child: SizedBox(
+                      width: _kExportSize.width,
+                      height: _kExportSize.height,
+                      child: RouteSnapshotCapture(
+                        path: track.routedPath,
+                        routeColor: track.color,
+                        pois: pois,
+                        size: _kExportSize,
+                        bearing: bearing,
+                        onResult: onResult,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      color: const Color(0x99000000),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CupertinoActivityIndicator(
+                              radius: 8, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text('Genero l\'anteprima…',
+                              style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -297,6 +403,8 @@ class _ReadyBody extends StatelessWidget {
     required this.snapshot,
     required this.pois,
     required this.selectedPoiIds,
+    required this.dragOffsets,
+    required this.onDragUpdate,
     required this.busy,
     required this.onTogglePoi,
     required this.onSave,
@@ -309,6 +417,8 @@ class _ReadyBody extends StatelessWidget {
   final RouteSnapshotResult snapshot;
   final List<PoiCandidate> pois;
   final Set<String> selectedPoiIds;
+  final Map<String, Offset> dragOffsets;
+  final void Function(String poiId, Offset delta) onDragUpdate;
   final bool busy;
   final ValueChanged<String> onTogglePoi;
   final VoidCallback onSave;
@@ -352,6 +462,8 @@ class _ReadyBody extends StatelessWidget {
                             snapshot: snapshot,
                             pois: pois,
                             selectedPoiIds: selectedPoiIds,
+                            dragOffsets: dragOffsets,
+                            onDragUpdate: onDragUpdate,
                           ),
                         ),
                       ),
@@ -400,6 +512,225 @@ class _ReadyBody extends StatelessWidget {
   }
 }
 
+const TextStyle _poiLabelTextStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  height: 1.15,
+);
+
+/// Dove finisce l'etichetta di un POI dopo il posizionamento: il pallino
+/// **esatto** sul punto (fisso, mai spostato dall'utente — deve restare
+/// corretto) e il rettangolo della pillola, di partenza già scelto per non
+/// sovrapporsi ad altre etichette e poi eventualmente **trascinato a mano**
+/// dall'utente (§export immagine: posizionamento automatico insufficiente su
+/// zone con più punti ravvicinati, l'utente sistema lui il testo).
+class _PoiLabelPlacement {
+  const _PoiLabelPlacement(
+      {required this.id, required this.dot, required this.rect, required this.name});
+  final String id;
+  final Offset dot;
+  final Rect rect;
+  final String name;
+}
+
+/// Calcola la posizione **di partenza** di ogni etichetta POI visibile: lato
+/// destro/sinistro (alternato per indice, forzato verso il centro vicino ai
+/// bordi), misura il testo con [TextPainter] per sapere la dimensione reale
+/// della pillola (non un valore a occhio), poi risolve le sovrapposizioni
+/// spostando in basso — a passi piccoli, **senza** un tetto artificiale
+/// durante la ricerca (prima si bloccava contro il bordo inferiore e
+/// rinunciava con l'etichetta ancora sovrapposta) — ogni pillola finché non è
+/// libera da quelle già piazzate. Poi applica lo scostamento manuale
+/// dell'utente per quel POI, se presente in [dragOffsets] (§export
+/// immagine, drag delle etichette). Nessuno stato qui: si ricalcola a ogni
+/// build, costo trascurabile per al più 10 etichette.
+List<_PoiLabelPlacement> _layoutPoiLabels({
+  required List<PoiCandidate> pois,
+  required Set<String> selectedPoiIds,
+  required RouteSnapshotResult snapshot,
+  required Map<String, Offset> dragOffsets,
+}) {
+  const pillPaddingH = 8.0;
+  const pillPaddingV = 4.0;
+  const lineLength = 14.0;
+  const maxPillWidth = 110.0;
+  const verticalStep = 6.0;
+  const edgeMargin = 8.0;
+
+  final imageWidth = snapshot.logicalSize.width;
+  final imageHeight = snapshot.logicalSize.height;
+
+  final placed = <Rect>[];
+  final result = <_PoiLabelPlacement>[];
+
+  for (var i = 0; i < pois.length; i++) {
+    final poi = pois[i];
+    if (!selectedPoiIds.contains(poi.id)) continue;
+    final dot = snapshot.poiPixels[poi.id];
+    if (dot == null) continue;
+
+    final margin = maxPillWidth + 20;
+    final toRight =
+        dot.dx < margin ? true : (dot.dx > imageWidth - margin ? false : i.isEven);
+
+    // Nessun `maxLines`/ellissi qui: il nome non va **mai** troncato (era
+    // già successo con un tetto di 2 righe — a un certo punto un nome andava
+    // a capo su una riga che restava fuori dal riquadro scuro della
+    // pillola, quindi illeggibile sul terreno sotto, sembrava "tagliato").
+    // La misura qui deve combaciare esattamente con quella del widget reso
+    // in `_PoiPill` (stesso stile, stesso vincolo di larghezza, nessun
+    // limite di righe), altrimenti l'altezza calcolata qui non basta per il
+    // testo vero.
+    final painter = TextPainter(
+      text: TextSpan(text: poi.name, style: _poiLabelTextStyle),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxPillWidth - pillPaddingH * 2);
+    final pillWidth = painter.width + pillPaddingH * 2;
+    final pillHeight = painter.height + pillPaddingV * 2;
+
+    final left =
+        toRight ? dot.dx + lineLength : dot.dx - lineLength - pillWidth;
+    var top = dot.dy - pillHeight / 2;
+    var rect = Rect.fromLTWH(left, top, pillWidth, pillHeight);
+
+    var guard = 0;
+    while (placed.any((r) => r.overlaps(rect)) && guard < 60) {
+      top += verticalStep;
+      rect = Rect.fromLTWH(left, top, pillWidth, pillHeight);
+      guard++;
+    }
+    // Clamp finale (raro): solo se lo spostamento anti-sovrapposizione ha
+    // portato la pillola fuori dai bordi dell'immagine.
+    top = top.clamp(edgeMargin, imageHeight - edgeMargin - pillHeight);
+    rect = Rect.fromLTWH(left, top, pillWidth, pillHeight);
+    placed.add(rect);
+
+    final drag = dragOffsets[poi.id] ?? Offset.zero;
+    final dragged = rect.shift(drag);
+    // La pillola trascinata **non può mai uscire dai bordi** dell'immagine
+    // (prima poteva: un trascinamento un po' ampio spingeva l'etichetta
+    // parzialmente fuori dal riquadro catturato, tagliando il testo — non
+    // era un bug di battitura, era proprio la pillola mezza fuori dai
+    // bordi). Clampata sull'intera immagine, non solo sulla zona alta
+    // riservata al posizionamento automatico: l'utente può comunque
+    // trascinarla vicino alla card statistiche se vuole.
+    final finalRect = Rect.fromLTWH(
+      dragged.left.clamp(0.0, imageWidth - dragged.width),
+      dragged.top.clamp(0.0, imageHeight - dragged.height),
+      dragged.width,
+      dragged.height,
+    );
+    result.add(_PoiLabelPlacement(
+        id: poi.id, dot: dot, rect: finalRect, name: poi.name));
+  }
+  return result;
+}
+
+/// Le lineette di tutte le etichette in un solo `CustomPaint` (più semplice
+/// ed economico che un widget per lineetta): ciascuna va dal pallino sul
+/// punto al bordo più vicino della sua pillola — calcolato per davvero
+/// (proiezione sul rettangolo), non assunto orizzontale, perché
+/// l'anti-sovrapposizione può aver spostato la pillola in verticale.
+class _LeaderLinesPainter extends CustomPainter {
+  const _LeaderLinesPainter(this.placements);
+  final List<_PoiLabelPlacement> placements;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white70
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    for (final p in placements) {
+      final target = Offset(
+        p.dot.dx.clamp(p.rect.left, p.rect.right),
+        p.dot.dy.clamp(p.rect.top, p.rect.bottom),
+      );
+      canvas.drawLine(p.dot, target, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LeaderLinesPainter oldDelegate) =>
+      !identical(oldDelegate.placements, placements);
+}
+
+/// Pallino bianco esatto sul punto interessante — l'ancoraggio reale a cui
+/// punta la lineetta (assente prima: le etichette sembravano "volare" senza
+/// indicare nulla di preciso sulla mappa).
+class _PoiDot extends StatelessWidget {
+  const _PoiDot({required this.position});
+  final Offset position;
+  static const double _size = 6;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: position.dx - _size / 2,
+      top: position.dy - _size / 2,
+      child: Container(
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: Colors.black26, width: 1),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pillola col nome del POI, già posizionata da [_layoutPoiLabels] — qui solo
+/// disegno, nessuna logica di piazzamento. Sfondo **semitrasparente** (si
+/// intravede il tracciato/terreno sotto, testo bianco resta leggibile).
+/// Trascinabile (§export immagine): il posizionamento automatico non basta
+/// da solo su zone con più punti ravvicinati (richiesto esplicitamente
+/// dall'utente dopo diversi tentativi di sistemazione automatica) — qui
+/// l'utente sposta **solo l'etichetta**, il pallino sul punto resta fisso.
+class _PoiPill extends StatelessWidget {
+  const _PoiPill(
+      {required this.rect, required this.name, required this.onDragUpdate});
+  final Rect rect;
+  final String name;
+  final ValueChanged<Offset> onDragUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    // Solo `width` fissata (per il testo a capo dove previsto da
+    // `_layoutPoiLabels`), **non** `height`: un'altezza forzata leggermente
+    // più bassa di quella richiesta dal testo reale lo faceva "sparire"
+    // parzialmente — la seconda riga si spingeva fuori dal riquadro scuro
+    // della pillola, illeggibile sul terreno sotto. Qui l'altezza la decide
+    // il contenuto vero, sempre.
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) => onDragUpdate(details.delta),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0x991C1C1E),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          // Nessun `maxLines`/ellissi: il nome non va mai troncato (vedi
+          // commento in `_layoutPoiLabels`).
+          child: Text(
+            name,
+            textAlign: TextAlign.center,
+            style: _poiLabelTextStyle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Il contenuto **effettivamente esportato**: immagine mappa (già catturata)
 /// + etichette POI + card nome/statistiche, tutto disegnato da widget Flutter
 /// veri (non "cotto" nel raster della mappa) — così il toggle di un POI nella
@@ -411,6 +742,8 @@ class _ExportComposite extends StatelessWidget {
     required this.snapshot,
     required this.pois,
     required this.selectedPoiIds,
+    required this.dragOffsets,
+    required this.onDragUpdate,
   });
 
   final DrawnTrack track;
@@ -418,10 +751,18 @@ class _ExportComposite extends StatelessWidget {
   final RouteSnapshotResult snapshot;
   final List<PoiCandidate> pois;
   final Set<String> selectedPoiIds;
+  final Map<String, Offset> dragOffsets;
+  final void Function(String poiId, Offset delta) onDragUpdate;
 
   @override
   Widget build(BuildContext context) {
     final metrics = track.metrics;
+    final placements = _layoutPoiLabels(
+      pois: pois,
+      selectedPoiIds: selectedPoiIds,
+      snapshot: snapshot,
+      dragOffsets: dragOffsets,
+    );
     return SizedBox(
       width: snapshot.logicalSize.width,
       height: snapshot.logicalSize.height,
@@ -435,10 +776,18 @@ class _ExportComposite extends StatelessWidget {
             _EndpointDot(position: snapshot.startPixel!, color: const Color(0xFF2E7D32)),
           if (snapshot.endPixel != null)
             _CheckeredEndpointDot(position: snapshot.endPixel!),
-          for (final poi in pois)
-            if (selectedPoiIds.contains(poi.id) &&
-                snapshot.poiPixels[poi.id] != null)
-              _PoiLabel(position: snapshot.poiPixels[poi.id]!, name: poi.name),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _LeaderLinesPainter(placements)),
+            ),
+          ),
+          for (final p in placements) _PoiDot(position: p.dot),
+          for (final p in placements)
+            _PoiPill(
+              rect: p.rect,
+              name: p.name,
+              onDragUpdate: (delta) => onDragUpdate(p.id, delta),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -517,57 +866,6 @@ class _CheckeredEndpointDot extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Etichetta di un punto interessante: pallino + lineetta + pillola col
-/// nome, come nelle cartine di montagna — dimensioni **fisse** (non in
-/// funzione del testo) così l'ancoraggio verticale sopra [position] resta
-/// preciso senza dover misurare il layout della pillola.
-class _PoiLabel extends StatelessWidget {
-  const _PoiLabel({required this.position, required this.name});
-  final Offset position;
-  final String name;
-
-  static const double _dotSize = 7;
-  static const double _lineLength = 12;
-  static const double _pillHeight = 20;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: position.dx,
-      top: position.dy - _dotSize / 2 - _lineLength - _pillHeight,
-      child: FractionalTranslation(
-        translation: const Offset(-0.5, 0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              height: _pillHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xE61C1C1E),
-                borderRadius: BorderRadius.circular(_pillHeight / 2),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Container(width: 1.5, height: _lineLength, color: Colors.white70),
-          ],
         ),
       ),
     );
@@ -682,7 +980,8 @@ class _PoiChecklist extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5)),
                   const SizedBox(height: 2),
-                  Text('Rilevati lungo la traccia · scegli quali mostrare',
+                  Text('Scegli quali mostrare · trascina un\'etichetta '
+                      'sull\'immagine per spostarla',
                       style: AppText.footnote
                           .copyWith(color: palette.secondaryLabel)),
                 ],
@@ -713,7 +1012,7 @@ class _PoiRow extends StatelessWidget {
 
   IconData get _icon => switch (poi.category) {
         PoiCategory.rifugio => CupertinoIcons.house_fill,
-        PoiCategory.alpe => CupertinoIcons.house,
+        PoiCategory.alpe => CupertinoIcons.tree,
         PoiCategory.lago => CupertinoIcons.drop_fill,
         PoiCategory.colle => CupertinoIcons.arrow_up_right,
         PoiCategory.cima => CupertinoIcons.triangle_fill,
