@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 
+import '../features/draw_route/export/export_image_screen.dart';
 import '../features/map_gl/map_gl_screen.dart';
 import '../features/offline_maps/offline_maps_screen.dart';
 import '../features/settings/settings_screen.dart';
@@ -29,6 +30,13 @@ final appRouter = GoRouter(
       path: OfflineMapsScreen.routePath,
       name: OfflineMapsScreen.routeName,
       builder: (context, state) => const OfflineMapsScreen(),
+    ),
+    GoRoute(
+      path: ExportImageScreen.routePath,
+      name: ExportImageScreen.routeName,
+      builder: (context, state) => ExportImageScreen(
+        trackId: state.pathParameters['trackId']!,
+      ),
     ),
   ],
 );

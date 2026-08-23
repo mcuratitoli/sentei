@@ -9,6 +9,15 @@
 > Quando un punto è confermato su device, spuntarlo `[x]` con data e note (non cancellarlo:
 > qui la storia della validazione è parte del valore della lista).
 
+- [ ] **Export immagine del percorso** (23 ago 2026, `docs/CHANGELOG-DEV.md`) —
+  implementato e coperto da `flutter analyze` + test di dominio (matcher POI) e widget
+  (foglio "Esporta"), ma **mai visto a schermo**, né su simulatore né su device: cattura
+  offscreen della mappa 3D (`RouteSnapshotCapture`), inquadratura/pitch della camera,
+  posizionamento delle etichette POI (pillola+lineetta) sopra il raster, resa leggibile
+  della card nome/statistiche, salvataggio in galleria (permesso foto) e condivisione di
+  sistema — tutto da verificare dal vivo. Da controllare anche col percorso più lungo
+  della libreria (Giro di Viso, 37 km): tanti POI rilevati da Overpass, elenco scelta
+  lungo, tempo di risposta della query.
 - [ ] **Foto più veloci ad aprirsi e scorrere** (P1.1, 12 ago 2026) — provato sul
   simulatore con 14 foto generate ad hoc, di cui **6 da 48 MP** (8064×6048): la foto è a
   schermo entro ~250 ms anche saltando da una miniatura all'altra. Restano da vedere su un

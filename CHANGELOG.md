@@ -22,6 +22,28 @@ occasione va tolta da `kRoadmapGroups` la voce "Foto più leggere" e "Tempo di
 percorrenza stimato" (entrambe ora in "In lavorazione"): a quel punto sono
 novità consegnate, non cose da fare.
 
+- ✨ **Esporta un'immagine del percorso**, pronta per essere condivisa: mappa
+  3D con la traccia in evidenza, nome e dati (distanza, dislivello, tempo)
+  in sovraimpressione, e i punti interessanti incontrati lungo il percorso
+  (rifugi, alpeggi, laghi, colli, cime) etichettati come su una cartina di
+  montagna — si sceglie quali mostrare prima di salvare in galleria o
+  condividere. Si trova nel tasto "Esporta" della card traccia sulla mappa
+  (insieme al GPX) e nel menu ⋯ della lista tracciati ("Esporta immagine").
+- ✏️ **Pulsante «Elimina» anche nella card della traccia selezionata sulla
+  mappa** (prima solo dal menu ⋯ della lista tracciati). Le altre azioni
+  della card (Modifica, Esporta, Salva offline, Elimina) sono ora raccolte
+  in un menu "Altro", per lasciare in vista solo le due icone di
+  visualizzazione (profilo altimetrico, colori dislivelli).
+- 🗺️ **Con una traccia selezionata, le altre si attenuano sulla mappa** per
+  leggibilità nelle zone con più tracce vicine; i pallini di inizio/fine
+  ora compaiono solo su quella selezionata, e il punto di arrivo è una
+  bandiera a scacchi invece del pallino rosso pieno.
+- 🎨 **Impostazioni riorganizzate**: la voce "Sentèi" (nome e versione) è
+  diventata un footer in fondo alla schermata; "Novità e roadmap" è ora un
+  tasto a parte in "Informazioni". La scheda "Mappa" apre un foglio con
+  fonte dati e attribuzione (Mapbox, OpenStreetMap) — l'icona "i" sulla
+  mappa resta comunque al suo posto, i termini d'uso Mapbox non ne
+  permettono la rimozione.
 - ⏱️ **Tempo di percorrenza stimato**, calcolato con lo stesso metodo dei
   cartelli CAI (distanza in piano + dislivello, combinati con la formula
   svizzera). Compare sulla card di ogni traccia e nella lista dei tracciati
@@ -45,8 +67,8 @@ novità consegnate, non cose da fare.
   circa **un terzo** di prima (su 8 foto: da 844 a 255 KB), quindi meno traffico
   e meno spazio su iCloud/Google Drive.
 - 🔍 Ingrandendo una foto non c'è più il blocco di qualche istante.
-- 🎨 **Novità e Roadmap ridisegnate** (Impostazioni → Informazioni → Sentèi):
-  ogni voce ha un'icona, un titolo e una riga che spiega cosa cambia; la Roadmap
+- 🎨 **Novità e Roadmap ridisegnate** (Impostazioni → Informazioni → Novità e
+  roadmap): ogni voce ha un'icona, un titolo e una riga che spiega cosa cambia; la Roadmap
   è divisa in "In lavorazione", "Prossime" e "Più avanti".
 - 🐛 Tolte le righe gialle sotto la data e "Altitudine" nella foto a schermo
   intero (un residuo di debug).

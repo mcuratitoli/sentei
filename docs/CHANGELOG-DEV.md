@@ -6,8 +6,79 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 - Per le **novità in linguaggio utente** (cosa cambia per chi usa l'app) vedi
   [`CHANGELOG.md`](../CHANGELOG.md) alla radice del repo — la stessa lista è mostrata
-  in-app in Impostazioni → Informazioni → Sentèi.
+  in-app in Impostazioni → Informazioni → Novità e roadmap.
 - Per **cosa resta da fare**, in ordine di priorità, vedi [`ROADMAP.md`](./ROADMAP.md).
+
+---
+
+## 23 agosto 2026 — Export immagine del percorso; card traccia: Elimina, "Altro", tracce attenuate; Impostazioni riorganizzate
+
+Tre pezzi di lavoro nella stessa sessione, in ordine.
+
+**1. Card traccia selezionata (mappa)**: nuovo tasto **Elimina** (con conferma,
+`_confirmDeleteTrack` — stesso testo della lista tracciati). Quando una traccia è
+selezionata, le altre si attenuano (`lineOpacity: 0.35` in `_renderAll`,
+`map_gl_screen.dart`) per leggibilità con più tracce vicine; i pallini inizio/fine
+(`_drawEndpoints`) ora compaiono **solo** sulla traccia selezionata (prima su tutte, anche
+senza selezione). Il pallino di arrivo è diventato una bandiera a scacchi
+(`_buildFinishFlagImageData`, canvas→PNG via `addStyleImage`+`PointAnnotationManager`) al
+posto del cerchio rosso pieno — **bug scoperto in corsa**: il primo tentativo passava byte
+RGBA grezzi a `MbxImage.data`, che invece si aspetta un'immagine **codificata** (come da
+esempio ufficiale del plugin) — l'eccezione non gestita in `_styleSetup` bloccava l'intero
+setup della mappa (nessuna traccia visibile). Risolto codificando in PNG.
+
+**2. Impostazioni**: la voce "Sentèi" (nome+versione, apriva Novità/Roadmap) è stata divisa
+in due — un footer di schermata (non di sezione) con nome+versione in fondo alla
+`ListView`, e un tasto "Novità e roadmap" a parte in "Informazioni" che apre lo stesso
+foglio di prima (`showReleaseNotes`, invariato). La riga "Mappa" ora apre un foglio
+`showMapInfo` (nuovo, `lib/ui/legends.dart`) con l'attribuzione Mapbox/OSM e due link
+esterni (`url_launcher`, già dipendenza inutilizzata prima d'ora). **Vincolo verificato nel
+codice esistente**: l'icona "i" nativa sulla mappa non è rimovibile (termini d'uso Mapbox,
+commento già presente in `_configureOrnaments`) — il nuovo foglio è un accesso aggiuntivo,
+non un sostituto.
+
+**3. Export immagine** (feature non pianificata, richiesta con mockup dall'utente — vedi
+`docs/ROADMAP.md`, non ancora aggiunta lì perché già consegnata). Decisioni prese con
+l'utente prima di scrivere codice (4 domande, tutte risposte con l'opzione consigliata):
+fonte POI = Overpass API (coerente con `data/trails/`, non i tile vettoriali Mapbox);
+rendering = `MapWidget` offscreen + `RepaintBoundary` (non lo `Snapshotter` nativo headless
+— serviva controllo Flutter-nativo sulle etichette a pillola+lineetta); il tasto "Esporta"
+nella card diventa un menu "Altro" che raccoglie anche Modifica/Salva offline/Elimina
+(rischio di overflow con una 6ª icona nuda in riga); categorie POI = rifugio, alpe, lago,
+colle, cima, max 10 più vicini al percorso.
+
+- `domain/models/point_of_interest.dart`, `domain/services/nearby_pois_matcher.dart` —
+  stesso schema di `nearby_photos_matcher.dart` (soglia 500 m, non 80: un rifugio sta
+  spesso a centinaia di metri dal tracciato, non esattamente sopra).
+- `data/poi/overpass_poi_service.dart` — nodi OSM per tag (`tourism=alpine_hut|
+  wilderness_hut|hut`, `amenity=shelter` → rifugio; `natural=peak` → cima;
+  `mountain_pass=yes`/`natural=saddle` → colle; `natural=water` → lago;
+  `place=locality|isolated_dwelling` **con nome che contiene "alp"** → alpe, euristica sul
+  nome perché l'alpeggio non ha un tag OSM dedicato). Mai un'eccezione verso il chiamante:
+  qualunque errore rete/parsing → lista vuota, i POI sono un arricchimento non bloccante.
+- `features/draw_route/export/route_snapshot.dart` — `RouteSnapshotCapture`: mappa
+  Mapbox headless (stesso terreno 3D/hillshade/cielo di `map_gl_screen.dart`, sempre stile
+  Outdoors chiaro, non segue il tema scuro dell'app) posizionata fuori schermo
+  (`Positioned(left: -6000, ...)`), cattura con `RepaintBoundary.toImage(pixelRatio: 3)`
+  dopo `onMapIdleListener`, più le posizioni pixel di partenza/arrivo/POI via
+  `pixelForCoordinate` sulla stessa camera (`cameraForCoordinates(..., pitch: 55)`).
+  Timeout di sicurezza 20s (rete assente/stile mai pronto → fallisce senza restare in
+  caricamento all'infinito).
+- `features/draw_route/export/export_image_screen.dart` — l'immagine base (raster,
+  catturata una volta) e le etichette/il testo (widget Flutter veri, sopra) sono
+  **disaccoppiati**: il toggle di un POI nella checklist ridisegna solo l'overlay, mai la
+  mappa. Il PNG finale si ottiene catturando di nuovo lo stesso `RepaintBoundary` (ora con
+  mappa+overlay insieme) solo al tap su "Salva"/"Condividi", non ad ogni toggle.
+  Salvataggio in galleria via `PhotoManager.editor.saveImage` (già dipendenza per la
+  lettura foto vicine, mai usata finora in scrittura — nessun nuovo permesso iOS: l'app
+  chiede già l'accesso `readWrite` di default).
+- `features/draw_route/export/export_gpx.dart` — l'export GPX esistente
+  (`tracks_list_screen.dart`) estratto in una funzione condivisa: ora usata anche dal
+  nuovo foglio "Esporta" della card mappa.
+- **Non verificato su simulatore/device** in questa sessione (l'utente ha chiesto di
+  ridurre i cicli di test manuali, vedi memoria `sentei-limita-test-simulatore`): la
+  cattura offscreen della mappa 3D, il salvataggio in galleria e la condivisione vanno
+  controllati a schermo — annotato in `docs/validazione-device.md`.
 
 ---
 

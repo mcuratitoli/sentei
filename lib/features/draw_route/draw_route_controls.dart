@@ -28,6 +28,7 @@ import '../../ui/tokens.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
 import '../settings/hiking_pace_provider.dart';
+import 'export/export_sheet.dart';
 import 'nearby_photos_action.dart';
 import 'photo_location_panel.dart';
 import 'route_editor_provider.dart';
@@ -306,13 +307,11 @@ class _SelectedBody extends ConsumerWidget {
               _TrailInfo(refs: track?.trailRefs ?? const [], scale: difficulty),
           ],
           const SizedBox(height: 8),
-          // Riga con 4-5 azioni: icone nude, senza testo/sfondo (a differenza
-          // delle pillole con label usate dove la riga ha solo 1-2 azioni —
-          // barra del punto selezionato, card foto, foglio foto vicine —
-          // altrimenti qui andrebbe fuori schermo o su due righe). "Percorso"
-          // era l'unica pillola con label in questa riga, incoerente con le
-          // altre 4: ora è un'icona con stato attivo/disattivo come "Colori
-          // dislivelli" accanto.
+          // Icone nude, senza testo/sfondo. Solo le due "vista" (profilo
+          // altimetrico, colori dislivelli) restano dirette in riga: le
+          // azioni sulla traccia (modifica/esporta/salva offline/elimina)
+          // sono confluite nel menu "altro" per non affollare la riga oltre
+          // 3 icone (rischio di andare a capo sugli schermi stretti).
           Row(
             children: [
               AppIconButton(
@@ -339,28 +338,11 @@ class _SelectedBody extends ConsumerWidget {
               ),
               const Spacer(),
               AppIconButton(
-                tooltip: 'Modifica',
-                onPressed: saving
-                    ? null
-                    : () => ref.read(tracksProvider.notifier).editSelected(),
-                icon: CupertinoIcons.pencil,
-              ),
-              const SizedBox(width: 6),
-              AppIconButton(
-                tooltip: 'Salva offline',
+                tooltip: 'Altro',
                 onPressed: saving || track == null
                     ? null
-                    : () => downloadTrackOffline(context, ref, track),
-                icon: CupertinoIcons.cloud_download,
-              ),
-              const SizedBox(width: 6),
-              AppIconButton(
-                tooltip: 'Elimina',
-                tint: AppColors.destructive,
-                onPressed: saving || track == null
-                    ? null
-                    : () => _confirmDeleteTrack(context, ref, track),
-                icon: CupertinoIcons.delete,
+                    : () => _showTrackMenu(context, ref, track),
+                icon: CupertinoIcons.ellipsis,
               ),
             ],
           ),
@@ -421,6 +403,40 @@ Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     confirmLabel: 'Annulla modifiche',
     cancelLabel: 'Continua a modificare',
     onConfirm: () => ref.read(tracksProvider.notifier).cancelEditing(),
+  );
+}
+
+/// Menu "altro" della card traccia selezionata: azioni sulla traccia che
+/// prima erano icone dirette in riga (§export immagine, `docs/ROADMAP.md`
+/// aggiunta non pianificata) — spostate qui per non affollare la riga sopra.
+Future<void> _showTrackMenu(
+    BuildContext context, WidgetRef ref, DrawnTrack track) async {
+  await showIosMenu(
+    context: context,
+    title: track.name.isNotEmpty ? track.name : 'Senza nome',
+    items: [
+      IosMenuItem(
+        label: 'Modifica',
+        icon: CupertinoIcons.pencil,
+        onPressed: () => ref.read(tracksProvider.notifier).editSelected(),
+      ),
+      IosMenuItem(
+        label: 'Esporta',
+        icon: CupertinoIcons.square_arrow_up,
+        onPressed: () => showExportSheet(context, track),
+      ),
+      IosMenuItem(
+        label: 'Salva offline',
+        icon: CupertinoIcons.cloud_download,
+        onPressed: () => downloadTrackOffline(context, ref, track),
+      ),
+      IosMenuItem(
+        label: 'Elimina',
+        icon: CupertinoIcons.delete,
+        isDestructive: true,
+        onPressed: () => _confirmDeleteTrack(context, ref, track),
+      ),
+    ],
   );
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'cai_difficulty.dart';
 import 'tokens.dart';
@@ -288,8 +289,7 @@ class _NoteBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cupertino, non Material (era `Icons.info_outline`): stessa icona
-          // "info" usata in Impostazioni → Informazioni → Sentèi.
+          // Cupertino, non Material (era `Icons.info_outline`).
           Icon(CupertinoIcons.info, size: 18, color: palette.secondaryLabel),
           const SizedBox(width: 10),
           Expanded(
@@ -300,6 +300,84 @@ class _NoteBox extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Mostra fonte dati e attribuzione della mappa (Impostazioni → Mappa) in un
+/// bottom sheet. **Non sostituisce** l'icona "i" nativa Mapbox sulla mappa
+/// stessa — i termini d'uso Mapbox impongono di mostrarla lì e non è
+/// rimovibile (vedi `map_gl_screen.dart` → `_configureOrnaments`): è solo un
+/// accesso aggiuntivo, più comodo, alle stesse informazioni.
+Future<void> showMapInfo(BuildContext context) {
+  return _showSheet(context, const _MapInfoSheet());
+}
+
+class _MapInfoSheet extends StatelessWidget {
+  const _MapInfoSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Mappa', style: AppText.sheetTitle),
+            const SizedBox(height: 6),
+            Text(
+              'Mapbox Outdoors, con terreno 3D e sentieri CAI · OSM2CAI · '
+              'Overpass.',
+              style: AppText.body.copyWith(color: palette.secondaryLabel),
+            ),
+            const SizedBox(height: 16),
+            const _SectionLabel('Attribuzione'),
+            Text(
+              'Mappe © Mapbox, © OpenStreetMap e contributori.',
+              style: AppText.body.copyWith(color: palette.bodyText),
+            ),
+            const SizedBox(height: 10),
+            const _MapInfoLink(
+              label: 'Mapbox',
+              url: 'https://www.mapbox.com/about/maps/',
+            ),
+            const _MapInfoLink(
+              label: 'OpenStreetMap',
+              url: 'https://www.openstreetmap.org/copyright',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapInfoLink extends StatelessWidget {
+  const _MapInfoLink({required this.label, required this.url});
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.palette.accent;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: GestureDetector(
+        onTap: () =>
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: AppText.body.copyWith(color: accent)),
+            const SizedBox(width: 4),
+            Icon(CupertinoIcons.arrow_up_right_square, size: 14, color: accent),
+          ],
+        ),
       ),
     );
   }

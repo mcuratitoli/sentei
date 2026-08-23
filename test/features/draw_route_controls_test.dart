@@ -515,15 +515,39 @@ void main() {
     await notifier.finishDrawing();
     await tester.pumpAndSettle();
 
-    // "Modifica" era `Icons.edit_rounded` (Material): stonava con le altre
-    // icone Cupertino della stessa riga (Trova foto vicine, Salva offline) e
-    // con le altre matite dell'app (nome traccia, titolo foto).
-    expect(find.byIcon(Icons.edit_rounded), findsNothing);
-    expect(find.byIcon(CupertinoIcons.pencil), findsOneWidget);
-
     // Superficie opaca (`new design/DESIGN_GUIDELINES.md` §7), non più
     // "vetro" semitrasparente — verificato anche per PhotoDetailCard sotto.
     expect(find.byType(AppSheetSurface), findsOneWidget);
+
+    // "Modifica" era `Icons.edit_rounded` (Material): stonava con le altre
+    // icone Cupertino dell'app (nome traccia, titolo foto). Ora è una voce
+    // del menu "Altro" (le azioni sulla traccia non stanno più in riga).
+    await tester.tap(find.byTooltip('Altro'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.edit_rounded), findsNothing);
+    expect(find.byIcon(CupertinoIcons.pencil), findsOneWidget);
+  });
+
+  testWidgets(
+      'menu "Altro" → Esporta apre il foglio con le scelte GPX/Immagine',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier
+      ..startNewDrawing()
+      ..addPoint(const LatLng(45.0, 7.0))
+      ..addPoint(const LatLng(45.01, 7.0));
+    await notifier.finishDrawing();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Altro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Esporta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Traccia GPX'), findsOneWidget);
+    expect(find.text('Immagine'), findsOneWidget);
   });
 
   testWidgets(
@@ -541,7 +565,9 @@ void main() {
 
     expect(container.read(tracksProvider).tracks, hasLength(1));
 
-    await tester.tap(find.byTooltip('Elimina'));
+    await tester.tap(find.byTooltip('Altro'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Elimina'));
     await tester.pumpAndSettle();
     expect(find.text('Eliminare la traccia?'), findsOneWidget);
 

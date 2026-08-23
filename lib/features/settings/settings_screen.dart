@@ -79,30 +79,16 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         children: [
           AppListSection(
-            header: 'Mappa',
+            header: 'Informazioni',
             children: [
               CupertinoListTile(
                 leading: const _SettingsIcon(CupertinoIcons.map),
                 title: const Text('Mappa'),
                 subtitle:
                     const Text('Mapbox Outdoors · Sentiero CAI'),
-              ),
-              CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.cloud_download),
-                title: const Text('Mappe offline'),
-                subtitle:
-                    const Text('Scarica aree per l\'uso senza connessione'),
                 trailing: const CupertinoListTileChevron(),
-                onTap: () => context.push(OfflineMapsScreen.routePath),
+                onTap: () => showMapInfo(context),
               ),
-            ],
-          ),
-          const _HikingSection(),
-          const _AppearanceSection(),
-          const _CloudSection(),
-          AppListSection(
-            header: 'Informazioni',
-            children: [
               CupertinoListTile(
                 leading: const _SettingsIcon(CupertinoIcons.book),
                 title: const Text('Legenda difficoltà'),
@@ -119,15 +105,29 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showAbbreviationsLegend(context),
               ),
               CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.info),
-                title: const Text('Sentèi'),
-                subtitle: const Text('App per l\'escursionismo · novità'),
-                additionalInfo:
-                    Text(ref.watch(appVersionProvider).value ?? '…'),
+                leading: const _SettingsIcon(CupertinoIcons.news),
+                title: const Text('Novità e roadmap'),
+                subtitle: const Text('Cosa c\'è di nuovo e cosa arriva'),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => showReleaseNotes(context),
               ),
             ],
+          ),
+          const _HikingSection(),
+          const _AppearanceSection(),
+          const _CloudSection(),
+          // Footer di schermata (non di sezione): nome app + versione, stesso
+          // ruolo informativo della vecchia riga "Sentèi" in Informazioni —
+          // qui perché riguarda l'app nel suo insieme, non una sezione sola.
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 24),
+            child: Center(
+              child: Text(
+                'Sentèi · v${ref.watch(appVersionProvider).value ?? '…'}',
+                style: AppText.footnote
+                    .copyWith(color: context.palette.secondaryLabel),
+              ),
+            ),
           ),
         ],
       ),
@@ -154,6 +154,14 @@ class _HikingSection extends ConsumerWidget {
           additionalInfo: Text(pace.label),
           trailing: const CupertinoListTileChevron(),
           onTap: () => _showPaceSheet(context, ref, pace),
+        ),
+        CupertinoListTile(
+          leading: const _SettingsIcon(CupertinoIcons.cloud_download),
+          title: const Text('Mappe offline'),
+          subtitle:
+              const Text('Scarica aree per l\'uso senza connessione'),
+          trailing: const CupertinoListTileChevron(),
+          onTap: () => context.push(OfflineMapsScreen.routePath),
         ),
       ],
     );
@@ -335,7 +343,7 @@ class _CloudSection extends ConsumerWidget {
     const spinner = CupertinoActivityIndicator(radius: 11);
 
     return AppListSection(
-      header: 'Sincronizzazione cloud',
+      header: 'Sincronizzazione',
       children: [
         // iCloud è iOS-only: il selettore ha senso solo lì.
         if (Platform.isIOS) const _CloudProviderSelector(),

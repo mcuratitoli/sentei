@@ -93,7 +93,7 @@ delle tile; il download offline deve essere limitato per area e con rate limitin
 |---|---|---|
 | **Mapbox** (Outdoors / Dark / Satellite) | Base mappa (unico motore, §2) | Servizio a pagamento oltre il free tier — token pubblico via `--dart-define`, mai nel repo. |
 | **OSM2CAI / INFOMONT** — `https://osm2cai.cai.it/api/geojson/hiking_routes/bounding_box` | Numeri segnavia + difficoltà CAI, **solo Italia** | Catasto ufficiale REI (CAI + Wikimedia Italia), licenza **ODbL**. Indagine endpoint: `docs/osm2cai-investigation.md`. |
-| **Overpass API** (relazioni OSM `route=hiking`) | Numeri segnavia + difficoltà, fallback per l'intero arco alpino incl. confini FR/CH | Dati OpenStreetMap (ODbL); rispettare i limiti di frequenza delle istanze pubbliche. |
+| **Overpass API** (relazioni OSM `route=hiking`; nodi `tourism`/`natural`/`place`/`mountain_pass`) | Numeri segnavia + difficoltà, fallback per l'intero arco alpino incl. confini FR/CH; **punti interessanti lungo il percorso** (rifugi, alpeggi, laghi, colli, cime) per l'export immagine (`data/poi/overpass_poi_service.dart`) | Dati OpenStreetMap (ODbL); rispettare i limiti di frequenza delle istanze pubbliche. |
 | **Terrain RGB / Terrarium** — `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` | Elevazione (D+/D-, profilo altimetrico), cacheabile offline | DEM SRTM/Copernicus codificato Terrarium, riuso libero. |
 | **BRouter** (servizio pubblico) — `https://brouter.de/brouter` | Snap-to-trail (routing lungo i sentieri OSM) | Nessuna API key; vedi §5 per la catena di profili usata. |
 | **Nominatim** (OSM) | Geocoding di fallback (ricerca luoghi, reverse geocoding) | Rispettare la usage policy (rate limit, User-Agent). |
@@ -114,6 +114,7 @@ lib/
   data/
     routing/            # BRouter (snap-to-trail)
     trails/             # numeri segnavia + difficoltà CAI: OSM2CAI, Overpass, strategia combinata
+    poi/                # punti interessanti lungo il percorso (Overpass) per l'export immagine
     offline/             # Mapbox OfflineManager + cache/decoder Terrarium (elevazione)
     storage/             # drift (SQLite) + repository tracciati + codec di serializzazione
     cloud/               # CloudSyncService: iCloud + Google Drive, motore last-write-wins
@@ -128,7 +129,7 @@ lib/
     services/             # calcolo distanza/dislivello, semplificazione path, matching foto
   features/
     map_gl/               # schermata mappa principale (Mapbox GL) + info punto ispezionato
-    draw_route/           # disegno/editing tracciato, azioni foto vicine
+    draw_route/           # disegno/editing tracciato, azioni foto vicine, export (GPX/immagine)
     tracks_list/          # libreria tracciati salvati (ordinamento, ricerca)
     offline_maps/         # gestione mappe/elevazione scaricate
     settings/             # tema, sorgente cloud, legende, changelog/roadmap in-app

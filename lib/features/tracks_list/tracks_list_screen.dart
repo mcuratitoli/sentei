@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/cupertino.dart'
     show
@@ -9,11 +7,8 @@ import 'package:flutter/cupertino.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/util/format.dart';
-import '../../data/gpx/gpx_service.dart';
 import '../../domain/services/hiking_time.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../ui/app_buttons.dart';
@@ -21,6 +16,8 @@ import '../../ui/app_list_section.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
+import '../draw_route/export/export_gpx.dart';
+import '../draw_route/export/export_image_screen.dart';
 import '../draw_route/route_editor_provider.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/track_offline_download.dart';
@@ -221,7 +218,13 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
         IosMenuItem(
           label: 'Esporta GPX',
           icon: CupertinoIcons.square_arrow_up,
-          onPressed: () => _exportGpx(t),
+          onPressed: () => exportTrackGpx(context, t),
+        ),
+        IosMenuItem(
+          label: 'Esporta immagine',
+          icon: CupertinoIcons.photo,
+          onPressed: () => context.pushNamed(ExportImageScreen.routeName,
+              pathParameters: {'trackId': t.id}),
         ),
         IosMenuItem(
           label: 'Salva offline',
@@ -281,17 +284,5 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
     final id = ref.read(importLoadingProvider);
     if (context.canPop()) context.pop();
     if (id != null) ref.read(mapFocusProvider.notifier).focusTrack(id);
-  }
-
-  Future<void> _exportGpx(DrawnTrack track) async {
-    final xml = const GpxService().exportToGpx(track);
-    final dir = await getTemporaryDirectory();
-    final safe = (track.name.isNotEmpty ? track.name : 'tracciato')
-        .replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-    final path = '${dir.path}/$safe.gpx';
-    await File(path).writeAsString(xml);
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(path)], text: track.name),
-    );
   }
 }
