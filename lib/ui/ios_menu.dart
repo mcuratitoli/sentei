@@ -170,7 +170,12 @@ class _MenuRow extends StatelessWidget {
     final palette = context.palette;
     final color = item.isDestructive ? _kDestructive : palette.label;
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      // vertical: AppSpacing.md (12), non un valore libero — riga singola
+      // (icona 30px + testo, niente sottotitolo), stesso ordine di grandezza
+      // delle righe di Impostazioni (`CupertinoListTile` senza sottotitolo,
+      // ~8px di suo) invece dei 14px arbitrari di prima.
+      padding: const EdgeInsets.symmetric(
+          horizontal: 20, vertical: AppSpacing.md),
       minimumSize: const Size.fromHeight(0),
       borderRadius: BorderRadius.zero,
       onPressed: () {
