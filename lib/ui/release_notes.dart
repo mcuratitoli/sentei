@@ -102,11 +102,6 @@ const List<ReleaseNote> kReleaseNotes = [
             'spazio già occupato prima d\'ora.',
       ),
       NoteItem(
-        icon: CupertinoIcons.doc_text_search,
-        title: 'Log di debug per segnalare un problema',
-        body: 'Tocca 7 volte nome e versione in fondo a Impostazioni.',
-      ),
-      NoteItem(
         icon: CupertinoIcons.wrench,
         title: 'Bugfix e rifiniture',
         body: 'Piccole correzioni grafiche sparse, non tutte elencate qui.',
