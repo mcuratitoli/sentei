@@ -120,6 +120,18 @@ fuori/swipe (`isDismissible: false, enableDrag: false` — nuovo parametro `enab
 
 ---
 
+## 23 agosto 2026 — Deployment target iOS alzato a 15.0
+
+Segnalato da Transporter caricando l'IPA della `1.0.0+9`: warning `MinimumOSVersion too low`
+(90068) — da primavera 2027 Apple richiederà `MinimumOSVersion` ≥ 15.0 per il caricamento su
+App Store Connect. Non bloccante ora (solo un warning, quell'IPA a 14.0 resta valida), ma
+corretto subito perché a costo zero: `IPHONEOS_DEPLOYMENT_TARGET` 14.0 → 15.0 su tutte e tre
+le build configuration di `ios/Runner.xcodeproj/project.pbxproj` + `platform :ios` in
+`ios/Podfile`, `pod install` rieseguito senza conflitti (2 pod, nessuna incompatibilità).
+**Da questa build in poi** (non retroattivo sull'IPA già generata per la `1.0.0+9`).
+
+---
+
 ## 23 agosto 2026 — Cache elevazione senza limiti: causa del "l'app pesa centinaia di mega"
 
 Segnalato dall'utente su **iPhone fisico**, prima di questo rilascio: "Sentèi pesa
