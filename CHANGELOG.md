@@ -13,27 +13,25 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
-## Non ancora rilasciato
-
-Modifiche già su `main` ma non ancora distribuite: alla prossima release questa
-sezione prende il numero di build (`1.0.0 (9)`) e le sue voci vanno riportate in
-`kReleaseNotes` (`lib/ui/release_notes.dart`) — vedi `CLAUDE.md` §9. Nella stessa
-occasione va tolta da `kRoadmapGroups` la voce "Foto più leggere" e "Tempo di
-percorrenza stimato" (entrambe ora in "In lavorazione"): a quel punto sono
-novità consegnate, non cose da fare.
+## 1.0.0 (9) — 23 agosto 2026
 
 - ✨ **Esporta un'immagine del percorso**, pronta per essere condivisa: mappa
   3D con la traccia in evidenza, nome e dati (distanza, dislivello, tempo)
   in sovraimpressione, e i punti interessanti incontrati lungo il percorso
   (rifugi, alpeggi, laghi, colli, cime) etichettati come su una cartina di
   montagna — si sceglie quali mostrare prima di salvare in galleria o
-  condividere. Si trova nel tasto "Esporta" della card traccia sulla mappa
-  (insieme al GPX) e nel menu ⋯ della lista tracciati ("Esporta immagine").
+  condividere. Si trova nel menu "Altro" della card traccia sulla mappa
+  (voce "Esporta immagine", insieme a "Esporta GPX") e nel menu ⋯ della
+  lista tracciati.
+- ✏️ **Indicatore "salvata offline"**: un segno di spunta accanto a ogni
+  traccia già scaricata per l'uso senza connessione, sia in lista tracciati
+  sia nel menu azioni — prima non c'era modo di saperlo senza riprovare a
+  scaricarla.
 - ✏️ **Pulsante «Elimina» anche nella card della traccia selezionata sulla
   mappa** (prima solo dal menu ⋯ della lista tracciati). Le altre azioni
-  della card (Modifica, Esporta, Salva offline, Elimina) sono ora raccolte
-  in un menu "Altro", per lasciare in vista solo le due icone di
-  visualizzazione (profilo altimetrico, colori dislivelli).
+  della card (Modifica, Esporta GPX/immagine, Salva offline, Elimina) sono
+  ora raccolte in un menu "Altro", per lasciare in vista solo le due icone
+  di visualizzazione (profilo altimetrico, colori dislivelli).
 - 🗺️ **Con una traccia selezionata, le altre si attenuano sulla mappa** per
   leggibilità nelle zone con più tracce vicine; i pallini di inizio/fine
   ora compaiono solo su quella selezionata, e il punto di arrivo è una
@@ -72,6 +70,13 @@ novità consegnate, non cose da fare.
   è divisa in "In lavorazione", "Prossime" e "Più avanti".
 - 🐛 Tolte le righe gialle sotto la data e "Altitudine" nella foto a schermo
   intero (un residuo di debug).
+- ✨ **Log di debug consultabili in-app**, per chi vuole segnalare un
+  problema senza collegare il telefono a un Mac: si trovano toccando 7
+  volte il nome/versione in fondo a Impostazioni, con possibilità di
+  condividerli o cancellarli. Si conservano al massimo ~2 MB e non più di 7
+  giorni.
+- 🎨 La card **Novità** al primo avvio dopo un aggiornamento non si chiude
+  più toccando fuori o trascinandola: va letta e chiusa con "Continua".
 
 ## 1.0.0 (8) — 29 luglio 2026
 

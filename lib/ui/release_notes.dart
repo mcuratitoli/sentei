@@ -66,6 +66,31 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 9,
+    date: '23 agosto 2026',
+    highlights: [
+      NoteItem(
+        icon: CupertinoIcons.photo,
+        title: 'Esporta un\'immagine del percorso',
+        body: 'Mappa 3D con nome, dati e punti di interesse, pronta da '
+            'condividere.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.delete,
+        title: 'Elimina la traccia dalla sua card sulla mappa',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.checkmark_seal,
+        title: 'Indicatore "salvata offline" su ogni traccia',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.clock,
+        title: 'Tempo di percorrenza stimato (metodo CAI)',
+      ),
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 8,
     date: '29 luglio 2026',
     highlights: [
@@ -297,35 +322,8 @@ class RoadmapGroup {
 /// un'anteprima, non il documento completo.
 const List<RoadmapGroup> kRoadmapGroups = [
   RoadmapGroup(
-    label: 'In lavorazione',
-    items: [
-      NoteItem(
-        icon: CupertinoIcons.photo_on_rectangle,
-        title: 'Foto più leggere',
-        body: 'Si aprono subito e si scorrono senza scatti, anche su '
-            'escursioni con molti scatti.',
-      ),
-      NoteItem(
-        icon: CupertinoIcons.clock,
-        title: 'Tempo di percorrenza stimato',
-        body: 'Calcolato con il metodo del CAI, come sui cartelli dei '
-            'sentieri.',
-      ),
-    ],
-  ),
-  RoadmapGroup(
     label: 'Prossime',
     items: [
-      NoteItem(
-        icon: CupertinoIcons.delete,
-        title: 'Elimina una traccia dalla sua scheda',
-        body: 'Senza passare dalla lista dei tracciati.',
-      ),
-      NoteItem(
-        icon: CupertinoIcons.eye,
-        title: 'Traccia selezionata più in evidenza',
-        body: 'Le altre diventano più trasparenti.',
-      ),
       NoteItem(
         // Diramazione: il segnavia seguito da un capo all'altro. Non
         // `signature`/`scribble`, che a 18px sono due scarabocchi
@@ -334,6 +332,11 @@ const List<RoadmapGroup> kRoadmapGroups = [
         title: 'Un segnavia per intero',
         body: 'Tocca un numero sulla mappa e vedi dove parte, dove arriva e '
             'la scheda ufficiale.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.zoom_in,
+        title: 'Zoom e angolazione della mappa personalizzabili',
+        body: 'Prima di generare l\'immagine del percorso da condividere.',
       ),
     ],
   ),

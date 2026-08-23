@@ -11,6 +11,115 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 23 agosto 2026 — Export immagine: giro di bug-fixing dal vivo; log di debug in-app
+
+Seguito diretto della sessione precedente (voce sotto): la prima implementazione dell'export
+immagine (`RepaintBoundary` offscreen) e altri due punti sono stati verificati dal vivo
+sul simulatore, con l'utente che riproduceva e segnalava, oltre dieci giri di feedback su
+screenshot reali. Metodo usato per ogni bug: `debugPrint('[export] ...')` in ogni stadio della
+pipeline + `Monitor` con `tail -f | grep` sul log di `flutter run`, riproduzione live,
+lettura delle righe per individuare la causa esatta (coordinate pixel, byte, sentinelle di
+errore) invece di ipotizzare.
+
+**Cattura vuota (PNG da 5,7 KB)** — causa a catena: `Positioned(left:-6000)` fuori dalla
+finestra impedisce del tutto il rendering della platform view; `Opacity(0)` mette in pausa il
+rendering nativo (mai `onMapIdle`); e anche a vista genuina, `RepaintBoundary.toImage()` su un
+`MapWidget` (hybrid composition) produce output vuoto/quasi vuoto **indipendentemente dal
+timing** — limite strutturale, non un bug di sincronizzazione. **Fix**: passaggio allo
+`Snapshotter` nativo headless per il PNG; il `MapWidget` interattivo resta solo per
+`pixelForCoordinate` (non richiede rendering tile riuscito, solo stato camera).
+
+**Puntini bianchi su punti sbagliati della traccia** (verificato via log: differenze di 0-7 px
+dal punto più vicino, eppure visivamente sbagliati) — causa: il `MapWidget` sorgente di
+`pixelForCoordinate` era dentro un `FittedBox` per lo scaling a schermo; le platform view non
+allineano in modo affidabile le coordinate riportate con la scala visiva post-trasformazione
+di Flutter. **Fix**: `FittedBox(fit:contain)` → `OverflowBox` (ritaglia, non scala) in
+`_CapturingPreview`.
+
+**Etichette POI troncate a una parola** — `TextPainter(maxLines:2)` usato per misurare non
+corrispondeva al vero widget `Text(maxLines:2, overflow:ellipsis)`: il testo andato a capo
+finiva sotto/fuori dallo sfondo della pillola. **Fix**: tolto `maxLines`/`overflow` sia dalla
+misura sia dal widget reale, tolta l'altezza fissa da `Positioned` (solo `width:`), così
+misura e resa coincidono sempre.
+
+**"Cima Mutta" a pixel `(-1,-1)`** — sentinella Mapbox per coordinata fuori dal viewport
+corrente: la camera veniva calcolata solo sul path del percorso, non sui POI (una cima è
+spesso fuori traccia). **Fix**: incluse le posizioni di tutti i POI nell'array passato a
+`cameraForCoordinates`; aggiunto un controllo bounds difensivo che scarta ogni pixel ancora
+non valido dal risultato finale.
+
+**"Rifugio Vallè" mai tra i punti trovati** — la query Overpass cercava solo `node[...]`, ma
+il rifugio è mappato come `way` (contorno edificio). Verificato con `curl` diretto a
+`overpass-api.de` riproducendo la query di produzione. **Fix**: `node[...]` → `nwr[...]` in
+ogni clausola, `out body;` → `out body center;`, parsing di `el['center']['lat'/'lon']` per
+way/relation. Ancora assente dopo il fix: la deduplica teneva "il primo incontrato
+camminando" — un alpeggio nello stesso punto del rifugio, processato prima, vinceva. **Fix
+2**: la deduplica ordina prima per priorità di categoria (`rifugio, cima, colle, lago, alpe`),
+così un rifugio vince sempre su un alpeggio nello stesso punto, indipendentemente
+dall'ordine lungo il percorso. Test aggiunto (`nearby_pois_matcher_test.dart`) che rispecchia
+esattamente il caso reale (Rifugio Vallè / Alpe Vallè di Sopra).
+
+**Etichette sovrapposte, nessun'ancora visibile** — aggiunti pallini reali sui punti
+(prima la lineetta puntava a niente di visibile) + layout automatico anti-sovrapposizione
+(spinta verticale greedy su `Rect.overlaps`, via `TextPainter`). Continuava a fallire su
+tracciati con molti POI ravvicinati: proposte due strade, scelta dall'utente l'opzione **B**
+(etichette trascinabili) dopo aver verificato l'opzione A — l'automatico resta come posizione
+di partenza, il pallino **non** è trascinabile (la sua correttezza è "conditio sine qua non",
+parola dell'utente). Implementazione: `GestureDetector.onPanUpdate` per pillola, offset per
+POI in `Map<String,Offset>` nello state dello schermo, clamp finale dentro i bordi
+dell'immagine fatto **una sola volta dopo** il loop di ricerca (bug minore risolto in corsa:
+il clamp durante la ricerca restava incastrato contro il bordo).
+
+**Icona "alpe" identica a "rifugio"** — entrambe usavano `house_fill`; cambiata l'alpe a
+`CupertinoIcons.tree`.
+
+**Orientamento camera sul dislivello** (richiesta esplicita, non nord fisso) —
+`domain/services/elevation_orientation.dart`: cerca il punto di quota minima e massima nel
+profilo altimetrico (su tutto il profilo, non solo agli estremi del percorso), calcola il
+bearing bussola fra i due (`latlong2` `Distance().bearing`), normalizzato [0,360); `null` se
+degenere (stesso punto). Il basso dell'immagine è il punto più basso, l'alto il più alto.
+
+**Zoom/angolazione personalizzabili — solo analisi, non implementata** (richiesta esplicita
+dell'utente: "analizza, non implementare"): due opzioni valutate, salvate in
+`docs/ROADMAP.md` P2 punto 4 (mappa interattiva come passo intermedio vs slider sopra
+l'anteprima già generata, quest'ultima consigliata).
+
+**Menu "Altro" della card**: "Esporta" (sotto-foglio) appiattito in "Esporta GPX"/"Esporta
+immagine" come voci dirette — essendo già dentro un menu, un secondo livello era ridondante.
+
+**Indicatore "salvata offline"**: `tracks_list_screen.dart`/`draw_route_controls.dart`
+leggono `downloadedRegionsProvider` e confrontano l'id `'track-<id>'` (stesso schema di
+`downloadTrackOffline`) per mostrare un segno di spunta verde in lista e nel menu azioni,
+cambiando anche etichetta/icona della voce "Salva offline" quando già scaricata.
+
+**Log di debug in-app** (richiesta a sé, non pianificata): `AppLogService`
+(`data/logging/app_log_service.dart`) sovrascrive la variabile globale riassegnabile
+`debugPrint` di Flutter — nessuna modifica ai punti che già chiamano `debugPrint` (inclusa
+tutta la diagnostica `[export]` sopra), cattura tutto da qui in poi. Scrive su
+`ApplicationSupportDirectory/logs/sentei.log` (non iCloud-synced, a differenza di
+`getApplicationDocumentsDirectory()` già usato per la cache tile terreno). Rotazione: 512 KB
+per file (leggero da condividere anche in rete scarsa in montagna), max 4 file (~2 MB
+totali), purge per età oltre 7 giorni all'avvio — dimensionamento scelto per un log di debug
+beta, non serve conservarlo più a lungo (anche meglio per la privacy: niente accumulo
+indefinito di coordinate). `features/settings/debug_logs_screen.dart`: lista monospace scura,
+auto-scroll all'ultima riga, condivisione (`share_plus`, stesso pattern di GPX/immagine) e
+cancella (con conferma). **Punto d'accesso volutamente nascosto**: non un tasto come gli
+altri in Impostazioni, ma 7 tap entro 3 secondi sul footer "Sentèi · vX.X" in fondo alla
+schermata (`_VersionFooter` in `settings_screen.dart`).
+
+**Card "Novità"**: era già implementata da una sessione precedente (`whats_new.dart`); due
+correttivi su richiesta esplicita — tolta l'icona sopra il titolo (il mockup di riferimento
+la mostrava, ma l'istruzione verbale dell'utente prevaleva), e resa non richiudibile a tocco
+fuori/swipe (`isDismissible: false, enableDrag: false` — nuovo parametro `enableDrag` su
+`showAppBottomSheet`, prima solo `isDismissible`).
+
+- **Non verificato su device fisico** in questa sessione (stesso richiamo della voce
+  precedente): salvataggio in galleria, condivisione di sistema, orientamento camera e
+  posizioni POI su percorsi reali del telefono, rotazione dei file di log oltre 512 KB —
+  annotato in `docs/validazione-device.md`.
+
+---
+
 ## 23 agosto 2026 — Export immagine del percorso; card traccia: Elimina, "Altro", tracce attenuate; Impostazioni riorganizzate
 
 Tre pezzi di lavoro nella stessa sessione, in ordine.

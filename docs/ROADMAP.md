@@ -3,9 +3,8 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 18 agosto 2026 · **Stato:** beta `1.0.0+8` distribuita ai tester, con
-modifiche già su `main` non ancora rilasciate (vedi `CHANGELOG.md`, sezione "Non ancora
-rilasciato").
+**Aggiornato:** 23 agosto 2026 · **Stato:** beta `1.0.0+9` in preparazione per la
+distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità della build.
 
 ## Come leggere questo documento
 
@@ -28,14 +27,13 @@ rilasciato").
 > I primi tre temi decisi il 12 agosto come **prime cose da fare**: la fluidità delle foto, la
 > stima del tempo di percorrenza e la comprensione dei segnavia sulla mappa. I primi due sono
 > lavori chiusi e stimabili (validazione su device in P8), il terzo è un'epica da spezzare.
-> **Il 18 agosto** si sono aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
-> evidenziazione della traccia selezionata) — rifiniture piccole ma dirette della UI mappa,
-> valeva la pena anticiparle invece di lasciarle in coda al feedback generico.
+> **Il 18 agosto** si erano aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
+> evidenziazione della traccia selezionata); **il 23 agosto** sono stati completati e tolti da
+> qui — voce ora in `CHANGELOG.md`/`docs/CHANGELOG-DEV.md`. Resta aperto solo il punto 3.
 >
 > *Numerazione 1-3 fissa* (citata per posizione altrove: `P1.1`/`P1.2` in
 > `docs/CHANGELOG-DEV.md`/`docs/validazione-device.md`, "P1, punto 3" in P3) — non riordinata
-> per SP come il resto del documento, per non rompere quei rimandi. I punti 4-5 sono liberi e
-> già in ordine SP crescente.
+> per SP come il resto del documento, per non rompere quei rimandi.
 
 ### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — *SP 8* — ✅ fatto (12 ago 2026)
 
@@ -131,18 +129,6 @@ geometria finisce dove finisce lo schermo. Va spezzata così:
 
 *Totale indicativo: ~23 story point, di cui 10 già fatti (punti 1 e 2) — il punto 3 va
 rivisto una volta spezzato.*
-
-### 4. [FEATURE] Tasto elimina nella card traccia selezionata — *SP 2*
-
-Oggi l'eliminazione è raggiungibile solo dalla lista tracciati (menu azioni riga); aggiungere
-un tasto elimina (con conferma, coerente con `showIosConfirm`) direttamente nella card che
-appare selezionando una traccia sulla mappa. *(Promosso da P2, 18 agosto 2026.)*
-
-### 5. [FEATURE] Evidenziazione della traccia selezionata — *SP 3*
-
-Quando una traccia è selezionata la sua linea deve risaltare (più spessa/satura), mentre le
-altre tracce visibili in mappa passano a un'opacità ridotta — leggibilità in aree con più
-tracce sovrapposte. *(Promosso da P2, 18 agosto 2026.)*
 
 ---
 
