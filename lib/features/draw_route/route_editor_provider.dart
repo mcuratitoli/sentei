@@ -840,6 +840,20 @@ class Tracks extends Notifier<TracksState> {
     insertPoint(index, mid);
   }
 
+  /// Simmetrico a [insertPointBefore]: nuovo waypoint a metà strada tra
+  /// [index] e il successivo ([index] < ultimo). A differenza di quello,
+  /// l'indice del punto selezionato **non slitta** (il nuovo punto si
+  /// inserisce dopo, non prima) — chi chiama non deve aggiornare
+  /// `selectedWaypointProvider`.
+  void insertPointAfter(int index) {
+    final t = state.editing;
+    if (t == null || index < 0 || index >= t.waypoints.length - 1) return;
+    final a = t.waypoints[index];
+    final b = t.waypoints[index + 1];
+    final mid = LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+    insertPoint(index + 1, mid);
+  }
+
   /// Collega [photos] alla traccia [id] (§"Sync album fotografico"), evitando
   /// duplicati per id già collegati. Persiste e propaga al cloud (best-effort).
   Future<void> addPhotos(String id, List<TrackPhoto> photos) async {

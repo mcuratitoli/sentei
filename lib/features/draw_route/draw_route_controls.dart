@@ -152,6 +152,11 @@ class _DrawingBody extends ConsumerWidget {
                         .read(selectedWaypointProvider.notifier)
                         .set(selectedWp + 1);
                   },
+            onInsertAfter: selectedWp >= wpCount - 1
+                ? null
+                : () => ref
+                    .read(tracksProvider.notifier)
+                    .insertPointAfter(selectedWp),
             onClose: () => ref.read(selectedWaypointProvider.notifier).clear(),
           ),
         ],
@@ -488,10 +493,13 @@ Future<void> _confirmDeleteWaypoint(
 /// Vista **dedicata al punto selezionato**: sostituisce nome/distanza/
 /// impostazioni avanzate (si sta modificando il punto, non il resto della
 /// traccia). Mostra quale punto, la sua **quota** (stessa fonte del punto
-/// ispezionato in esplorazione), un suggerimento per lo spostamento e le
-/// azioni **Aggiungi punto prima** (assente sul primo punto, che non ha un
-/// precedente) ed **Elimina** (con conferma) — pillole chiare con icona,
-/// stesso linguaggio del resto della card (`_PillAction`), non più testo puro.
+/// ispezionato in esplorazione) e le sue **coordinate** (stesso formato del
+/// punto ispezionato, `Format.coordinates`), un suggerimento per lo
+/// spostamento e le azioni **Aggiungi prima**/**Aggiungi dopo** (assenti
+/// rispettivamente sul primo e sull'ultimo punto, che non hanno un
+/// precedente/successivo) ed **Elimina** (con conferma, isolata sotto perché
+/// distruttiva) — pillole chiare con icona, stesso linguaggio del resto
+/// della card (`_PillAction`), non più testo puro.
 class _SelectedWaypointBar extends ConsumerWidget {
   const _SelectedWaypointBar({
     required this.index,
@@ -499,6 +507,7 @@ class _SelectedWaypointBar extends ConsumerWidget {
     required this.point,
     required this.onDelete,
     required this.onInsertBefore,
+    required this.onInsertAfter,
     required this.onClose,
   });
 
@@ -507,6 +516,7 @@ class _SelectedWaypointBar extends ConsumerWidget {
   final LatLng point;
   final VoidCallback onDelete;
   final VoidCallback? onInsertBefore;
+  final VoidCallback? onInsertAfter;
   final VoidCallback onClose;
 
   @override
@@ -536,33 +546,52 @@ class _SelectedWaypointBar extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 2),
+          child: Text(Format.coordinates(point.latitude, point.longitude),
+              style: AppText.captionSmall
+                  .copyWith(color: palette.secondaryLabel)),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
           child: Text('Tieni premuto per spostare',
               style:
                   AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            if (onInsertBefore != null) ...[
-              Expanded(
-                child: AppButton(
-                  label: 'Aggiungi punto prima',
-                  icon: CupertinoIcons.add,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: onInsertBefore,
+        if (onInsertBefore != null || onInsertAfter != null) ...[
+          Row(
+            children: [
+              if (onInsertBefore != null)
+                Expanded(
+                  child: AppButton(
+                    label: 'Aggiungi prima',
+                    icon: CupertinoIcons.add,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onInsertBefore,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+              if (onInsertBefore != null && onInsertAfter != null)
+                const SizedBox(width: 8),
+              if (onInsertAfter != null)
+                Expanded(
+                  child: AppButton(
+                    label: 'Aggiungi dopo',
+                    icon: CupertinoIcons.add,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onInsertAfter,
+                  ),
+                ),
             ],
-            Expanded(
-              child: AppButton(
-                label: 'Elimina',
-                icon: CupertinoIcons.delete,
-                variant: AppButtonVariant.destructive,
-                onPressed: onDelete,
-              ),
-            ),
-          ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: AppButton(
+            label: 'Elimina',
+            icon: CupertinoIcons.delete,
+            variant: AppButtonVariant.destructive,
+            onPressed: onDelete,
+          ),
         ),
       ],
     );

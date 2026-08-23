@@ -174,7 +174,8 @@ void main() {
   });
 
   testWidgets(
-      'punto selezionato: quota, suggerimento e "Aggiungi punto prima" (assente sul primo punto)',
+      'punto selezionato: quota, coordinate, suggerimento e "Aggiungi prima"/"Aggiungi dopo" '
+      '(assenti rispettivamente sul primo e sull\'ultimo punto)',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
@@ -185,24 +186,36 @@ void main() {
     notifier.addPoint(const LatLng(45.02, 7.0));
     await tester.pumpAndSettle();
 
-    // Seleziona il punto di mezzo (indice 1, "Punto 2 di 3"): ha un
-    // precedente, quindi "Aggiungi punto prima" è disponibile.
+    // Seleziona il punto di mezzo (indice 1, "Punto 2 di 3"): ha sia un
+    // precedente che un successivo, quindi entrambe le azioni compaiono.
     container.read(selectedWaypointProvider.notifier).toggle(1);
     await tester.pumpAndSettle();
 
     expect(find.text('Punto 2 di 3'), findsOneWidget);
+    expect(find.text(Format.coordinates(45.01, 7.0)), findsOneWidget);
     expect(find.text('Tieni premuto per spostare'), findsOneWidget);
     expect(
         find.text(Format.meters(_FakeElevation.fixedElevation)), findsOneWidget);
-    expect(find.text('Aggiungi punto prima'), findsOneWidget);
+    expect(find.text('Aggiungi prima'), findsOneWidget);
+    expect(find.text('Aggiungi dopo'), findsOneWidget);
 
-    // Il primo punto non ha un precedente: l'azione sparisce.
+    // Il primo punto non ha un precedente: solo "Aggiungi dopo" resta.
     container.read(selectedWaypointProvider.notifier).toggle(1); // deseleziona
     container.read(selectedWaypointProvider.notifier).toggle(0);
     await tester.pumpAndSettle();
 
     expect(find.text('Punto 1 di 3'), findsOneWidget);
-    expect(find.text('Aggiungi punto prima'), findsNothing);
+    expect(find.text('Aggiungi prima'), findsNothing);
+    expect(find.text('Aggiungi dopo'), findsOneWidget);
+
+    // L'ultimo punto non ha un successivo: solo "Aggiungi prima" resta.
+    container.read(selectedWaypointProvider.notifier).toggle(0); // deseleziona
+    container.read(selectedWaypointProvider.notifier).toggle(2);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Punto 3 di 3'), findsOneWidget);
+    expect(find.text('Aggiungi prima'), findsOneWidget);
+    expect(find.text('Aggiungi dopo'), findsNothing);
   });
 
   testWidgets(
@@ -239,7 +252,7 @@ void main() {
   });
 
   testWidgets(
-      '"Aggiungi punto prima" inserisce il punto e la selezione segue quello originale',
+      '"Aggiungi prima" inserisce il punto e la selezione segue quello originale',
       (tester) async {
     final container = await pumpCard(tester);
     await tester.pump();
@@ -252,7 +265,7 @@ void main() {
     container.read(selectedWaypointProvider.notifier).toggle(1);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Aggiungi punto prima'));
+    await tester.tap(find.text('Aggiungi prima'));
     await tester.pumpAndSettle();
 
     expect(container.read(tracksProvider).editing!.waypoints.length, 3);
@@ -260,6 +273,30 @@ void main() {
     // non il nuovo punto appena inserito.
     expect(container.read(selectedWaypointProvider), 2);
     expect(find.text('Punto 3 di 3'), findsOneWidget);
+  });
+
+  testWidgets(
+      '"Aggiungi dopo" inserisce il punto senza spostare la selezione',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0)); // indice 0
+    notifier.addPoint(const LatLng(45.02, 7.0)); // indice 1
+    await tester.pumpAndSettle();
+
+    container.read(selectedWaypointProvider.notifier).toggle(0);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Aggiungi dopo'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(tracksProvider).editing!.waypoints.length, 3);
+    // Il punto selezionato resta l'indice 0: il nuovo punto si inserisce
+    // dopo, non prima, quindi non c'è nulla da slittare.
+    expect(container.read(selectedWaypointProvider), 0);
+    expect(find.text('Punto 1 di 3'), findsOneWidget);
   });
 
   testWidgets('eliminare un punto chiede conferma prima di rimuoverlo',
