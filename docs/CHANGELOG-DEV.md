@@ -120,6 +120,21 @@ fuori/swipe (`isDismissible: false, enableDrag: false` — nuovo parametro `enab
 
 ---
 
+## 23 agosto 2026 — Android: `--split-per-abi` per il build `1.0.0+9`
+
+Segnalato dall'utente confrontando i due build della `1.0.0+9`: "iOS pesa 44 MB, Android
+130 — sono 3 volte tanto". Causa verificata ispezionando l'APK universale (`unzip -l`): le
+librerie native occupavano **arm64-v8a 41 MB + armeabi-v7a 32 MB + x86_64 44 MB ≈ 117 MB**,
+quasi tutte e tre le architetture bundlate nello stesso file — l'IPA non ha questo problema
+perché tutti gli iPhone moderni sono un'unica architettura (arm64). Era già in
+`docs/ROADMAP.md` P4 come fix noto e a costo zero (solo un flag di build).
+
+Rifatto con `flutter build apk --release --split-per-abi`: **arm64-v8a 49,5 MB** (quello da
+dare ai tester, copre tutti i telefoni recenti), armeabi-v7a 40,2 MB, x86_64 52,6 MB
+(emulatori). Punto tolto da `docs/ROADMAP.md` P4 (fatto).
+
+---
+
 ## 23 agosto 2026 — Deployment target iOS alzato a 15.0
 
 Segnalato da Transporter caricando l'IPA della `1.0.0+9`: warning `MinimumOSVersion too low`

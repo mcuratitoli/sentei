@@ -228,18 +228,6 @@ rivisto una volta spezzato.*
 
 ## P4 — Build & toolchain (ordine per SP crescente)
 
-- [ ] **Dimensione dell'APK: `--split-per-abi`** — *SP 1*. ~40-50 MB per architettura
-  invece di un unico APK universale. Misure reali su 1.0.0+8 (29 lug 2026): **APK 124 MB**,
-  contro **42 MB dell'IPA** della stessa versione — il grosso è il codice nativo compilato
-  per tutte le ABI insieme (arm64-v8a, armeabi-v7a, x86_64), che l'IPA non porta. In
-  crescita: erano ~122 MB alla misura precedente.
-  - È solo un flag di build, nessuna modifica al codice:
-    `flutter build apk --release --split-per-abi` produce un file per architettura
-    (agli amici si dà quello **arm64-v8a**, che copre tutti i telefoni recenti).
-  - Priorità legata al canale di distribuzione: **irrilevante su Play Store** (lo store
-    serve già solo l'ABI del dispositivo, e con `--release` si userebbe comunque un
-    App Bundle), **rilevante subito** se si continua a passare l'APK a mano — vedi la
-    strategia in P6.
 - [ ] **Tetto sulla cache tile di Mapbox (`TileStore`)** — *SP 5*. Segnalato dall'utente su
   device fisico (23 ago 2026, "l'app pesa centinaia di mega"): risolta la causa più a
   monte, la cache di elevazione senza limiti (vedi `docs/CHANGELOG-DEV.md`), ma resta il
