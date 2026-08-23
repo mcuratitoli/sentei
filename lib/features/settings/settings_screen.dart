@@ -17,6 +17,7 @@ import '../../app/theme.dart';
 import '../../app/theme_provider.dart';
 import '../../domain/services/hiking_time.dart';
 import '../../ui/app_bottom_sheet.dart';
+import '../../ui/app_buttons.dart';
 import '../../ui/app_list_section.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/legends.dart';
@@ -26,31 +27,6 @@ import '../offline_maps/offline_maps_screen.dart';
 import 'cloud_sync_controller.dart';
 import 'debug_logs_screen.dart';
 import 'hiking_pace_provider.dart';
-
-/// Contenitore icona uniforme per le righe di Impostazioni (`new
-/// design/DESIGN_GUIDELINES.md` §5): quadrato arrotondato 30×30, sfondo
-/// tinta d'accento (rossa solo per un'azione distruttiva come "Disconnetti").
-class _SettingsIcon extends StatelessWidget {
-  const _SettingsIcon(this.icon, {this.destructive = false});
-
-  final IconData icon;
-  final bool destructive;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = destructive ? AppColors.destructive : context.palette.accent;
-    return Container(
-      width: 30,
-      height: 30,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, size: 17, color: tint),
-    );
-  }
-}
 
 /// Versione app (unica per Android e iOS, da `pubspec.yaml`): "1.0.0 (2)".
 final appVersionProvider = FutureProvider<String>((ref) async {
@@ -83,7 +59,7 @@ class SettingsScreen extends ConsumerWidget {
             header: 'Informazioni',
             children: [
               CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.map),
+                leading: const AppRowIcon(CupertinoIcons.map),
                 title: const Text('Mappa'),
                 subtitle:
                     const Text('Mapbox Outdoors · Sentiero CAI'),
@@ -91,7 +67,7 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showMapInfo(context),
               ),
               CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.book),
+                leading: const AppRowIcon(CupertinoIcons.book),
                 title: const Text('Legenda difficoltà'),
                 subtitle:
                     const Text('T · E · EE · EEA, alpinistiche e scala Welzenbach'),
@@ -99,14 +75,14 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => showDifficultyLegend(context),
               ),
               CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.textformat_abc),
+                leading: const AppRowIcon(CupertinoIcons.textformat_abc),
                 title: const Text('Abbreviazioni'),
                 subtitle: const Text('ANA, ASF, CAF, CAI, GTA, IGM, IGN, UGET'),
                 trailing: const CupertinoListTileChevron(),
                 onTap: () => showAbbreviationsLegend(context),
               ),
               CupertinoListTile(
-                leading: const _SettingsIcon(CupertinoIcons.news),
+                leading: const AppRowIcon(CupertinoIcons.news),
                 title: const Text('Novità e roadmap'),
                 subtitle: const Text('Cosa c\'è di nuovo e cosa arriva'),
                 trailing: const CupertinoListTileChevron(),
@@ -129,9 +105,9 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 /// Nome app + versione in fondo a Impostazioni. **Sblocco nascosto** della
-/// schermata dei log (§export non pianificato, 24 ago 2026): 7 tap entro
-/// [_tapWindow] l'uno dall'altro. Volutamente non un bottone come gli altri
-/// — è per chi segue da vicino la beta, non per l'uso quotidiano.
+/// schermata dei log (§export non pianificato, 24 ago 2026): [_requiredTaps]
+/// tap entro [_tapWindow] l'uno dall'altro. Volutamente non un bottone come
+/// gli altri — è per chi segue da vicino la beta, non per l'uso quotidiano.
 class _VersionFooter extends ConsumerStatefulWidget {
   const _VersionFooter();
 
@@ -192,7 +168,7 @@ class _HikingSection extends ConsumerWidget {
       header: 'Escursionismo',
       children: [
         CupertinoListTile(
-          leading: const _SettingsIcon(CupertinoIcons.speedometer),
+          leading: const AppRowIcon(CupertinoIcons.speedometer),
           title: const Text('Passo'),
           subtitle:
               const Text('Il tempo stimato non include le soste'),
@@ -201,7 +177,7 @@ class _HikingSection extends ConsumerWidget {
           onTap: () => _showPaceSheet(context, ref, pace),
         ),
         CupertinoListTile(
-          leading: const _SettingsIcon(CupertinoIcons.cloud_download),
+          leading: const AppRowIcon(CupertinoIcons.cloud_download),
           title: const Text('Mappe offline'),
           subtitle:
               const Text('Scarica aree per l\'uso senza connessione'),
@@ -248,7 +224,7 @@ class _AppearanceSection extends ConsumerWidget {
       header: 'Aspetto',
       children: [
         CupertinoListTile(
-          leading: const _SettingsIcon(CupertinoIcons.moon_fill),
+          leading: const AppRowIcon(CupertinoIcons.moon_fill),
           title: const Text('Tema'),
           // subtitle (non additionalInfo): "Risparmio energetico" è troppo
           // lungo per stare a destra senza troncare il titolo della riga.
@@ -258,7 +234,7 @@ class _AppearanceSection extends ConsumerWidget {
         ),
         if (isEffectivelyDark)
           CupertinoListTile(
-            leading: const _SettingsIcon(CupertinoIcons.sparkles),
+            leading: const AppRowIcon(CupertinoIcons.sparkles),
             title: const Text('Variante scura'),
             subtitle: Text(variant.label),
             trailing: const CupertinoListTileChevron(),
@@ -394,7 +370,7 @@ class _CloudSection extends ConsumerWidget {
         if (Platform.isIOS) const _CloudProviderSelector(),
         if (!cloud.signedIn)
           CupertinoListTile(
-            leading: _SettingsIcon(providerIcon),
+            leading: AppRowIcon(providerIcon),
             title: Text(providerName),
             subtitle: const Text('Accedi per sincronizzare le tracce'),
             trailing: cloud.busy
@@ -404,12 +380,12 @@ class _CloudSection extends ConsumerWidget {
           )
         else ...[
           CupertinoListTile(
-            leading: _SettingsIcon(providerIcon),
+            leading: AppRowIcon(providerIcon),
             title: Text(providerName),
             subtitle: Text(cloud.account ?? 'Connesso'),
           ),
           CupertinoListTile(
-            leading: const _SettingsIcon(CupertinoIcons.arrow_2_circlepath),
+            leading: const AppRowIcon(CupertinoIcons.arrow_2_circlepath),
             title: const Text('Sincronizza ora'),
             subtitle:
                 const Text('Carica e scarica le tracce (last-write-wins)'),
@@ -418,7 +394,7 @@ class _CloudSection extends ConsumerWidget {
             onTap: cloud.busy ? null : notifier.syncNow,
           ),
           CupertinoListTile(
-            leading: const _SettingsIcon(CupertinoIcons.square_arrow_right,
+            leading: const AppRowIcon(CupertinoIcons.square_arrow_right,
                 destructive: true),
             title: const Text('Disconnetti',
                 style: TextStyle(color: AppColors.destructive)),

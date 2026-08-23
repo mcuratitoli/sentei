@@ -187,3 +187,31 @@ class AppIconButton extends StatelessWidget {
     return button;
   }
 }
+
+/// Contenitore icona uniforme per righe di lista/menu (`new
+/// design/DESIGN_GUIDELINES.md` §5): quadrato arrotondato 30×30, sfondo
+/// tinta d'accento (rossa solo per un'azione distruttiva). Nato in
+/// Impostazioni, riusato ovunque compaia una riga icona+testo — es. i menu
+/// contestuali di `ios_menu.dart` — per non avere due stili di riga diversi
+/// nella stessa app.
+class AppRowIcon extends StatelessWidget {
+  const AppRowIcon(this.icon, {super.key, this.destructive = false});
+
+  final IconData icon;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = destructive ? AppColors.destructive : context.palette.accent;
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, size: 17, color: tint),
+    );
+  }
+}

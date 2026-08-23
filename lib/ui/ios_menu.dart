@@ -180,7 +180,7 @@ class _MenuRow extends StatelessWidget {
       child: Row(
         children: [
           if (item.icon != null) ...[
-            Icon(item.icon, size: 20, color: color),
+            AppRowIcon(item.icon!, destructive: item.isDestructive),
             const SizedBox(width: 12),
           ],
           Expanded(
