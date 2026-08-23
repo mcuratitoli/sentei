@@ -242,6 +242,20 @@ class _TracksListScreenState extends ConsumerState<TracksListScreen> {
       title: t.name.isNotEmpty ? t.name : 'Senza nome',
       items: [
         IosMenuItem(
+          label: 'Modifica',
+          icon: CupertinoIcons.pencil,
+          // Stessa voce della card sulla mappa (`draw_route_controls.dart`):
+          // seleziona, centra la mappa e torna lì prima di aprire l'editing,
+          // altrimenti l'utente si ritroverebbe in modalità modifica dietro
+          // alla lista tracciati ancora in primo piano.
+          onPressed: () {
+            ref.read(tracksProvider.notifier).select(t.id);
+            ref.read(mapFocusProvider.notifier).focusTrack(t.id);
+            ref.read(tracksProvider.notifier).editSelected();
+            context.pop();
+          },
+        ),
+        IosMenuItem(
           label: 'Esporta GPX',
           icon: CupertinoIcons.square_arrow_up,
           onPressed: () => exportTrackGpx(context, t),
