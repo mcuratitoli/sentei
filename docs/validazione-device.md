@@ -9,6 +9,12 @@
 > Quando un punto è confermato su device, spuntarlo `[x]` con data e note (non cancellarlo:
 > qui la storia della validazione è parte del valore della lista).
 
+- [ ] **Traccia mista: tasto "Libero"** (24 ago 2026, `docs/CHANGELOG-DEV.md`) — coperto da
+  test di dominio (`free_segments_test.dart`, `track_runs_test.dart`) e widget
+  (`draw_route_controls_test.dart`), ma **mai visto a schermo**: comportamento del tasto
+  durante il disegno dal vivo, resa tratteggiata sulla mappa per la traccia salvata,
+  interazione reale con BRouter su un percorso misto (verificare anche col caso che ha
+  originato la richiesta: Campertogno → Colma di Campertogno → Cima Voccani).
 - [ ] **Export immagine del percorso** (23 ago 2026, `docs/CHANGELOG-DEV.md`) — verificato
   **dal vivo sul simulatore** su più tracce reali (Alpe Toso, Rima/Lanciole/Lavazei, Cima
   Mutta, Pontechianale Giacoletti) in oltre dieci giri di feedback: cattura via

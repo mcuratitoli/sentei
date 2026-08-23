@@ -201,18 +201,6 @@ rivisto una volta spezzato.*
   avvicinare stile/leggibilità della mappa (colori, spessori sentieri, etichette, terreno)
   a quello di GaiaGPS, nei limiti dello stile Mapbox Outdoors in uso (§2 CLAUDE.md); capire
   cosa è personalizzabile via stile Mapbox custom vs cosa richiederebbe layer aggiuntivi.
-- [ ] **[FEATURE] Traccia mista: sentiero + tratti liberi** — *SP 5*. Oggi ogni segmento del
-  disegno viene sempre instradato lungo i sentieri (BRouter, catena `hiking-mountain` →
-  `trekking`, §6.2 CLAUDE.md), con la retta solo come fallback quando il servizio fallisce.
-  Serve invece una scelta esplicita dell'utente: alcuni tratti seguono il sentiero
-  (comportamento attuale), altri restano **liberi** (disegnati a mano, senza snap-to-trail) —
-  per uscite che escono dai sentieri CAI per i motivi più diversi (fuoripista, neve, cresta,
-  varianti non segnate). Da definire in fase di analisi: interazione per marcare un tratto
-  come "libero" durante il disegno (toggle in barra? gesto dedicato sul segmento/waypoint?);
-  impatto atteso minimo su distanza/D+/D- (calcolati sul path risultante, indipendentemente
-  da come è stato tracciato — nessuna modifica al dominio); nessun segnavia/difficoltà CAI
-  atteso sui tratti liberi (comportamento già naturale: la ricerca segnavia semplicemente non
-  trova nulla lì).
 - [ ] **Migrazione layer sentieri a OSM2CAI** — *SP 5*. Stessa idea sopra ma con `ref`/
   `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
   gestire con zoom minimo/fallback). *Anche questo confluisce in **P1, punto 3**, che

@@ -20,6 +20,7 @@ import '../../data/search/geocoding_service.dart';
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
+import '../../domain/services/track_runs.dart';
 import '../../app/theme_provider.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
@@ -61,6 +62,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // Manager annotation: tracce salvate (linee+estremi), waypoint in modifica,
   // percorso live in modifica.
   PolylineAnnotationManager? _savedLines;
+  // Tratti "liberi" (§"Traccia mista", `docs/ROADMAP.md` P3) della traccia
+  // selezionata/salvata: manager a parte perché il tratteggio si imposta
+  // solo a livello di manager, non per singola annotazione.
+  PolylineAnnotationManager? _savedFreeLines;
   CircleAnnotationManager? _savedEnds;
   // Bandiera a scacchi (arrivo): icona raster registrata nello stile, uno
   // solo per traccia selezionata (vedi _buildFinishFlagImageData).
@@ -339,6 +344,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ));
     // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
     _savedLines = await map.annotations.createPolylineAnnotationManager();
+    // Tratti liberi della traccia salvata/selezionata: stesso ordine di
+    // _savedLines (sopra, per restare visibili), dash a livello manager.
+    _savedFreeLines = await map.annotations.createPolylineAnnotationManager();
+    await _savedFreeLines!.setLineDasharray([2, 1.4]);
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
     _importRawLine = await map.annotations.createPolylineAnnotationManager();
     await _importRawLine!.setLineDasharray([2, 2]);
@@ -543,6 +552,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       final hidden = ref.read(tracksHiddenProvider);
       final importing = ref.read(importLoadingProvider) != null;
       await _savedLines!.deleteAll();
+      await _savedFreeLines!.deleteAll();
       await _savedEnds!.deleteAll();
       await _finishFlags!.deleteAll();
       await _liveLine!.deleteAll();
@@ -579,14 +589,24 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           // nelle aree con più tracce sovrapposte.
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
-          await _savedLines!.create(PolylineAnnotationOptions(
-            geometry: _lineOf(path),
-            lineColor: t.color.toARGB32(),
-            lineWidth: isSelected ? 7 : 4.5,
-            lineOpacity: dimmed ? 0.35 : 1,
-            lineBorderColor: 0xFFFFFFFF,
-            lineBorderWidth: isSelected ? 2.5 : 1.5,
-          ));
+          // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") senza
+          // richiamare il routing: `segmentPointCounts` è già persistito.
+          final runs = sliceTrackRuns(
+            routedPath: path,
+            segmentPointCounts: t.segmentPointCounts,
+            freeSegments: t.freeSegments,
+          );
+          for (final run in runs) {
+            final manager = run.free ? _savedFreeLines! : _savedLines!;
+            await manager.create(PolylineAnnotationOptions(
+              geometry: _lineOf(run.points),
+              lineColor: t.color.toARGB32(),
+              lineWidth: isSelected ? 7 : 4.5,
+              lineOpacity: dimmed ? 0.35 : 1,
+              lineBorderColor: 0xFFFFFFFF,
+              lineBorderWidth: isSelected ? 2.5 : 1.5,
+            ));
+          }
           // Pallini inizio/fine solo sulla traccia selezionata: con più
           // tracce vicine, mostrarli tutti confondeva più che aiutare.
           if (isSelected) await _drawEndpoints(t.waypoints);

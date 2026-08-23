@@ -39,8 +39,10 @@ class TracksRepository {
       name: Value(track.name),
       color: Value(track.color.toARGB32()),
       snapToTrail: Value(track.snapToTrail),
+      freeSegments: Value(jsonEncode(track.freeSegments.toList()..sort())),
       waypoints: Value(_encodePoints(track.waypoints)),
       routedPath: Value(_encodePoints(track.routedPath)),
+      segmentPointCounts: Value(jsonEncode(track.segmentPointCounts)),
       trailRefs: Value(jsonEncode(track.trailRefs)),
       metrics: Value(_encodeMetrics(track.metrics)),
       trailsResolved: Value(track.trailsResolved),
@@ -81,8 +83,12 @@ class TracksRepository {
         name: r.name,
         color: Color(r.color),
         snapToTrail: r.snapToTrail,
+        freeSegments:
+            (jsonDecode(r.freeSegments) as List).cast<int>().toSet(),
         waypoints: _decodePoints(r.waypoints),
         routedPath: _decodePoints(r.routedPath),
+        segmentPointCounts:
+            (jsonDecode(r.segmentPointCounts) as List).cast<int>(),
         trailRefs: (jsonDecode(r.trailRefs) as List).cast<String>(),
         metrics: _decodeMetrics(r.metrics),
         trailsResolved: r.trailsResolved,

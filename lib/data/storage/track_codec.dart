@@ -23,6 +23,9 @@ abstract final class TrackCodec {
           LatLng((p[0] as num).toDouble(), (p[1] as num).toDouble()),
       ];
 
+  static List<int> intsFromJson(List<dynamic>? json) =>
+      [for (final n in (json ?? const [])) (n as num).toInt()];
+
   // ---- metriche -----------------------------------------------------------
 
   static Map<String, dynamic>? metricsToJson(TrackMetrics? m) {
@@ -133,8 +136,10 @@ abstract final class TrackCodec {
         'name': t.name,
         'color': t.color.toARGB32(),
         'snapToTrail': t.snapToTrail,
+        'freeSegments': (t.freeSegments.toList()..sort()),
         'waypoints': pointsToJson(t.waypoints),
         'routedPath': pointsToJson(t.routedPath),
+        'segmentPointCounts': t.segmentPointCounts,
         'trailRefs': t.trailRefs,
         'trailsResolved': t.trailsResolved,
         'metrics': metricsToJson(t.metrics),
@@ -148,8 +153,10 @@ abstract final class TrackCodec {
         name: (j['name'] as String?) ?? '',
         color: Color((j['color'] as num?)?.toInt() ?? 0xFF1565C0),
         snapToTrail: (j['snapToTrail'] as bool?) ?? true,
+        freeSegments: intsFromJson(j['freeSegments'] as List?).toSet(),
         waypoints: pointsFromJson((j['waypoints'] as List?) ?? const []),
         routedPath: pointsFromJson((j['routedPath'] as List?) ?? const []),
+        segmentPointCounts: intsFromJson(j['segmentPointCounts'] as List?),
         trailRefs: ((j['trailRefs'] as List?) ?? const []).cast<String>(),
         trailsResolved: (j['trailsResolved'] as bool?) ?? false,
         metrics: metricsFromJson(j['metrics'] as Map<String, dynamic>?),

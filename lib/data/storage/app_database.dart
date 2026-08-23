@@ -10,8 +10,15 @@ class TrackRows extends Table {
   TextColumn get name => text().withDefault(const Constant(''))();
   IntColumn get color => integer()();
   BoolColumn get snapToTrail => boolean().withDefault(const Constant(true))();
+  // Indici dei segmenti liberi (§"Traccia mista"): JSON [0,2,...].
+  TextColumn get freeSegments => text().withDefault(const Constant('[]'))();
   TextColumn get waypoints => text()(); // JSON [[lat,lng],...]
   TextColumn get routedPath => text().withDefault(const Constant('[]'))();
+  // Punti contribuiti a routedPath da ciascun segmento originale (esclude il
+  // primo, condiviso): JSON [n0,n1,...] — ritaglio locale per la resa
+  // tratteggiata, senza richiamare BRouter (vedi DrawnTrack.segmentPointCounts).
+  TextColumn get segmentPointCounts =>
+      text().withDefault(const Constant('[]'))();
   TextColumn get trailRefs => text().withDefault(const Constant('[]'))();
   TextColumn get metrics => text().nullable()(); // JSON o null
   // Segnavia/difficoltà CAI già cercati (a prescindere dall'esito). Le tracce
@@ -34,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sentei'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +67,13 @@ class AppDatabase extends _$AppDatabase {
           // tracce esistenti non ne hanno finché non si usa la funzionalità).
           if (from < 4) {
             await m.addColumn(trackRows, trackRows.photos);
+          }
+          // v5: aggiunge freeSegments e segmentPointCounts (§"Traccia
+          // mista"). Default '[]' per le tracce esistenti: nessun segmento
+          // libero finché non si usa la nuova funzionalità.
+          if (from < 5) {
+            await m.addColumn(trackRows, trackRows.freeSegments);
+            await m.addColumn(trackRows, trackRows.segmentPointCounts);
           }
         },
       );

@@ -109,6 +109,7 @@ class _DrawingBody extends ConsumerWidget {
     final canSave = (track?.waypoints.length ?? 0) >= 2;
     final canUndo = ref.watch(tracksProvider.select((s) => s.canUndo));
     final snap = track?.snapToTrail ?? true;
+    final freeMode = ref.watch(freeDrawingModeProvider);
     final selectedWp = ref.watch(selectedWaypointProvider);
     final wpCount = track?.waypoints.length ?? 0;
     // Solo la distanza (haversine sul percorso live, nessuna rete): D+/D-
@@ -174,6 +175,25 @@ class _DrawingBody extends ConsumerWidget {
                     style: Theme.of(context).textTheme.bodySmall),
               ],
               const Spacer(),
+              // "Libero" (§"Traccia mista", `docs/ROADMAP.md` P3): finché è
+              // acceso, i punti aggiunti da qui in poi si collegano in linea
+              // retta invece di seguire i sentieri — per un tratto specifico
+              // (es. l'ultima salita a una cima), non l'intera traccia.
+              // Disabilitato quando lo snap è già spento per tutta la
+              // traccia: sarebbe senza oggetto, è già tutto libero.
+              AppIconButton(
+                tooltip: !snap
+                    ? 'Tratto libero (l\'intera traccia è già senza sentieri)'
+                    : freeMode
+                        ? 'Disattiva tratto libero'
+                        : 'Attiva tratto libero',
+                active: freeMode,
+                onPressed: !snap
+                    ? null
+                    : () => ref.read(freeDrawingModeProvider.notifier).toggle(),
+                icon: CupertinoIcons.scribble,
+              ),
+              const SizedBox(width: 6),
               AppIconButton(
                 tooltip: 'Annulla e chiudi',
                 onPressed: () => _confirmCancel(context, ref),

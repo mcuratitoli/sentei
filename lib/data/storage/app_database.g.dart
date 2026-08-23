@@ -36,6 +36,14 @@ class $TrackRowsTable extends TrackRows
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("snap_to_trail" IN (0, 1))'),
       defaultValue: const Constant(true));
+  static const VerificationMeta _freeSegmentsMeta =
+      const VerificationMeta('freeSegments');
+  @override
+  late final GeneratedColumn<String> freeSegments = GeneratedColumn<String>(
+      'free_segments', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
   static const VerificationMeta _waypointsMeta =
       const VerificationMeta('waypoints');
   @override
@@ -50,6 +58,14 @@ class $TrackRowsTable extends TrackRows
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('[]'));
+  static const VerificationMeta _segmentPointCountsMeta =
+      const VerificationMeta('segmentPointCounts');
+  @override
+  late final GeneratedColumn<String> segmentPointCounts =
+      GeneratedColumn<String>('segment_point_counts', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
   static const VerificationMeta _trailRefsMeta =
       const VerificationMeta('trailRefs');
   @override
@@ -97,8 +113,10 @@ class $TrackRowsTable extends TrackRows
         name,
         color,
         snapToTrail,
+        freeSegments,
         waypoints,
         routedPath,
+        segmentPointCounts,
         trailRefs,
         metrics,
         trailsResolved,
@@ -137,6 +155,12 @@ class $TrackRowsTable extends TrackRows
           snapToTrail.isAcceptableOrUnknown(
               data['snap_to_trail']!, _snapToTrailMeta));
     }
+    if (data.containsKey('free_segments')) {
+      context.handle(
+          _freeSegmentsMeta,
+          freeSegments.isAcceptableOrUnknown(
+              data['free_segments']!, _freeSegmentsMeta));
+    }
     if (data.containsKey('waypoints')) {
       context.handle(_waypointsMeta,
           waypoints.isAcceptableOrUnknown(data['waypoints']!, _waypointsMeta));
@@ -148,6 +172,12 @@ class $TrackRowsTable extends TrackRows
           _routedPathMeta,
           routedPath.isAcceptableOrUnknown(
               data['routed_path']!, _routedPathMeta));
+    }
+    if (data.containsKey('segment_point_counts')) {
+      context.handle(
+          _segmentPointCountsMeta,
+          segmentPointCounts.isAcceptableOrUnknown(
+              data['segment_point_counts']!, _segmentPointCountsMeta));
     }
     if (data.containsKey('trail_refs')) {
       context.handle(_trailRefsMeta,
@@ -196,10 +226,14 @@ class $TrackRowsTable extends TrackRows
           .read(DriftSqlType.int, data['${effectivePrefix}color'])!,
       snapToTrail: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}snap_to_trail'])!,
+      freeSegments: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}free_segments'])!,
       waypoints: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}waypoints'])!,
       routedPath: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}routed_path'])!,
+      segmentPointCounts: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}segment_point_counts'])!,
       trailRefs: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}trail_refs'])!,
       metrics: attachedDatabase.typeMapping
@@ -226,8 +260,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   final String name;
   final int color;
   final bool snapToTrail;
+  final String freeSegments;
   final String waypoints;
   final String routedPath;
+  final String segmentPointCounts;
   final String trailRefs;
   final String? metrics;
   final bool trailsResolved;
@@ -239,8 +275,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       required this.name,
       required this.color,
       required this.snapToTrail,
+      required this.freeSegments,
       required this.waypoints,
       required this.routedPath,
+      required this.segmentPointCounts,
       required this.trailRefs,
       this.metrics,
       required this.trailsResolved,
@@ -254,8 +292,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     map['name'] = Variable<String>(name);
     map['color'] = Variable<int>(color);
     map['snap_to_trail'] = Variable<bool>(snapToTrail);
+    map['free_segments'] = Variable<String>(freeSegments);
     map['waypoints'] = Variable<String>(waypoints);
     map['routed_path'] = Variable<String>(routedPath);
+    map['segment_point_counts'] = Variable<String>(segmentPointCounts);
     map['trail_refs'] = Variable<String>(trailRefs);
     if (!nullToAbsent || metrics != null) {
       map['metrics'] = Variable<String>(metrics);
@@ -275,8 +315,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       name: Value(name),
       color: Value(color),
       snapToTrail: Value(snapToTrail),
+      freeSegments: Value(freeSegments),
       waypoints: Value(waypoints),
       routedPath: Value(routedPath),
+      segmentPointCounts: Value(segmentPointCounts),
       trailRefs: Value(trailRefs),
       metrics: metrics == null && nullToAbsent
           ? const Value.absent()
@@ -297,8 +339,11 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       name: serializer.fromJson<String>(json['name']),
       color: serializer.fromJson<int>(json['color']),
       snapToTrail: serializer.fromJson<bool>(json['snapToTrail']),
+      freeSegments: serializer.fromJson<String>(json['freeSegments']),
       waypoints: serializer.fromJson<String>(json['waypoints']),
       routedPath: serializer.fromJson<String>(json['routedPath']),
+      segmentPointCounts:
+          serializer.fromJson<String>(json['segmentPointCounts']),
       trailRefs: serializer.fromJson<String>(json['trailRefs']),
       metrics: serializer.fromJson<String?>(json['metrics']),
       trailsResolved: serializer.fromJson<bool>(json['trailsResolved']),
@@ -315,8 +360,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'name': serializer.toJson<String>(name),
       'color': serializer.toJson<int>(color),
       'snapToTrail': serializer.toJson<bool>(snapToTrail),
+      'freeSegments': serializer.toJson<String>(freeSegments),
       'waypoints': serializer.toJson<String>(waypoints),
       'routedPath': serializer.toJson<String>(routedPath),
+      'segmentPointCounts': serializer.toJson<String>(segmentPointCounts),
       'trailRefs': serializer.toJson<String>(trailRefs),
       'metrics': serializer.toJson<String?>(metrics),
       'trailsResolved': serializer.toJson<bool>(trailsResolved),
@@ -331,8 +378,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           String? name,
           int? color,
           bool? snapToTrail,
+          String? freeSegments,
           String? waypoints,
           String? routedPath,
+          String? segmentPointCounts,
           String? trailRefs,
           Value<String?> metrics = const Value.absent(),
           bool? trailsResolved,
@@ -344,8 +393,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
         name: name ?? this.name,
         color: color ?? this.color,
         snapToTrail: snapToTrail ?? this.snapToTrail,
+        freeSegments: freeSegments ?? this.freeSegments,
         waypoints: waypoints ?? this.waypoints,
         routedPath: routedPath ?? this.routedPath,
+        segmentPointCounts: segmentPointCounts ?? this.segmentPointCounts,
         trailRefs: trailRefs ?? this.trailRefs,
         metrics: metrics.present ? metrics.value : this.metrics,
         trailsResolved: trailsResolved ?? this.trailsResolved,
@@ -360,9 +411,15 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       color: data.color.present ? data.color.value : this.color,
       snapToTrail:
           data.snapToTrail.present ? data.snapToTrail.value : this.snapToTrail,
+      freeSegments: data.freeSegments.present
+          ? data.freeSegments.value
+          : this.freeSegments,
       waypoints: data.waypoints.present ? data.waypoints.value : this.waypoints,
       routedPath:
           data.routedPath.present ? data.routedPath.value : this.routedPath,
+      segmentPointCounts: data.segmentPointCounts.present
+          ? data.segmentPointCounts.value
+          : this.segmentPointCounts,
       trailRefs: data.trailRefs.present ? data.trailRefs.value : this.trailRefs,
       metrics: data.metrics.present ? data.metrics.value : this.metrics,
       trailsResolved: data.trailsResolved.present
@@ -381,8 +438,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('name: $name, ')
           ..write('color: $color, ')
           ..write('snapToTrail: $snapToTrail, ')
+          ..write('freeSegments: $freeSegments, ')
           ..write('waypoints: $waypoints, ')
           ..write('routedPath: $routedPath, ')
+          ..write('segmentPointCounts: $segmentPointCounts, ')
           ..write('trailRefs: $trailRefs, ')
           ..write('metrics: $metrics, ')
           ..write('trailsResolved: $trailsResolved, ')
@@ -399,8 +458,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       name,
       color,
       snapToTrail,
+      freeSegments,
       waypoints,
       routedPath,
+      segmentPointCounts,
       trailRefs,
       metrics,
       trailsResolved,
@@ -415,8 +476,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.name == this.name &&
           other.color == this.color &&
           other.snapToTrail == this.snapToTrail &&
+          other.freeSegments == this.freeSegments &&
           other.waypoints == this.waypoints &&
           other.routedPath == this.routedPath &&
+          other.segmentPointCounts == this.segmentPointCounts &&
           other.trailRefs == this.trailRefs &&
           other.metrics == this.metrics &&
           other.trailsResolved == this.trailsResolved &&
@@ -430,8 +493,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
   final Value<String> name;
   final Value<int> color;
   final Value<bool> snapToTrail;
+  final Value<String> freeSegments;
   final Value<String> waypoints;
   final Value<String> routedPath;
+  final Value<String> segmentPointCounts;
   final Value<String> trailRefs;
   final Value<String?> metrics;
   final Value<bool> trailsResolved;
@@ -444,8 +509,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.name = const Value.absent(),
     this.color = const Value.absent(),
     this.snapToTrail = const Value.absent(),
+    this.freeSegments = const Value.absent(),
     this.waypoints = const Value.absent(),
     this.routedPath = const Value.absent(),
+    this.segmentPointCounts = const Value.absent(),
     this.trailRefs = const Value.absent(),
     this.metrics = const Value.absent(),
     this.trailsResolved = const Value.absent(),
@@ -459,8 +526,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     this.name = const Value.absent(),
     required int color,
     this.snapToTrail = const Value.absent(),
+    this.freeSegments = const Value.absent(),
     required String waypoints,
     this.routedPath = const Value.absent(),
+    this.segmentPointCounts = const Value.absent(),
     this.trailRefs = const Value.absent(),
     this.metrics = const Value.absent(),
     this.trailsResolved = const Value.absent(),
@@ -478,8 +547,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     Expression<String>? name,
     Expression<int>? color,
     Expression<bool>? snapToTrail,
+    Expression<String>? freeSegments,
     Expression<String>? waypoints,
     Expression<String>? routedPath,
+    Expression<String>? segmentPointCounts,
     Expression<String>? trailRefs,
     Expression<String>? metrics,
     Expression<bool>? trailsResolved,
@@ -493,8 +564,11 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       if (name != null) 'name': name,
       if (color != null) 'color': color,
       if (snapToTrail != null) 'snap_to_trail': snapToTrail,
+      if (freeSegments != null) 'free_segments': freeSegments,
       if (waypoints != null) 'waypoints': waypoints,
       if (routedPath != null) 'routed_path': routedPath,
+      if (segmentPointCounts != null)
+        'segment_point_counts': segmentPointCounts,
       if (trailRefs != null) 'trail_refs': trailRefs,
       if (metrics != null) 'metrics': metrics,
       if (trailsResolved != null) 'trails_resolved': trailsResolved,
@@ -510,8 +584,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       Value<String>? name,
       Value<int>? color,
       Value<bool>? snapToTrail,
+      Value<String>? freeSegments,
       Value<String>? waypoints,
       Value<String>? routedPath,
+      Value<String>? segmentPointCounts,
       Value<String>? trailRefs,
       Value<String?>? metrics,
       Value<bool>? trailsResolved,
@@ -524,8 +600,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
       name: name ?? this.name,
       color: color ?? this.color,
       snapToTrail: snapToTrail ?? this.snapToTrail,
+      freeSegments: freeSegments ?? this.freeSegments,
       waypoints: waypoints ?? this.waypoints,
       routedPath: routedPath ?? this.routedPath,
+      segmentPointCounts: segmentPointCounts ?? this.segmentPointCounts,
       trailRefs: trailRefs ?? this.trailRefs,
       metrics: metrics ?? this.metrics,
       trailsResolved: trailsResolved ?? this.trailsResolved,
@@ -551,11 +629,17 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
     if (snapToTrail.present) {
       map['snap_to_trail'] = Variable<bool>(snapToTrail.value);
     }
+    if (freeSegments.present) {
+      map['free_segments'] = Variable<String>(freeSegments.value);
+    }
     if (waypoints.present) {
       map['waypoints'] = Variable<String>(waypoints.value);
     }
     if (routedPath.present) {
       map['routed_path'] = Variable<String>(routedPath.value);
+    }
+    if (segmentPointCounts.present) {
+      map['segment_point_counts'] = Variable<String>(segmentPointCounts.value);
     }
     if (trailRefs.present) {
       map['trail_refs'] = Variable<String>(trailRefs.value);
@@ -588,8 +672,10 @@ class TrackRowsCompanion extends UpdateCompanion<TrackRow> {
           ..write('name: $name, ')
           ..write('color: $color, ')
           ..write('snapToTrail: $snapToTrail, ')
+          ..write('freeSegments: $freeSegments, ')
           ..write('waypoints: $waypoints, ')
           ..write('routedPath: $routedPath, ')
+          ..write('segmentPointCounts: $segmentPointCounts, ')
           ..write('trailRefs: $trailRefs, ')
           ..write('metrics: $metrics, ')
           ..write('trailsResolved: $trailsResolved, ')
@@ -618,8 +704,10 @@ typedef $$TrackRowsTableCreateCompanionBuilder = TrackRowsCompanion Function({
   Value<String> name,
   required int color,
   Value<bool> snapToTrail,
+  Value<String> freeSegments,
   required String waypoints,
   Value<String> routedPath,
+  Value<String> segmentPointCounts,
   Value<String> trailRefs,
   Value<String?> metrics,
   Value<bool> trailsResolved,
@@ -633,8 +721,10 @@ typedef $$TrackRowsTableUpdateCompanionBuilder = TrackRowsCompanion Function({
   Value<String> name,
   Value<int> color,
   Value<bool> snapToTrail,
+  Value<String> freeSegments,
   Value<String> waypoints,
   Value<String> routedPath,
+  Value<String> segmentPointCounts,
   Value<String> trailRefs,
   Value<String?> metrics,
   Value<bool> trailsResolved,
@@ -665,11 +755,18 @@ class $$TrackRowsTableFilterComposer
   ColumnFilters<bool> get snapToTrail => $composableBuilder(
       column: $table.snapToTrail, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get freeSegments => $composableBuilder(
+      column: $table.freeSegments, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get waypoints => $composableBuilder(
       column: $table.waypoints, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get routedPath => $composableBuilder(
       column: $table.routedPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get segmentPointCounts => $composableBuilder(
+      column: $table.segmentPointCounts,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get trailRefs => $composableBuilder(
       column: $table.trailRefs, builder: (column) => ColumnFilters(column));
@@ -712,11 +809,19 @@ class $$TrackRowsTableOrderingComposer
   ColumnOrderings<bool> get snapToTrail => $composableBuilder(
       column: $table.snapToTrail, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get freeSegments => $composableBuilder(
+      column: $table.freeSegments,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get waypoints => $composableBuilder(
       column: $table.waypoints, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get routedPath => $composableBuilder(
       column: $table.routedPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get segmentPointCounts => $composableBuilder(
+      column: $table.segmentPointCounts,
+      builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get trailRefs => $composableBuilder(
       column: $table.trailRefs, builder: (column) => ColumnOrderings(column));
@@ -759,11 +864,17 @@ class $$TrackRowsTableAnnotationComposer
   GeneratedColumn<bool> get snapToTrail => $composableBuilder(
       column: $table.snapToTrail, builder: (column) => column);
 
+  GeneratedColumn<String> get freeSegments => $composableBuilder(
+      column: $table.freeSegments, builder: (column) => column);
+
   GeneratedColumn<String> get waypoints =>
       $composableBuilder(column: $table.waypoints, builder: (column) => column);
 
   GeneratedColumn<String> get routedPath => $composableBuilder(
       column: $table.routedPath, builder: (column) => column);
+
+  GeneratedColumn<String> get segmentPointCounts => $composableBuilder(
+      column: $table.segmentPointCounts, builder: (column) => column);
 
   GeneratedColumn<String> get trailRefs =>
       $composableBuilder(column: $table.trailRefs, builder: (column) => column);
@@ -811,8 +922,10 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<int> color = const Value.absent(),
             Value<bool> snapToTrail = const Value.absent(),
+            Value<String> freeSegments = const Value.absent(),
             Value<String> waypoints = const Value.absent(),
             Value<String> routedPath = const Value.absent(),
+            Value<String> segmentPointCounts = const Value.absent(),
             Value<String> trailRefs = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
             Value<bool> trailsResolved = const Value.absent(),
@@ -826,8 +939,10 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             name: name,
             color: color,
             snapToTrail: snapToTrail,
+            freeSegments: freeSegments,
             waypoints: waypoints,
             routedPath: routedPath,
+            segmentPointCounts: segmentPointCounts,
             trailRefs: trailRefs,
             metrics: metrics,
             trailsResolved: trailsResolved,
@@ -841,8 +956,10 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             required int color,
             Value<bool> snapToTrail = const Value.absent(),
+            Value<String> freeSegments = const Value.absent(),
             required String waypoints,
             Value<String> routedPath = const Value.absent(),
+            Value<String> segmentPointCounts = const Value.absent(),
             Value<String> trailRefs = const Value.absent(),
             Value<String?> metrics = const Value.absent(),
             Value<bool> trailsResolved = const Value.absent(),
@@ -856,8 +973,10 @@ class $$TrackRowsTableTableManager extends RootTableManager<
             name: name,
             color: color,
             snapToTrail: snapToTrail,
+            freeSegments: freeSegments,
             waypoints: waypoints,
             routedPath: routedPath,
+            segmentPointCounts: segmentPointCounts,
             trailRefs: trailRefs,
             metrics: metrics,
             trailsResolved: trailsResolved,

@@ -18,6 +18,7 @@ import '../../data/trails/trail_service.dart';
 import '../../domain/models/elevation_profile.dart';
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/elevation_service.dart';
+import '../../domain/services/free_segments.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/polyline_simplify.dart';
 import '../../domain/services/routing_service.dart';
@@ -43,7 +44,9 @@ class DrawnTrack {
     this.name = '',
     this.color = const Color(0xFF1565C0),
     this.snapToTrail = true,
+    this.freeSegments = const {},
     this.routedPath = const [],
+    this.segmentPointCounts = const [],
     this.metrics,
     this.trailRefs = const [],
     this.trailsResolved = false,
@@ -57,11 +60,33 @@ class DrawnTrack {
   final Color color;
   final bool snapToTrail;
 
+  /// Indici dei **segmenti liberi** (§"Traccia mista", `docs/ROADMAP.md` P3):
+  /// il segmento `i` collega `waypoints[i]` e `waypoints[i+1]`. Un segmento
+  /// libero non passa da BRouter — linea retta fra i due punti, anche con
+  /// [snapToTrail] acceso per il resto della traccia. Rimappato esplicitamente
+  /// a ogni inserimento/rimozione di waypoint (`free_segments.dart`), quindi
+  /// resta sincrono con `waypoints` anche mentre si modifica la traccia — per
+  /// questo è un dato "d'intenzione" come [snapToTrail], **non** azzerato da
+  /// [clearedComputed].
+  final Set<int> freeSegments;
+
   /// Data di creazione (per ordinamento). Impostata alla creazione/import.
   final DateTime? createdAt;
 
   /// Geometria che segue i sentieri, calcolata al "Fine".
   final List<LatLng> routedPath;
+
+  /// Punti che ciascun segmento **originale** (`waypoints[i]`→`waypoints[i+1]`)
+  /// contribuisce a [routedPath], **esclusi** il primo (condiviso col
+  /// segmento precedente) — `segmentPointCounts[i] = routedPath.length` di
+  /// quel tratto meno 1. Permette di ritagliare [routedPath] nei tratti
+  /// liberi/agganciati per la resa tratteggiata **senza richiamare BRouter**
+  /// (`map_gl_screen.dart`, `sliceTrackRuns`) — essenziale per restare
+  /// utilizzabile offline: interrogare di nuovo il routing solo per
+  /// ridisegnare una traccia già salvata romperebbe quella garanzia. Vuoto
+  /// (mai calcolato, o traccia importata mai riaperta in modifica) → in
+  /// rendering si tratta l'intero percorso come un unico tratto pieno.
+  final List<int> segmentPointCounts;
 
   /// Distanza + D+/D- + profilo, calcolati al "Fine" (null se non disponibili).
   final TrackMetrics? metrics;
@@ -87,7 +112,9 @@ class DrawnTrack {
     String? name,
     Color? color,
     bool? snapToTrail,
+    Set<int>? freeSegments,
     List<LatLng>? routedPath,
+    List<int>? segmentPointCounts,
     TrackMetrics? metrics,
     List<String>? trailRefs,
     bool? trailsResolved,
@@ -100,7 +127,9 @@ class DrawnTrack {
         name: name ?? this.name,
         color: color ?? this.color,
         snapToTrail: snapToTrail ?? this.snapToTrail,
+        freeSegments: freeSegments ?? this.freeSegments,
         routedPath: routedPath ?? this.routedPath,
+        segmentPointCounts: segmentPointCounts ?? this.segmentPointCounts,
         metrics: metrics ?? this.metrics,
         trailRefs: trailRefs ?? this.trailRefs,
         trailsResolved: trailsResolved ?? this.trailsResolved,
@@ -111,13 +140,16 @@ class DrawnTrack {
   /// Azzera i dati calcolati (quando i waypoint cambiano in modifica). Le
   /// [photos] **sopravvivono**: modificare il tracciato non deve scollegare
   /// le foto già associate (la loro `distanceMeters` potrà risultare un po'
-  /// stale finché non si ricalcola, non è un dato critico).
+  /// stale finché non si ricalcola, non è un dato critico). [freeSegments]
+  /// sopravvive anch'esso (è intenzione di disegno, non un calcolo);
+  /// [segmentPointCounts] no, va rifatto insieme a [routedPath].
   DrawnTrack clearedComputed() => DrawnTrack(
         id: id,
         waypoints: waypoints,
         name: name,
         color: color,
         snapToTrail: snapToTrail,
+        freeSegments: freeSegments,
         createdAt: createdAt,
         photos: photos,
       );
@@ -216,23 +248,41 @@ final segmentRouteProvider =
   }
 });
 
-/// Concatena i segmenti instradati in un percorso unico. [get] sceglie la
-/// modalità: `ref.watch(...future)` (anteprima reattiva) o `ref.read(...future)`
-/// (uso una-tantum al salvataggio, che riusa la cache dell'anteprima).
-Future<List<LatLng>> _concatSegments(
+/// Instrada ogni segmento **singolarmente** con lo snap del proprio indice
+/// (§"Traccia mista": [segSnap] è `false` sui segmenti in `freeSegments`
+/// anche a [DrawnTrack.snapToTrail] acceso). [get] sceglie la modalità:
+/// `ref.watch(...future)` (anteprima reattiva) o `ref.read(...future)` (uso
+/// una-tantum al salvataggio, che riusa la cache dell'anteprima).
+Future<List<List<LatLng>>> _routeSegments(
   List<LatLng> wp,
-  bool snap,
+  bool Function(int) segSnap,
   Future<List<LatLng>> Function(_SegKey) get,
-) async {
-  if (wp.length < 2) return wp;
-  final segs = await Future.wait([
-    for (var i = 0; i < wp.length - 1; i++) get(_SegKey(wp[i], wp[i + 1], snap)),
+) {
+  if (wp.length < 2) return Future.value(const []);
+  return Future.wait([
+    for (var i = 0; i < wp.length - 1; i++)
+      get(_SegKey(wp[i], wp[i + 1], segSnap(i))),
   ]);
+}
+
+/// Concatena i segmenti già instradati (uno per waypoint consecutivo) in un
+/// percorso unico.
+List<LatLng> _joinSegments(List<LatLng> wp, List<List<LatLng>> segs) {
+  if (wp.length < 2) return wp;
   final path = <LatLng>[wp.first];
   for (final s in segs) {
     path.addAll(s.skip(1));
   }
   return path;
+}
+
+Future<List<LatLng>> _concatSegments(
+  List<LatLng> wp,
+  bool Function(int) segSnap,
+  Future<List<LatLng>> Function(_SegKey) get,
+) async {
+  final segs = await _routeSegments(wp, segSnap, get);
+  return _joinSegments(wp, segs);
 }
 
 /// Editor multi-traccia (1.B): crea/modifica più tracce, selezione, snap, e al
@@ -245,16 +295,24 @@ class Tracks extends Notifier<TracksState> {
   /// nuova: in quel caso l'annullamento la scarta del tutto.
   DrawnTrack? _editSnapshot;
 
-  /// Stack di undo della sessione di editing: ogni voce è uno snapshot dei
-  /// waypoint **prima** di una mutazione (add/move/remove/insert). `undo()` fa
-  /// pop. Si azzera all'inizio/fine di ogni sessione di editing.
-  final List<List<LatLng>> _undoStack = [];
+  /// Stack di undo della sessione di editing: ogni voce è uno snapshot di
+  /// waypoint **e** segmenti liberi **prima** di una mutazione
+  /// (add/move/remove/insert) — insieme, non solo i waypoint: un
+  /// inserimento può dividere un segmento libero in due, e senza il
+  /// relativo `freeSegments` l'undo li lascerebbe fuori sincrono con i
+  /// waypoint ripristinati. `undo()` fa pop. Si azzera all'inizio/fine di
+  /// ogni sessione di editing.
+  final List<({List<LatLng> waypoints, Set<int> freeSegments})> _undoStack = [];
 
-  /// Registra lo stato dei waypoint prima di una mutazione (per l'undo).
+  /// Registra lo stato di waypoint e segmenti liberi prima di una mutazione
+  /// (per l'undo).
   void _pushUndo() {
     final t = state.editing;
     if (t == null) return;
-    _undoStack.add(List<LatLng>.of(t.waypoints));
+    _undoStack.add((
+      waypoints: List<LatLng>.of(t.waypoints),
+      freeSegments: Set<int>.of(t.freeSegments),
+    ));
   }
 
   @override
@@ -311,6 +369,7 @@ class Tracks extends Notifier<TracksState> {
         DrawnTrack(id: _newId(), color: _nextColor(), createdAt: DateTime.now());
     _editSnapshot = null; // traccia nuova
     _undoStack.clear();
+    ref.read(freeDrawingModeProvider.notifier).reset();
     state = TracksState(tracks: [...tracks, track], editingId: track.id, geometryNonce: state.geometryNonce + 1);
   }
 
@@ -318,6 +377,7 @@ class Tracks extends Notifier<TracksState> {
     if (state.selectedId == null) return;
     _editSnapshot = state.byId(state.selectedId); // per ripristino su Annulla
     _undoStack.clear();
+    ref.read(freeDrawingModeProvider.notifier).reset();
     state = TracksState(tracks: state.tracks, editingId: state.selectedId, geometryNonce: state.geometryNonce);
   }
 
@@ -398,8 +458,14 @@ class Tracks extends Notifier<TracksState> {
     );
 
     // Riusa la cache dei segmenti già instradati dall'anteprima (read → hit).
-    final path = await _concatSegments(track.waypoints, track.snapToTrail,
-        (k) => ref.read(segmentRouteProvider(k).future));
+    bool segSnap(int i) => track.snapToTrail && !track.freeSegments.contains(i);
+    final segs = await _routeSegments(
+        track.waypoints, segSnap, (k) => ref.read(segmentRouteProvider(k).future));
+    final path = _joinSegments(track.waypoints, segs);
+    // Punti per segmento (esclude il primo, condiviso col precedente): serve
+    // a ritagliare `routedPath` nei tratti liberi/agganciati per la resa
+    // tratteggiata **senza richiamare BRouter** (`map_gl_screen.dart`).
+    final segmentPointCounts = [for (final s in segs) s.length - 1];
 
     TrackMetrics? metrics;
     try {
@@ -441,6 +507,7 @@ class Tracks extends Notifier<TracksState> {
           if (t.id == id)
             t.copyWith(
                 routedPath: path,
+                segmentPointCounts: segmentPointCounts,
                 metrics: metrics,
                 trailRefs: refs,
                 trailsResolved: trailsResolved)
@@ -781,18 +848,32 @@ class Tracks extends Notifier<TracksState> {
   void setSnap(bool snap) =>
       _updateEditing((t) => t.clearedComputed().copyWith(snapToTrail: snap));
 
+  /// Aggiunge un punto in coda al tracciato in disegno. Se la modalità
+  /// "Libero" (`freeDrawingModeProvider`) è attiva **e** c'è già almeno un
+  /// punto precedente, il nuovo segmento (quello appena creato, tra il
+  /// vecchio ultimo punto e questo) nasce libero — non passa da BRouter
+  /// anche se [DrawnTrack.snapToTrail] resta acceso per il resto della
+  /// traccia (§"Traccia mista", `docs/ROADMAP.md` P3).
   void addPoint(LatLng p) {
     if (state.editing == null) return;
     _pushUndo();
-    _updateEditing(
-        (t) => t.clearedComputed().copyWith(waypoints: [...t.waypoints, p]));
+    final free = ref.read(freeDrawingModeProvider);
+    _updateEditing((t) {
+      final newSegmentIndex = t.waypoints.length - 1;
+      final freeSegments = free && t.waypoints.isNotEmpty
+          ? {...t.freeSegments, newSegmentIndex}
+          : t.freeSegments;
+      return t.clearedComputed().copyWith(
+          waypoints: [...t.waypoints, p], freeSegments: freeSegments);
+    });
   }
 
   /// Annulla l'ultima operazione sui waypoint (stack di undo della sessione).
   void undo() {
     if (_undoStack.isEmpty) return;
     final prev = _undoStack.removeLast();
-    _updateEditing((t) => t.clearedComputed().copyWith(waypoints: prev));
+    _updateEditing((t) => t.clearedComputed().copyWith(
+        waypoints: prev.waypoints, freeSegments: prev.freeSegments));
   }
 
   void movePoint(int index, LatLng p) {
@@ -807,8 +888,11 @@ class Tracks extends Notifier<TracksState> {
     final t = state.editing;
     if (t == null || index < 0 || index >= t.waypoints.length) return;
     _pushUndo();
-    _updateEditing((tt) =>
-        tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..removeAt(index)));
+    final oldCount = t.waypoints.length;
+    _updateEditing((tt) => tt.clearedComputed().copyWith(
+        waypoints: [...tt.waypoints]..removeAt(index),
+        freeSegments:
+            freeSegmentsAfterRemove(tt.freeSegments, index, oldCount)));
   }
 
   /// Inserisce un waypoint a [index], `index` in `[0, lunghezza]`.
@@ -816,8 +900,11 @@ class Tracks extends Notifier<TracksState> {
     final t = state.editing;
     if (t == null || index < 0 || index > t.waypoints.length) return;
     _pushUndo();
-    _updateEditing((tt) =>
-        tt.clearedComputed().copyWith(waypoints: [...tt.waypoints]..insert(index, p)));
+    final oldCount = t.waypoints.length;
+    _updateEditing((tt) => tt.clearedComputed().copyWith(
+        waypoints: [...tt.waypoints]..insert(index, p),
+        freeSegments:
+            freeSegmentsAfterInsert(tt.freeSegments, index, oldCount)));
   }
 
   /// Inserisce un nuovo waypoint **a metà strada** tra il punto [index] e il
@@ -957,6 +1044,27 @@ class SelectedWaypoint extends Notifier<int?> {
 final selectedWaypointProvider =
     NotifierProvider<SelectedWaypoint, int?>(SelectedWaypoint.new);
 
+/// Modalità "Libero" mentre si disegna (§"Traccia mista", `docs/ROADMAP.md`
+/// P3): finché è accesa, i punti aggiunti con [Tracks.addPoint] creano
+/// segmenti liberi (linea retta, non instradati) anche se
+/// [DrawnTrack.snapToTrail] resta acceso per il resto della traccia. Non è
+/// un dato della traccia (non persistito): è solo lo stato del pulsante
+/// nella barra di disegno. Si azzera esplicitamente in
+/// [Tracks.startNewDrawing]/[Tracks.editSelected] (non con un
+/// `ref.watch(activeTrackIdProvider)` come [SelectedWaypoint]: qui
+/// creerebbe una dipendenza circolare, dato che [Tracks.addPoint] legge
+/// questo provider e `activeTrackIdProvider` dipende da `tracksProvider`).
+class FreeDrawingMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void reset() => state = false;
+}
+
+final freeDrawingModeProvider =
+    NotifierProvider<FreeDrawingMode, bool>(FreeDrawingMode.new);
+
 /// Traccia **grezza** importata, da mostrare **tratteggiata** sulla mappa mentre
 /// l'import la instrada (riferimento). `(id, raw)` durante l'import; `null` a
 /// import concluso (poi si tiene solo la versione instradata).
@@ -1035,10 +1143,14 @@ final livePathProvider = FutureProvider.family<List<LatLng>, String>((ref, id) a
   if (waypoints == null) return const [];
   final snap =
       ref.watch(tracksProvider.select((s) => s.byId(id)?.snapToTrail ?? true));
+  final free = ref
+      .watch(tracksProvider.select((s) => s.byId(id)?.freeSegments)) ??
+      const <int>{};
+  bool segSnap(int i) => snap && !free.contains(i);
   // Percorso = concatenazione dei segmenti (cache per-segmento → incrementale:
   // spostando/inserendo un punto si ricalcolano solo i 1-2 segmenti toccati).
   return _concatSegments(
-      waypoints, snap, (k) => ref.watch(segmentRouteProvider(k).future));
+      waypoints, segSnap, (k) => ref.watch(segmentRouteProvider(k).future));
 });
 
 /// Distanza (m) della traccia attiva: usa i dati memorizzati se presenti,

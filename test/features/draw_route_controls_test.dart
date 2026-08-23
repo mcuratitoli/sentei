@@ -17,6 +17,7 @@ import 'package:sentei/domain/services/routing_service.dart';
 import 'package:sentei/features/draw_route/draw_route_controls.dart';
 import 'package:sentei/features/draw_route/route_editor_provider.dart';
 import 'package:sentei/ui/app_bottom_sheet.dart' show AppSheetSurface;
+import 'package:sentei/ui/app_buttons.dart' show AppIconButton;
 import 'package:sentei/features/settings/cloud_sync_controller.dart';
 
 /// Routing finto: ritorna la spezzata tra i waypoint (nessuna rete), come in
@@ -297,6 +298,55 @@ void main() {
     // dopo, non prima, quindi non c'è nulla da slittare.
     expect(container.read(selectedWaypointProvider), 0);
     expect(find.text('Punto 1 di 3'), findsOneWidget);
+  });
+
+  testWidgets(
+      '"Libero": acceso, i punti aggiunti dopo diventano segmenti liberi, quelli prima no',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0)); // indice 0
+    notifier.addPoint(const LatLng(45.01, 7.0)); // indice 1 — segmento 0
+    await tester.pumpAndSettle();
+
+    // Spento di default: nessun segmento libero finora.
+    expect(container.read(tracksProvider).editing!.freeSegments, isEmpty);
+    expect(container.read(freeDrawingModeProvider), false);
+
+    await tester.tap(find.byTooltip('Attiva tratto libero'));
+    await tester.pumpAndSettle();
+    expect(container.read(freeDrawingModeProvider), true);
+
+    notifier.addPoint(const LatLng(45.02, 7.0)); // indice 2 — segmento 1, libero
+    await tester.pumpAndSettle();
+    expect(container.read(tracksProvider).editing!.freeSegments, {1});
+
+    await tester.tap(find.byTooltip('Disattiva tratto libero'));
+    await tester.pumpAndSettle();
+    notifier.addPoint(const LatLng(45.03, 7.0)); // indice 3 — segmento 2, non libero
+    await tester.pumpAndSettle();
+    expect(container.read(tracksProvider).editing!.freeSegments, {1});
+  });
+
+  testWidgets(
+      '"Libero" disabilitato quando "Segui sentieri" è già spento per l\'intera traccia',
+      (tester) async {
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    notifier.addPoint(const LatLng(45.0, 7.0));
+    notifier.addPoint(const LatLng(45.01, 7.0));
+    notifier.setSnap(false);
+    await tester.pumpAndSettle();
+
+    final button = tester.widget<AppIconButton>(find.byWidgetPredicate(
+        (w) =>
+            w is AppIconButton &&
+            w.tooltip == 'Tratto libero (l\'intera traccia è già senza sentieri)'));
+    expect(button.onPressed, isNull);
   });
 
   testWidgets('eliminare un punto chiede conferma prima di rimuoverlo',

@@ -11,6 +11,87 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — Traccia mista: tasto "Libero" per i tratti fuori sentiero
+
+Richiesto dall'utente con un caso concreto: Campertogno → Colma di Campertogno segue i
+sentieri, ma per l'ultima salita alla Cima Voccani vuole poter tracciare dritto invece di
+seguire il giro lungo imposto dallo snap-to-trail. Discussa prima l'UX (due opzioni: toggle
+live mentre si disegna vs tap su un segmento già tracciato) — scelta l'opzione **A** (toggle
+live), con **B** (tap su segmento per correggere un tratto già disegnato) rimandata come
+estensione futura, non implementata qui.
+
+**Interruttore globale vs tasto "Libero"**: discusso esplicitamente se il vecchio
+`snapToTrail` (per l'intera traccia, "Impostazioni avanzate") avesse ancora senso — sì,
+risolve un problema diverso ("l'intera traccia è fuori sentiero", es. ghiacciaio/sci
+alpinismo, zero chiamate a BRouter) dal nuovo tasto ("solo questo tratto"). Il tasto
+"Libero" si disabilita quando lo snap globale è già spento (sarebbe senza oggetto).
+
+**Modello dati** (`route_editor_provider.dart`, `DrawnTrack`):
+- `freeSegments: Set<int>` — indici dei segmenti liberi (`i` collega `waypoints[i]` e
+  `waypoints[i+1]`). Dato "d'intenzione" come `snapToTrail`: sopravvive a
+  `clearedComputed()`, a differenza dei dati calcolati (routedPath/metrics/...).
+- `segmentPointCounts: List<int>` — quanti punti ciascun segmento originale contribuisce a
+  `routedPath` (esclude il primo, condiviso). Calcolato una volta a "Fine"
+  (`finishDrawing`), serve a **ritagliare `routedPath` senza richiamare BRouter** per la
+  resa tratteggiata di una traccia già salvata — altrimenti visualizzare un percorso offline
+  avrebbe richiesto rete solo per sapere dove disegnare i trattini, rompendo la garanzia di
+  funzionamento offline (§CLAUDE.md).
+
+**Rimappatura degli indici** (`domain/services/free_segments.dart`, nuovo, con test):
+inserire/rimuovere un waypoint sposta gli indici dei segmenti a valle — `freeSegments` va
+rimappato esplicitamente a ogni `insertPoint`/`removePoint`, altrimenti "libero" finirebbe
+per segnare il segmento sbagliato dopo un edit. Regole (verificate con test, non ovvie a
+naso):
+- **Insert** dentro un segmento esistente: **entrambe** le metà ereditano la libertà
+  dell'originale (dividere un tratto libero non lo riaggancia, e viceversa). Insert a un
+  estremo: nuovo segmento di bordo, non libero di default.
+- **Remove** di un punto interno: i due segmenti adiacenti si fondono, liberi se **almeno
+  uno dei due** lo era (rimuovere un punto non deve "riagganciare" a sorpresa un tratto
+  reso libero apposta). Remove di un estremo: l'unico segmento adiacente sparisce, non si
+  fonde con nulla (nessun successore/predecessore a cui fondersi).
+- Anche lo **stack di undo** (`_undoStack`) ora salva `freeSegments` insieme ai waypoint,
+  non solo questi ultimi — altrimenti un `undo()` dopo un insert che aveva diviso un
+  segmento libero avrebbe lasciato `freeSegments` fuori sincrono con i waypoint ripristinati.
+
+**Routing per-segmento**: `_concatSegments` prendeva un unico `bool snap` per tutta la
+traccia — cambiato in `bool Function(int) segSnap`, così ogni segmento sceglie il proprio
+snap (`track.snapToTrail && !track.freeSegments.contains(i)`). Il resto del meccanismo di
+routing (cache per-segmento via `segmentRouteProvider`, fallback a retta su errore) era già
+per-segmento di suo — un segmento libero è concettualmente lo stesso ramo "retta diretta"
+già usato per i fallimenti di rete, solo forzato deliberatamente. Aggiornati entrambi i
+punti di chiamata (`finishDrawing`, `livePathProvider`).
+
+**Provider `freeDrawingModeProvider`** (stato del tasto, non persistito): **non** usa lo
+stesso pattern di `SelectedWaypoint` (`ref.watch(activeTrackIdProvider)` per auto-azzerarsi
+al cambio traccia) — creerebbe una **dipendenza circolare**, dato che `Tracks.addPoint`
+legge questo provider e `activeTrackIdProvider` dipende da `tracksProvider` stesso
+(`CircularDependencyError` a runtime, scoperto dai test). Si azzera invece con una chiamata
+esplicita `reset()` in `startNewDrawing`/`editSelected`.
+
+**Resa tratteggiata** (`map_gl_screen.dart`): nuovo manager `_savedFreeLines`
+(`PolylineAnnotationManager` con `setLineDasharray`, separato da `_savedLines` perché il
+tratteggio si imposta solo a livello di manager, non per singola annotazione in questo
+plugin). `sliceTrackRuns` (`domain/services/track_runs.dart`, nuovo, con test) ritaglia
+`routedPath` nei tratti liberi/agganciati usando `segmentPointCounts` — validazione
+difensiva (somma dei conteggi contro la lunghezza di `routedPath`) prima di tagliare, con
+fallback a un'unica linea piena se i dati non tornano (traccia mai passata da questa
+funzionalità, o disallineata). **Solo la traccia selezionata/salvata** ha il tratteggio in
+questa iterazione: l'anteprima live (`_liveLine`, durante il disegno attivo) resta una linea
+piena unica per semplicità — la forma del percorso è comunque corretta (retta vs sentiero),
+manca solo lo stile tratteggiato mentre si disegna. Possibile estensione futura se serve.
+
+**Persistenza**: due nuove colonne Drift (`freeSegments`, `segmentPointCounts`, entrambe
+JSON testo, default `'[]'`) — `schemaVersion` 4→5, migrazione additiva (`addColumn`,
+nessuna perdita per le tracce esistenti). Incluse anche nel JSON di sincronizzazione cloud
+(`TrackCodec`), per rendere disponibile la resa tratteggiata su un altro device senza
+ricalcolo.
+
+- **Non verificato su device fisico/simulatore** in questa sessione: interazione del tasto
+  "Libero" dal vivo, resa tratteggiata a schermo, comportamento reale di BRouter su un
+  tratto misto — annotato in `docs/validazione-device.md`.
+
+---
+
 ## 23 agosto 2026 — Export immagine: giro di bug-fixing dal vivo; log di debug in-app
 
 Seguito diretto della sessione precedente (voce sotto): la prima implementazione dell'export

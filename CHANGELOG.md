@@ -13,6 +13,24 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
+## Non ancora rilasciato
+
+Modifiche già su `main` ma non ancora distribuite (il build iOS/Android della `1.0.0+9`
+già dato ai tester **non** le contiene, sono successive).
+
+- ✏️ **Traccia "mista": tratti liberi fuori sentiero.** Disegnando o
+  modificando un percorso, il tasto "Libero" nella barra (icona a
+  scarabocchio) fa sì che i punti aggiunti da lì in poi si colleghino in
+  linea retta invece di seguire i sentieri — utile per un tratto specifico
+  (es. l'ultima salita a una cima) senza dover disattivare lo snap per
+  l'intera traccia. I tratti liberi si vedono tratteggiati sulla mappa.
+- ✏️ **Punto selezionato**: mostra ora anche le coordinate (non solo la
+  quota) e permette di aggiungere un punto anche **dopo**, non solo prima.
+- 🎨 **Menu a tre pallini più coerenti**: stesse voci nel menu della card
+  traccia sulla mappa e in quello della lista tracciati (mancava "Modifica"
+  in quest'ultimo); le icone hanno lo stesso sfondo tinta d'accento delle
+  righe di Impostazioni, prima erano "nude"; righe leggermente meno spaziate.
+
 ## 1.0.0 (9) — 23 agosto 2026
 
 - ✨ **Esporta un'immagine del percorso**, pronta per essere condivisa: mappa
