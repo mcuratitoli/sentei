@@ -11,6 +11,47 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 1, segnavia nella card del punto
+
+Avviata l'epica P1.3 (`docs/ROADMAP.md`), discussa con l'utente prima di scrivere codice: la
+sua idea è più semplice del piano iniziale — niente `queryRenderedFeatures`/menu di
+disambiguazione su un tap diretto sulla mappa; l'ingresso è sempre da una **label già
+esistente** (chip segnavia sulla card traccia, o le nuove label qui sotto), la
+disambiguazione la fa da sola la lista di label mostrate. Decisioni prese: dialog di conferma
+prima di aprire il dettaglio di un segnavia (evita aperture accidentali), link alla scheda
+CAI **tentato** nella card di dettaglio (non bloccante, mostrato solo se trovato — non più
+rimandato del tutto come deciso in un primo momento).
+
+**Questa fetta**: quando si tocca un punto qualsiasi della mappa (card del punto ispezionato,
+non una traccia), se il punto è **lungo o molto vicino a un sentiero** compaiono le sue
+label numero-sentiero, stesso stile (`AppTrailTag`) delle label già mostrate sulla card di
+una traccia disegnata — un solo linguaggio visivo per lo stesso concetto.
+
+- `TrailService.trailsNear(point, {thresholdMeters=60})` (nuovo metodo su base class,
+  condiviso da OSM2CAI/Overpass/`CombinedTrailService` come già `trailSegmentsAlong`):
+  segnavia entro soglia da un **punto singolo** (non un percorso) — riusa `fetchRelations`
+  passando `[point]`, poi filtra per distanza dal vertice più vicino di ciascuna relazione
+  (stesso approccio di `_nearest`, non punto-segmento: coerente con l'esistente, non
+  introduce un secondo modello di "vicinanza"). Ordina per distanza crescente, **non limita
+  il numero di risultati** (un incrocio può avere più segnavia vicini, mostrati tutti come
+  label separate — è la disambiguazione "gratuita" di cui sopra). Mai un'eccezione verso il
+  chiamante, a differenza di `trailSegmentsAlong`: qui non serve la distinzione
+  fallito/vuoto-genuino (nessun flag `trailsResolved` da aggiornare per un punto esplorato al
+  volo), quindi il contratto è più semplice — lista vuota su qualunque errore. Test in
+  `trail_service_test.dart` (soglia, più segnavia vicini con ordine, propagazione errori).
+- `InspectedPoint`/`InspectedPointNotifier` (`inspected_point_provider.dart`): terza ricerca
+  asincrona indipendente accanto a quota e reverse geocoding, stesso pattern (token-guarded,
+  `nearbyTrails`/`nearbyTrailsLoading`, aggiornamento separato non appena pronta).
+- `_PointInfoCard` (`map_gl_screen.dart`): righe `AppTrailTag` in fondo alla card, silenziose
+  se non ce ne sono (stessa convenzione della località: niente "nessun sentiero qui").
+
+**Non ancora fatto** (fette successive, stesso P1.3): dati id/nome/partenza-arrivo sulla
+relazione (oggi si ha solo `ref`+geometria ritagliata al bbox); dialog di conferma + card di
+dettaglio segnavia con link CAI se trovato; traccia temporanea del segnavia sulla mappa con
+focus/fit-bounds. Le label create qui **non sono ancora tappabili** verso quel flusso.
+
+---
+
 ## 24 agosto 2026 — Log più leggibili + più eventi; punto inserito sul sentiero, non sulla corda
 
 Tre correzioni indipendenti nella stessa sessione, dopo un giro di test dal vivo dell'utente.

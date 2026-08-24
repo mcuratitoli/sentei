@@ -22,6 +22,7 @@ import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
 import '../../domain/services/track_runs.dart';
 import '../../app/theme_provider.dart';
+import '../../ui/badges.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
@@ -1856,6 +1857,34 @@ class _PointInfoCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Segnavia entro poche decine di metri dal punto (§"Un
+                    // segnavia per intero"): stessa label (`AppTrailTag`)
+                    // della card traccia, per non avere due stili diversi
+                    // per lo stesso concetto. Silenzioso se non ce ne sono
+                    // (come la località: niente "nessun sentiero qui").
+                    if (data.nearbyTrailsLoading) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CupertinoActivityIndicator(radius: 6),
+                          const SizedBox(width: 6),
+                          Text('Ricerca segnavia…',
+                              style: AppText.footnote
+                                  .copyWith(color: palette.iconGreyLight)),
+                        ],
+                      ),
+                    ] else if (data.nearbyTrails.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final t in data.nearbyTrails)
+                            AppTrailTag(label: t.ref),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

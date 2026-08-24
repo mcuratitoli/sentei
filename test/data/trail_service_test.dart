@@ -68,6 +68,33 @@ const _overpassBody = '''
 }
 ''';
 
+// Due sentieri paralleli vicini (ref "5" esattamente su un punto, "6" a
+// ~31 m verso est): per verificare che `trailsNear` restituisca entrambi,
+// ordinati per distanza crescente.
+const _osm2caiTwoNearbyBody = '''
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "ref": "5" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [ [7.8694, 45.9369], [7.8694, 45.9378] ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ref": "6" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [ [7.8698, 45.9369], [7.8698, 45.9378] ]
+      }
+    }
+  ]
+}
+''';
+
 http.Client _fixed(String body) =>
     MockClient((_) async => http.Response(body, 200));
 
@@ -100,6 +127,45 @@ void main() {
       final svc = Osm2CaiTrailService(
           client: _fixed('{"type":"FeatureCollection","features":[]}'));
       expect(await svc.trailSegmentsAlong([_a, _b]), isEmpty);
+    });
+  });
+
+  group('trailsNear', () {
+    test('trova il segnavia entro la soglia di default, vuoto se lontano',
+        () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiBody));
+      final onTheLine = LatLng(45.93735, 7.8694);
+      final found = await svc.trailsNear(onTheLine);
+      expect(found.map((r) => r.ref), ['5']);
+
+      final farAway = LatLng(45.93735, 7.90); // ben oltre 60 m
+      expect(await svc.trailsNear(farAway), isEmpty);
+    });
+
+    test('più segnavia vicini: tutti restituiti, ordinati per distanza crescente',
+        () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiTwoNearbyBody));
+      // Esattamente sul ref "5"; il ref "6" è ~31 m più a est, entro soglia.
+      final point = LatLng(45.9373, 7.8694);
+      final found = await svc.trailsNear(point);
+      expect(found.map((r) => r.ref).toList(), ['5', '6']);
+    });
+
+    test('nessuna eccezione verso il chiamante su errore HTTP: lista vuota',
+        () async {
+      final svc = Osm2CaiTrailService(
+          client: MockClient((_) async => http.Response('boom', 500)));
+      expect(await svc.trailsNear(_a), isEmpty);
+    });
+
+    test('soglia personalizzata più stretta esclude un segnavia altrimenti valido',
+        () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiTwoNearbyBody));
+      // Esattamente su un vertice del ref "5" (distanza 0); il ref "6" ha il
+      // suo vertice più vicino a ~31 m, escluso da una soglia di 10 m.
+      final point = LatLng(45.9369, 7.8694);
+      final found = await svc.trailsNear(point, thresholdMeters: 10);
+      expect(found.map((r) => r.ref).toList(), ['5']);
     });
   });
 

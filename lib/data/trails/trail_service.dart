@@ -103,6 +103,48 @@ abstract class TrailService {
     return segments;
   }
 
+  /// Segnavia che passano **entro [thresholdMeters]** da [point] — non lungo
+  /// un percorso disegnato, un singolo punto qualsiasi (usato dalla card del
+  /// punto ispezionato quando si tocca la mappa vicino a un sentiero, §"Un
+  /// segnavia per intero", `docs/ROADMAP.md` P1.3). Ordinati per distanza
+  /// crescente; nessun limite al numero di risultati — un incrocio può avere
+  /// più segnavia vicini, mostrati tutti come label separate invece di
+  /// sceglierne uno solo. Best-effort come [trailSegmentsAlong]: nessuna
+  /// eccezione verso il chiamante, lista vuota su qualunque errore.
+  Future<List<TrailRelation>> trailsNear(LatLng point,
+      {double thresholdMeters = 60}) async {
+    final List<TrailRelation> relations;
+    try {
+      relations = await fetchRelations([point]);
+    } catch (_) {
+      return const [];
+    }
+    if (relations.isEmpty) return const [];
+
+    const distance = Distance();
+    final withDist = <(TrailRelation, double)>[];
+    for (final r in relations) {
+      var d = double.infinity;
+      for (final q in r.points) {
+        final dd = distance(point, q);
+        if (dd < d) d = dd;
+        if (d == 0) break;
+      }
+      if (d <= thresholdMeters) withDist.add((r, d));
+    }
+    withDist.sort((a, b) => a.$2.compareTo(b.$2));
+
+    // Dedup per ref: OSM2CAI e Overpass non dovrebbero mai contribuire
+    // entrambi (`fetchRelations` sceglie l'uno o l'altro), ma per sicurezza
+    // non si vuole la stessa label due volte.
+    final seen = <String>{};
+    final out = <TrailRelation>[];
+    for (final (r, _) in withDist) {
+      if (seen.add(r.ref)) out.add(r);
+    }
+    return out;
+  }
+
   /// Relazione del sentiero più vicino a [p] entro [threshold] metri; a parità
   /// di vicinanza preferisce quella con meno punti (più locale/specifica).
   /// Ritorna la relazione (ref + grado CAI), non solo il ref.

@@ -2,13 +2,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../data/search/geocoding_service.dart';
-import '../draw_route/route_editor_provider.dart' show elevationServiceProvider;
+import '../../data/trails/trail_service.dart';
+import '../draw_route/route_editor_provider.dart'
+    show elevationServiceProvider, trailServiceProvider;
 import '../map/map_providers.dart' show geocodingServiceProvider;
 
 /// Punto della mappa ispezionato in modalità **esplorazione**: quando l'utente
 /// tocca un punto dove non c'è una traccia da selezionare, mostriamo una
-/// mini-card con **altitudine** (dal DEM Terrarium, anche offline), **coordinate**
-/// e **località/provincia/nazione** (reverse geocoding).
+/// mini-card con **altitudine** (dal DEM Terrarium, anche offline),
+/// **coordinate**, **località/provincia/nazione** (reverse geocoding) e — se
+/// il punto è lungo o molto vicino a un sentiero — i **segnavia coinvolti**
+/// (§"Un segnavia per intero", `docs/ROADMAP.md` P1.3).
 class InspectedPoint {
   const InspectedPoint({
     required this.point,
@@ -16,6 +20,8 @@ class InspectedPoint {
     this.elevationLoading = true,
     this.place,
     this.placeLoading = true,
+    this.nearbyTrails = const [],
+    this.nearbyTrailsLoading = true,
   });
 
   final LatLng point;
@@ -30,11 +36,19 @@ class InspectedPoint {
   final ReversePlace? place;
   final bool placeLoading;
 
+  /// Segnavia entro poche decine di metri dal punto (vuoto se nessuno, o
+  /// finché [nearbyTrailsLoading] è `true`) — ordinati per distanza crescente
+  /// da `TrailService.trailsNear`.
+  final List<TrailRelation> nearbyTrails;
+  final bool nearbyTrailsLoading;
+
   InspectedPoint copyWith({
     double? elevation,
     bool? elevationLoading,
     ReversePlace? place,
     bool? placeLoading,
+    List<TrailRelation>? nearbyTrails,
+    bool? nearbyTrailsLoading,
   }) =>
       InspectedPoint(
         point: point,
@@ -42,6 +56,8 @@ class InspectedPoint {
         elevationLoading: elevationLoading ?? this.elevationLoading,
         place: place ?? this.place,
         placeLoading: placeLoading ?? this.placeLoading,
+        nearbyTrails: nearbyTrails ?? this.nearbyTrails,
+        nearbyTrailsLoading: nearbyTrailsLoading ?? this.nearbyTrailsLoading,
       );
 }
 
@@ -84,6 +100,15 @@ class InspectedPointNotifier extends Notifier<InspectedPoint?> {
       final cur = state;
       if (_token != t || cur == null) return;
       state = cur.copyWith(place: place, placeLoading: false);
+    }();
+
+    // Segnavia entro poche decine di metri (già best-effort al suo interno:
+    // `trailsNear` non lancia mai, lista vuota su qualunque errore).
+    () async {
+      final trails = await ref.read(trailServiceProvider).trailsNear(point);
+      final cur = state;
+      if (_token != t || cur == null) return;
+      state = cur.copyWith(nearbyTrails: trails, nearbyTrailsLoading: false);
     }();
   }
 
