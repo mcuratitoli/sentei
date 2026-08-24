@@ -11,6 +11,58 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — Log più leggibili + più eventi; punto inserito sul sentiero, non sulla corda
+
+Tre correzioni indipendenti nella stessa sessione, dopo un giro di test dal vivo dell'utente.
+
+**1. Visualizzatore log** (`debug_logs_screen.dart`, `app_log_service.dart`): l'utente ha
+provato l'export e chiesto tre cose. **Timestamp a 3 cifre di millisecondi**: prima
+`DateTime.toIso8601String()` scriveva fino a 6 cifre di microsecondi (e li ometteva del
+tutto sui secondi esatti, lunghezza incoerente) — ora `_timestamp()` costruisce la stringa a
+mano da campi `DateTime`, sempre `yyyy-MM-ddTHH:mm:ss.mmm`. **Leggibilità**: ogni riga
+mostrata ora come timestamp + **categoria colorata** (il tag `[qualcosa]` iniziale del
+messaggio, es. `[routing]`) su una riga, il messaggio sotto — prima un'unica riga lunga.
+`_LogEntry.parse` separa sul primo doppio-spazio (compatibile con le righe già scritte prima
+del fix del timestamp, qualunque sia la loro lunghezza) ed estrae il tag con una regex;
+mappa `_categoryColors` in `debug_logs_screen.dart` per le categorie già in uso, le altre
+prendono un grigio di default — aggiungerne una nuova nel codice non richiede toccare questa
+mappa. **Più log**: convertiti in log utili una decina di `catch (_) {}` silenziosi nei punti
+a più alto valore diagnostico di `route_editor_provider.dart` (salvataggio traccia, calcolo
+metriche, ricerca segnavia, import GPX) e `cloud_sync_controller.dart` (`autoPush`/
+`autoDelete`) — categorie nuove `[storage]`, `[metrics]`, `[trails]`, `[gpx]`, `[terrain]`,
+`[cloud]`, oltre alle già esistenti `[export]`/`[routing]`/`[log]`. Richiesta esplicita
+dell'utente di tenere questa pratica anche per il futuro (annotato in memoria di sessione,
+non solo qui): aggiungere log ai punti di fallimento/decisione ad ogni nuova implementazione,
+non solo su richiesta specifica.
+
+**2. "Libero" non abbastanza cliccabile** (`_SelectedWaypointBar`,
+`draw_route_controls.dart`): segnalato dall'utente dopo aver provato la funzionalità — il
+tasto era un `AppIconButton` piccolo più una didascalia di testo separata, non si capiva che
+l'intera riga fosse cliccabile. Sostituito con lo stesso linguaggio di
+`_AdvancedSettingsRow` (contenitore a piena larghezza, sfondo tinta, `AppRadii.rMd`), ma come
+**interruttore**: sfondo e icona di spunta cambiano con lo stato invece del solo chevron di
+navigazione, `CupertinoButton` avvolge l'intera riga come target di tocco.
+
+**3. Punto inserito a metà di un tratto agganciato: ora sul sentiero, non sulla corda retta**
+— bug segnalato dall'utente: "il nuovo punto in mezzo viene creato a metà della linea retta
+tra il punto selezionato e il precedente... non ha senso se i due nodi seguivano il
+sentiero". `insertPointBefore`/`insertPointAfter` calcolavano sempre la media aritmetica
+lat/lon dei due estremi — su un sentiero tortuoso può cadere lontano dal percorso reale (in
+un caso limite anche fuori mappa rispetto al tracciato). Nuovo
+`PathGeometry.pointAtFraction(path, t)` (con test): punto alla frazione `t` della
+**lunghezza cumulata** di un percorso, non della media dei suoi estremi. `insertPointBefore`/
+`insertPointAfter` ora sono `Future<void>`: se il segmento è agganciato, recuperano la
+geometria instradata da `segmentRouteProvider` (di norma già in cache dall'anteprima live in
+corso — nessuna nuova chiamata di rete percepibile) e la passano a `pointAtFraction(...,
+0.5)`; se libero, usano la coppia di estremi com'era già (`pointAtFraction` su un percorso a
+2 punti degenera esattamente nel punto medio della corda, stesso risultato di prima). Aggiornato
+il chiamante in `draw_route_controls.dart` (`onInsertBefore` ora `async`, `await` prima di
+spostare la selezione — altrimenti l'indice slitterebbe su un punto che non esiste ancora).
+Test nuovo in `route_editor_test.dart` con un routing finto "a gomito" per verificare che il
+punto inserito segua davvero il sentiero deviato, non la retta.
+
+---
+
 ## 24 agosto 2026 — Traccia mista: tasto "Libero" anche per un inserimento interno
 
 Seguito diretto della voce sotto, stessa sessione: l'utente ha provato la funzionalità e

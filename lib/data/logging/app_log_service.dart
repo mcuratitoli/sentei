@@ -68,7 +68,7 @@ class AppLogService {
     _previous?.call(message, wrapWidth: wrapWidth);
     final sink = _sink;
     if (sink == null || message == null) return;
-    final line = '${DateTime.now().toIso8601String()}  $message\n';
+    final line = '${_timestamp(DateTime.now())}  $message\n';
     sink.write(line);
     _currentBytes += line.length;
     if (_currentBytes >= maxFileBytes) {
@@ -76,6 +76,19 @@ class AppLogService {
       // `debugPrint` in attesa che torni.
       unawaited(_rotate());
     }
+  }
+
+  /// `yyyy-MM-ddTHH:mm:ss.mmm` — millisecondi (3 cifre), non i microsecondi
+  /// (fino a 6) di `DateTime.toIso8601String()`: per un log di debug letto a
+  /// occhio non servono, sono solo rumore visivo (richiesta esplicita
+  /// dell'utente, 24 ago 2026). Costruito a mano invece di troncare la
+  /// stringa ISO: quella omette la frazione quando cade su un secondo
+  /// esatto, qui il formato resta sempre della stessa lunghezza.
+  static String _timestamp(DateTime t) {
+    String p2(int n) => n.toString().padLeft(2, '0');
+    String p3(int n) => n.toString().padLeft(3, '0');
+    return '${t.year}-${p2(t.month)}-${p2(t.day)}T${p2(t.hour)}:'
+        '${p2(t.minute)}:${p2(t.second)}.${p3(t.millisecond)}';
   }
 
   Future<void> _rotate() async {

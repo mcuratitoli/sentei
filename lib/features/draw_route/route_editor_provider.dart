@@ -440,7 +440,9 @@ class Tracks extends Notifier<TracksState> {
         final now = DateTime.now();
         try {
           await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
-        } catch (_) {/* best-effort */}
+        } catch (e) {
+          debugPrint('[storage] salvataggio traccia "${saved.name}" fallito: $e');
+        }
         unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
       }
       return;
@@ -471,7 +473,8 @@ class Tracks extends Notifier<TracksState> {
     try {
       metrics = await const TrackMetricsCalculator()
           .compute(path, ref.read(elevationServiceProvider));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[metrics] calcolo distanza/dislivello fallito: $e');
       metrics = null;
     }
 
@@ -483,7 +486,8 @@ class Tracks extends Notifier<TracksState> {
     try {
       segments = await ref.read(trailServiceProvider).trailSegmentsAlong(path);
       trailsResolved = true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] ricerca segnavia fallita: $e');
       segments = const [];
       trailsResolved = false;
     }
@@ -526,7 +530,9 @@ class Tracks extends Notifier<TracksState> {
       final now = DateTime.now();
       try {
         await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
-      } catch (_) {/* best-effort */}
+      } catch (e) {
+        debugPrint('[storage] salvataggio traccia "${saved.name}" fallito: $e');
+      }
       unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
     }
   }
@@ -569,7 +575,8 @@ class Tracks extends Notifier<TracksState> {
           .read(trailServiceProvider)
           .trailSegmentsAlong(track.routedPath);
       resolved = true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] backfill segnavia fallito per "${track.name}": $e');
       resolved = false;
     }
     final refs = <String>{for (final s in segments) s.ref}.toList()..sort();
@@ -602,7 +609,9 @@ class Tracks extends Notifier<TracksState> {
         final now = DateTime.now();
         try {
           await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
-        } catch (_) {/* best-effort */}
+        } catch (e) {
+          debugPrint('[storage] salvataggio backfill segnavia fallito: $e');
+        }
         unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
       }
     }
@@ -662,8 +671,10 @@ class Tracks extends Notifier<TracksState> {
     try {
       parsed = const GpxService().parseTrack(xml);
     } on FormatException catch (e) {
+      debugPrint('[gpx] import "$fileName" non valido: ${e.message}');
       return e.message;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[gpx] import "$fileName" fallito: $e');
       return 'GPX non valido';
     }
 
@@ -705,7 +716,8 @@ class Tracks extends Notifier<TracksState> {
     try {
       metrics = await const TrackMetricsCalculator()
           .compute(routed, ref.read(elevationServiceProvider));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[metrics] calcolo su import GPX fallito: $e');
       metrics = null;
     }
     if (cancelled()) return;
@@ -715,7 +727,8 @@ class Tracks extends Notifier<TracksState> {
     try {
       segments = await ref.read(trailServiceProvider).trailSegmentsAlong(routed);
       resolved = true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] ricerca segnavia su import GPX fallita: $e');
       resolved = false;
     }
     if (cancelled()) return;
@@ -923,6 +936,23 @@ class Tracks extends Notifier<TracksState> {
     });
   }
 
+  /// Punto medio del segmento [segIndex] (tra [a] e [b]), usato da
+  /// [insertPointBefore]/[insertPointAfter]: **a metà della lunghezza del
+  /// sentiero** se il segmento è agganciato (§"Traccia mista" — segnalato
+  /// dall'utente: la corda retta tra due punti che seguono un sentiero
+  /// tortuoso può cadere lontano dal sentiero stesso, "non ha senso"), a
+  /// metà della retta se è libero. Riusa la cache di `segmentRouteProvider`
+  /// (già calcolata per l'anteprima live in corso — normalmente istantaneo,
+  /// nessuna nuova chiamata di rete percepibile).
+  Future<LatLng> _midpointOfSegment(
+      DrawnTrack t, int segIndex, LatLng a, LatLng b) async {
+    final snap = t.snapToTrail && !t.freeSegments.contains(segIndex);
+    final geometry = snap
+        ? await ref.read(segmentRouteProvider(_SegKey(a, b, true)).future)
+        : [a, b];
+    return const PathGeometry().pointAtFraction(geometry, 0.5);
+  }
+
   /// Inserisce un nuovo waypoint **a metà strada** tra il punto [index] e il
   /// precedente ([index] > 0). Azione "Aggiungi punto prima" nella card del
   /// punto selezionato — alternativa scopribile alla maniglia di
@@ -933,13 +963,15 @@ class Tracks extends Notifier<TracksState> {
   /// avanti): farlo qui creerebbe una dipendenza circolare, dato che
   /// `SelectedWaypoint` osserva `activeTrackIdProvider` → `tracksProvider`.
   /// Sposta la selezione chi chiama, con `ref` non vincolato a questo notifier
-  /// (vedi `_DrawingBody` in `draw_route_controls.dart`).
-  void insertPointBefore(int index) {
+  /// (vedi `_DrawingBody` in `draw_route_controls.dart`) — **dopo** aver
+  /// atteso questa `Future`, non prima, altrimenti la selezione slitterebbe
+  /// su un indice che non esiste ancora.
+  Future<void> insertPointBefore(int index) async {
     final t = state.editing;
     if (t == null || index <= 0 || index >= t.waypoints.length) return;
     final a = t.waypoints[index - 1];
     final b = t.waypoints[index];
-    final mid = LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+    final mid = await _midpointOfSegment(t, index - 1, a, b);
     insertPoint(index, mid);
   }
 
@@ -948,12 +980,12 @@ class Tracks extends Notifier<TracksState> {
   /// l'indice del punto selezionato **non slitta** (il nuovo punto si
   /// inserisce dopo, non prima) — chi chiama non deve aggiornare
   /// `selectedWaypointProvider`.
-  void insertPointAfter(int index) {
+  Future<void> insertPointAfter(int index) async {
     final t = state.editing;
     if (t == null || index < 0 || index >= t.waypoints.length - 1) return;
     final a = t.waypoints[index];
     final b = t.waypoints[index + 1];
-    final mid = LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+    final mid = await _midpointOfSegment(t, index, a, b);
     insertPoint(index + 1, mid);
   }
 
@@ -1030,7 +1062,9 @@ class Tracks extends Notifier<TracksState> {
     final now = DateTime.now();
     try {
       await ref.read(tracksRepositoryProvider).save(saved, updatedAt: now);
-    } catch (_) {/* best-effort */}
+    } catch (e) {
+      debugPrint('[storage] salvataggio foto collegate fallito: $e');
+    }
     unawaited(ref.read(cloudSyncProvider.notifier).autoPush(saved, now));
   }
 }
@@ -1149,7 +1183,8 @@ final waypointElevationProvider =
     FutureProvider.family<double?, LatLng>((ref, point) async {
   try {
     return await ref.read(elevationServiceProvider).elevationAt(point);
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[terrain] quota non disponibile per $point: $e');
     return null;
   }
 });

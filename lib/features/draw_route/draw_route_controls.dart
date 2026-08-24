@@ -144,12 +144,14 @@ class _DrawingBody extends ConsumerWidget {
             onDelete: () => _confirmDeleteWaypoint(context, ref, selectedWp),
             onInsertBefore: selectedWp == 0
                 ? null
-                : () {
-                    ref
+                : () async {
+                    await ref
                         .read(tracksProvider.notifier)
                         .insertPointBefore(selectedWp);
                     // Il nuovo punto prende il posto di quello selezionato:
                     // segue la selezione sul punto originale (slittato di uno).
+                    // Dopo l'await, non prima: l'indice non esiste finché
+                    // l'inserimento non è completato.
                     ref
                         .read(selectedWaypointProvider.notifier)
                         .set(selectedWp + 1);
@@ -589,32 +591,64 @@ class _SelectedWaypointBar extends ConsumerWidget {
         ),
         if (onInsertBefore != null || onInsertAfter != null) ...[
           const SizedBox(height: 10),
-          Row(
-            children: [
-              AppIconButton(
-                tooltip: !snap
-                    ? 'Tratto libero (l\'intera traccia è già senza sentieri)'
-                    : freeMode
-                        ? 'Disattiva tratto libero'
-                        : 'Attiva tratto libero',
-                active: freeMode,
-                size: 36,
-                onPressed: !snap
-                    ? null
-                    : () => ref.read(freeDrawingModeProvider.notifier).toggle(),
-                icon: CupertinoIcons.scribble,
+          // Riga intera cliccabile (non solo l'icona): stesso linguaggio di
+          // `_AdvancedSettingsRow" (contenitore tinto, raggio AppRadii.rMd)
+          // ma come **interruttore** — sfondo e spunta cambiano con lo stato,
+          // invece del solo chevron di navigazione. Corretto su segnalazione
+          // dell'utente: prima solo il pallino icona era cliccabile e non si
+          // capiva che l'intera riga fosse un bottone.
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 0),
+            onPressed: !snap
+                ? null
+                : () => ref.read(freeDrawingModeProvider.notifier).toggle(),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: freeMode
+                    ? palette.accent.withValues(alpha: 0.14)
+                    : palette.hairline.withValues(alpha: 0.1),
+                borderRadius: AppRadii.rMd,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  freeMode
-                      ? 'Il nuovo punto si collegherà senza seguire i sentieri'
-                      : 'Il nuovo punto seguirà i sentieri',
-                  style: AppText.captionSmall
-                      .copyWith(color: palette.secondaryLabel),
-                ),
+              child: Row(
+                children: [
+                  Icon(CupertinoIcons.scribble,
+                      size: 18,
+                      color: !snap
+                          ? palette.tertiaryIcon
+                          : freeMode
+                              ? palette.accent
+                              : palette.secondaryLabel),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      !snap
+                          ? 'Libero (l\'intera traccia è già senza sentieri)'
+                          : freeMode
+                              ? 'Libero: il nuovo punto non seguirà i sentieri'
+                              : 'Segui sentieri: attiva "Libero" per un tratto fuori sentiero',
+                      style: AppText.captionSmall.copyWith(
+                          color: !snap
+                              ? palette.tertiaryIcon
+                              : palette.secondaryLabel),
+                    ),
+                  ),
+                  Icon(
+                    freeMode
+                        ? CupertinoIcons.checkmark_circle_fill
+                        : CupertinoIcons.circle,
+                    size: 18,
+                    color: !snap
+                        ? palette.tertiaryIcon
+                        : freeMode
+                            ? palette.accent
+                            : palette.tertiaryIcon,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
         const SizedBox(height: 10),

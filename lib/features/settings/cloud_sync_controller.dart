@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -151,7 +152,11 @@ class CloudSyncController extends Notifier<CloudState> {
     if (!state.signedIn) return;
     try {
       await _service.uploadTrack(track, updatedAt: updatedAt);
-    } catch (_) {/* best-effort: non disturba l'utente */}
+    } catch (e) {
+      // Best-effort: non disturba l'utente, ma resta nei log per capire un
+      // "non si è sincronizzato" segnalato dopo il fatto.
+      debugPrint('[cloud] autoPush "${track.name}" fallito: $e');
+    }
   }
 
   /// Auto-sync: propaga l'eliminazione di una traccia al cloud (best-effort).
@@ -160,7 +165,9 @@ class CloudSyncController extends Notifier<CloudState> {
     try {
       await _service
           .deleteTrack(RemoteTrackMeta(id: id, updatedAt: DateTime.now()));
-    } catch (_) {/* best-effort */}
+    } catch (e) {
+      debugPrint('[cloud] autoDelete $id fallito: $e');
+    }
   }
 
   Future<void> syncNow() async {

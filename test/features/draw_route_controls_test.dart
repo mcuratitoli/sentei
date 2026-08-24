@@ -371,8 +371,10 @@ void main() {
     expect(find.text('Punto 3 di 6'), findsOneWidget);
 
     // Il tasto "Libero" è raggiungibile anche da qui, non solo dalla barra
-    // principale (nascosta mentre un punto è selezionato).
-    await tester.tap(find.byTooltip('Attiva tratto libero'));
+    // principale (nascosta mentre un punto è selezionato) — riga intera
+    // cliccabile, non un'icona isolata.
+    await tester.tap(
+        find.text('Segui sentieri: attiva "Libero" per un tratto fuori sentiero'));
     await tester.pumpAndSettle();
     expect(container.read(freeDrawingModeProvider), true);
 

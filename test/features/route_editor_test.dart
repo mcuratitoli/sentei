@@ -19,6 +19,23 @@ class _FakeRouting implements RoutingService {
       RouteResult(geometry: waypoints);
 }
 
+/// Routing finto con un forte "gomito" a nord: usato per verificare che il
+/// punto medio di un segmento agganciato segua la lunghezza del sentiero
+/// restituito, non la corda retta tra i due estremi della richiesta.
+class _BentRouting implements RoutingService {
+  @override
+  Future<RouteResult> route(List<LatLng> waypoints, {String? profile}) async {
+    final a = waypoints.first;
+    final b = waypoints.last;
+    return RouteResult(geometry: [
+      a,
+      LatLng(a.latitude + 1, a.longitude),
+      LatLng(a.latitude + 1, b.longitude),
+      b,
+    ]);
+  }
+}
+
 /// Routing che **conta** le chiamate (per verificare il ricalcolo incrementale).
 class _CountingRouting implements RoutingService {
   _CountingRouting(this.calls);
@@ -114,14 +131,14 @@ void main() {
 
   test(
       'insertPointBefore inserisce a metà tra il punto e il precedente '
-      '(nessun predecessore per il primo punto: no-op)', () {
+      '(nessun predecessore per il primo punto: no-op)', () async {
     final n = notifier();
     n
       ..startNewDrawing()
       ..addPoint(const LatLng(45.0, 7.0)) // indice 0
       ..addPoint(const LatLng(45.02, 7.0)); // indice 1
 
-    n.insertPointBefore(1);
+    await n.insertPointBefore(1);
 
     final wps = state().editing!.waypoints;
     expect(wps.length, 3);
@@ -131,8 +148,40 @@ void main() {
 
     // Nessun predecessore per il primo punto: no-op.
     n.undo(); // torna a 2 punti
-    n.insertPointBefore(0);
+    await n.insertPointBefore(0);
     expect(state().editing!.waypoints.length, 2);
+  });
+
+  test(
+      'insertPointAfter su un segmento agganciato: il nuovo punto è a metà del '
+      'sentiero (tortuoso), non della corda retta tra i due estremi', () async {
+    // Routing finto che devia molto rispetto alla retta (una "L"): se il
+    // nuovo punto finisse sulla corda retta, non starebbe su questo percorso.
+    final bentContainer = ProviderContainer(overrides: [
+      routingServiceProvider.overrideWithValue(_BentRouting()),
+      elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      trailServiceProvider.overrideWithValue(
+        OverpassTrailService(
+          client: MockClient((_) async => http.Response('{"elements":[]}', 200)),
+        ),
+      ),
+      tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
+      cloudServiceProvider.overrideWithValue(_FakeCloud()),
+    ]);
+    addTearDown(bentContainer.dispose);
+    final n = bentContainer.read(tracksProvider.notifier);
+    n
+      ..startNewDrawing()
+      ..addPoint(const LatLng(0, 0)) // indice 0
+      ..addPoint(const LatLng(0, 1)); // indice 1 — segmento 0, agganciato di default
+
+    await n.insertPointAfter(0);
+
+    final wps = bentContainer.read(tracksProvider).editing!.waypoints;
+    expect(wps.length, 3);
+    // La corda retta tra (0,0) e (0,1) avrebbe dato latitudine ~0 — il punto
+    // inserito segue invece il grande gomito a nord di _BentRouting.
+    expect(wps[1].latitude, greaterThan(0.5));
   });
 
   test('undo a stack: annulla add/move/remove in ordine inverso', () {

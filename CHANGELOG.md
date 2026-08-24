@@ -33,6 +33,14 @@ già dato ai tester **non** le contiene, sono successive).
   traccia sulla mappa e in quello della lista tracciati (mancava "Modifica"
   in quest'ultimo); le icone hanno lo stesso sfondo tinta d'accento delle
   righe di Impostazioni, prima erano "nude"; righe leggermente meno spaziate.
+- ✏️ **Il punto inserito tra due nodi già sul sentiero ora nasce sul
+  sentiero**, non a metà della linea retta tra i due — su un tratto
+  tortuoso poteva cadere lontano dal percorso reale.
+- 🎨 **Log di debug più leggibili**: timestamp e categoria (colorata) su una
+  riga, il messaggio sotto invece di un'unica riga lunga; timestamp con i
+  millisecondi, non più sei cifre di frazione di secondo; più eventi
+  registrati (salvataggi, sincronizzazione cloud, ricerca segnavia, import
+  GPX).
 
 ## 1.0.0 (9) — 23 agosto 2026
 

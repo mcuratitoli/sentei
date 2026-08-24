@@ -55,6 +55,34 @@ class PathGeometry {
         a.longitude + (b.longitude - a.longitude) * t,
       );
 
+  /// Punto lungo [path] alla frazione [t] (0=inizio, 1=fine, clampato) della
+  /// sua **lunghezza cumulata** — non del numero di vertici, e non la media
+  /// "a volo d'uccello" degli estremi. Usato per inserire un nuovo waypoint
+  /// **a metà di un tratto agganciato al sentiero** (§"Traccia mista"): un
+  /// tratto che segue un sentiero tortuoso ha un centro geometrico ben
+  /// diverso dal punto medio della corda retta fra i suoi due estremi.
+  ///
+  /// Ritorna l'unico punto per un [path] con un solo elemento; il primo per
+  /// un path vuoto (non dovrebbe capitare: i chiamanti verificano sempre
+  /// `length >= 2` prima, qui solo per non propagare un errore su un
+  /// percorso vuoto passato per svista).
+  LatLng pointAtFraction(List<LatLng> path, double t) {
+    if (path.isEmpty) return const LatLng(0, 0);
+    if (path.length == 1) return path.first;
+    final target = totalDistance(path) * t.clamp(0.0, 1.0);
+    var cumulative = 0.0;
+    for (var i = 0; i < path.length - 1; i++) {
+      final segLen = distance(path[i], path[i + 1]);
+      if (i == path.length - 2 || cumulative + segLen >= target) {
+        final segT =
+            segLen == 0 ? 0.0 : ((target - cumulative) / segLen).clamp(0.0, 1.0);
+        return _lerp(path[i], path[i + 1], segT);
+      }
+      cumulative += segLen;
+    }
+    return path.last;
+  }
+
   /// Distanza minima in metri tra [p] e la spezzata [path] (punto→segmento).
   /// Serve a capire se un tap sulla mappa "colpisce" il tracciato. Ritorna
   /// `double.infinity` per percorsi vuoti.

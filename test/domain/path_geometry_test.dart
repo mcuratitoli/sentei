@@ -110,4 +110,38 @@ void main() {
       expect(calc.densify(const []).length, 0);
     });
   });
+
+  group('pointAtFraction', () {
+    test('a metà (0.5) di un percorso rettilineo coincide col punto medio', () {
+      final path = [const LatLng(45.0, 7.0), const LatLng(45.02, 7.0)];
+      final mid = calc.pointAtFraction(path, 0.5);
+      expect(mid.latitude, closeTo(45.01, 1e-9));
+      expect(mid.longitude, closeTo(7.0, 1e-9));
+    });
+
+    test('su un percorso tortuoso, il centro per lunghezza NON è la media degli estremi', () {
+      // "L" molto asimmetrica: un lato lunghissimo, uno cortissimo — la media
+      // degli estremi cadrebbe fuori dal percorso, pointAtFraction resta sopra.
+      final path = [
+        const LatLng(0, 0),
+        const LatLng(0, 10), // lato lungo (~1113 km)
+        const LatLng(0.01, 10), // lato corto (~1.1 km)
+      ];
+      final mid = calc.pointAtFraction(path, 0.5);
+      // Il centro per lunghezza cade ancora sul primo, lunghissimo segmento.
+      expect(mid.longitude, closeTo(5.0, 0.1));
+      expect(mid.latitude, closeTo(0, 1e-6));
+    });
+
+    test('frazione 0 e 1 tornano gli estremi', () {
+      final path = [const LatLng(45.0, 7.0), const LatLng(45.02, 7.03)];
+      expect(calc.pointAtFraction(path, 0).latitude, closeTo(45.0, 1e-9));
+      expect(calc.pointAtFraction(path, 1).latitude, closeTo(45.02, 1e-9));
+    });
+
+    test('un solo punto: ritorna quel punto per qualunque frazione', () {
+      const p = LatLng(45.0, 7.0);
+      expect(calc.pointAtFraction([p], 0.3), p);
+    });
+  });
 }
