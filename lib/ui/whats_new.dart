@@ -48,7 +48,7 @@ Future<ReleaseNote?> pendingWhatsNew() async {
 /// prendere atto delle novità, non può farla sparire per sbaglio.
 ///
 /// Bottom sheet e non dialog centrato, come **ogni** pannello modale dell'app
-/// (`new design/DESIGN_GUIDELINES.md` §7/§10): il mockup di riferimento era
+/// (`design/DESIGN_GUIDELINES.md` §7/§10): il mockup di riferimento era
 /// una card centrata, ma quella forma non esiste altrove in Sentèi.
 Future<void> showWhatsNew(BuildContext context, ReleaseNote note) {
   return showAppBottomSheet<void>(

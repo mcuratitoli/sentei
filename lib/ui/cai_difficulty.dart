@@ -35,7 +35,7 @@ String? overallCaiScale(Iterable<TrailSegment> segments) {
 
 /// Colore per il grado di difficoltà CAI: T verde, E teal, EE arancio,
 /// EEA rosso; grigio per valori non standard. **Il blu è escluso** (riservato
-/// al brand/azione, `AppColors.primary` — vedi `new design/DESIGN_GUIDELINES.md`
+/// al brand/azione, `AppColors.primary` — vedi `design/DESIGN_GUIDELINES.md`
 /// §2): prima "E" usava lo stesso blu del brand, ambiguo con lo stato attivo.
 Color caiScaleColor(String scale) {
   switch (normalizeCaiScale(scale)) {

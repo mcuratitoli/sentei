@@ -135,7 +135,7 @@ lib/
     settings/             # tema, sorgente cloud, legende, changelog/roadmap in-app
   ui/                     # widget condivisi: chrome in "vetro" iOS (menubar/ricerca/punto
                           # ispezionato) + sistema di design opaco per le card di contenuto
-                          # (app_buttons/app_bottom_sheet/badges, da `new design/`), toast/menu,
+                          # (app_buttons/app_bottom_sheet/badges, da `design/`), toast/menu,
                           # profilo altimetrico, token di design
 test/
 ```

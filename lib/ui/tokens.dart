@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 // token (o `Theme.of(context).colorScheme`/`textTheme`). Eccezione già ok:
 // `lib/ui/cai_difficulty.dart` (palette semantica di dominio).
 
-/// Colori dell'app — allineati a `new design/DESIGN_GUIDELINES.md` (luglio 2026):
+/// Colori dell'app — allineati a `design/DESIGN_GUIDELINES.md` (luglio 2026):
 /// blu di brand aggiornato, `destructive` **unificato** al rosso della scala di
 /// difficoltà CAI `EEA` (stesso significato "attenzione/pericolo/rimozione" —
 /// vedi [AppDifficultyColors.eea]), non più lo *systemRed* iOS storico.
@@ -104,7 +104,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color borderDivider;
 
   /// Sfondo di default degli icon-button "opachi" (card ridisegnate secondo
-  /// `new design/DESIGN_GUIDELINES.md`): cerchio neutro, non tinto d'accento —
+  /// `design/DESIGN_GUIDELINES.md`): cerchio neutro, non tinto d'accento —
   /// quello è riservato allo stato attivo/selezionato (vedi `AppIconButton`).
   final Color iconBgNeutral;
 

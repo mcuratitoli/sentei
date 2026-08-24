@@ -3,7 +3,7 @@ import 'package:flutter/material.dart' show Tooltip;
 
 import 'tokens.dart';
 
-/// Sistema **unico** di bottoni dell'app (`new design/DESIGN_GUIDELINES.md`
+/// Sistema **unico** di bottoni dell'app (`design/DESIGN_GUIDELINES.md`
 /// §4): quattro varianti, stessa altezza/raggio (pill), nessun'altra
 /// combinazione ammessa (niente bottoni pieni rossi/verdi, niente bordi
 /// grigi neutri). Sostituisce le vecchie `_PillAction` "a tinta leggera"
@@ -127,7 +127,7 @@ class AppButton extends StatelessWidget {
   }
 }
 
-/// Icon-button circolare ~44px (`new design/DESIGN_GUIDELINES.md` §5):
+/// Icon-button circolare ~44px (`design/DESIGN_GUIDELINES.md` §5):
 /// cerchio con sfondo neutro di default, tinta d'accento quando [active].
 ///
 /// **Quando usarlo vs [AppButton]**: righe dense con **3+ azioni** (es. la

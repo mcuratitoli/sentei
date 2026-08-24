@@ -4,7 +4,7 @@ import 'package:flutter/material.dart' show Tooltip;
 import 'cai_difficulty.dart';
 import 'tokens.dart';
 
-/// Badge/tag della traccia (`new design/DESIGN_GUIDELINES.md` §6): due forme
+/// Badge/tag della traccia (`design/DESIGN_GUIDELINES.md` §6): due forme
 /// **sempre distinte**, mai per colore casuale — badge di difficoltà
 /// (rettangolo arrotondato) vs tag numero sentiero (pill).
 

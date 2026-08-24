@@ -277,7 +277,7 @@ class _AppearanceSection extends ConsumerWidget {
 
 /// Bottom sheet di selezione da una lista breve (tema, variante scura):
 /// titolo + × in header, righe testo con spunta sul valore corrente — stessa
-/// struttura di "Selezione tema" in `new design/DESIGN_GUIDELINES.md` §7.
+/// struttura di "Selezione tema" in `design/DESIGN_GUIDELINES.md` §7.
 class _SelectionSheet<T> extends StatelessWidget {
   const _SelectionSheet({
     required this.title,

@@ -66,7 +66,7 @@ class DrawRouteControls extends ConsumerWidget {
     if (!showCard) return const SizedBox.shrink();
     final drawing = ref.watch(tracksProvider.select((s) => s.drawing));
 
-    // Superficie **opaca** (`new design/DESIGN_GUIDELINES.md` §7), non più
+    // Superficie **opaca** (`design/DESIGN_GUIDELINES.md` §7), non più
     // "vetro": card di contenuto, non chrome di navigazione — leggibilità di
     // testo/grafico prima di tutto. La chrome (menubar/ricerca/punto
     // ispezionato in esplorazione) non è coperta da questo redesign e resta
@@ -1048,7 +1048,7 @@ class _AdvancedSettingsSheet extends ConsumerWidget {
   }
 }
 
-/// Pallino colore tracciato (`new design/DESIGN_GUIDELINES.md` §6): il
+/// Pallino colore tracciato (`design/DESIGN_GUIDELINES.md` §6): il
 /// **selezionato** ha un anello d'accento e una spunta bianca sopra la
 /// tinta; gli altri sono cerchi pieni senza contorno — non più "tutti con un
 /// anello, quello attivo più spesso", che rendeva ambigua la selezione.
@@ -1144,7 +1144,7 @@ class _Metric extends StatelessWidget {
   Widget build(BuildContext context) {
     // Icona/testo in grigio scuro neutro, non l'accento blu: nei mockup del
     // redesign il blu è riservato ad azioni/stati attivi, non a dati (vedi
-    // `new design/DESIGN_GUIDELINES.md` §2 — "il blu è l'unico colore di
+    // `design/DESIGN_GUIDELINES.md` §2 — "il blu è l'unico colore di
     // brand/azione").
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1449,7 +1449,7 @@ Future<void> _promptEditPhotoTitle(BuildContext context, WidgetRef ref,
   // l'animazione di apertura e il campo restava senza fuoco/tastiera — dal
   // dito dell'utente sembrava che il testo da scrivere non ci fosse.
   final focusNode = FocusNode();
-  // Bottom sheet, non più dialog centrato (`new design/DESIGN_GUIDELINES.md`
+  // Bottom sheet, non più dialog centrato (`design/DESIGN_GUIDELINES.md`
   // §7/§10: "Modifica titolo" era l'esempio esplicito da convertire).
   final result = await showAppBottomSheet<bool>(
     context: context,

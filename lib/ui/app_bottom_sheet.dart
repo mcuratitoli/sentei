@@ -4,7 +4,7 @@ import 'package:flutter/material.dart' show showModalBottomSheet;
 import 'app_buttons.dart';
 import 'tokens.dart';
 
-/// Struttura **unica** di pannello modale (`new design/DESIGN_GUIDELINES.md`
+/// Struttura **unica** di pannello modale (`design/DESIGN_GUIDELINES.md`
 /// §7): handle → header (titolo + chiusura ×) → contenuto, angoli superiori
 /// arrotondati, sfondo opaco (non più "vetro" — vedi la nota in cima al file
 /// dei token). Usata sia per veri bottom sheet modali ([showAppBottomSheet])

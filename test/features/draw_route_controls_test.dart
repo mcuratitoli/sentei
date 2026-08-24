@@ -640,7 +640,7 @@ void main() {
     await notifier.finishDrawing();
     await tester.pumpAndSettle();
 
-    // Superficie opaca (`new design/DESIGN_GUIDELINES.md` §7), non più
+    // Superficie opaca (`design/DESIGN_GUIDELINES.md` §7), non più
     // "vetro" semitrasparente — verificato anche per PhotoDetailCard sotto.
     expect(find.byType(AppSheetSurface), findsOneWidget);
 
