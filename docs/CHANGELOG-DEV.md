@@ -819,7 +819,7 @@ foto, elimina traccia, annulla modifiche, elimina punto, permesso libreria negat
 `_ConfirmHeader`/`_Sep`, ora morti. `showIosMenu` resta a righe impilate: lì le voci sono
 *scelte* omogenee, non una coppia conferma/annulla.
 
-⚠️ **Due deroghe consapevoli a `new design/DESIGN_GUIDELINES.md`**, entrambe su richiesta
+⚠️ **Due deroghe consapevoli a `design/DESIGN_GUIDELINES.md`**, entrambe su richiesta
 esplicita dell'utente, da riportare nel documento se confermate:
 - §4 "niente bottoni pieni rossi" — la conferma distruttiva è ora piena rossa, per coerenza di
   impaginato con il pieno blu "Salva" di "Modifica titolo".
@@ -1132,9 +1132,9 @@ verificato con `flutter analyze` + `flutter test` (122 test) dopo ogni blocco di
 
 ---
 
-## 28 luglio 2026 — Redesign grafico completo secondo `new design/DESIGN_GUIDELINES.md` (confluito in `1.0.0+6`)
+## 28 luglio 2026 — Redesign grafico completo secondo `design/DESIGN_GUIDELINES.md` (confluito in `1.0.0+6`)
 
-L'utente ha preparato un intero sistema di design (`new design/DESIGN_GUIDELINES.md` + 9
+L'utente ha preparato un intero sistema di design (`design/DESIGN_GUIDELINES.md` + 9
 mockup PNG, non versionati) partendo dalla revisione grafica di un prototipo HTML di
 riferimento (`Sentei Redesign.dc.html`, non incluso nel repo — solo riferimento visivo,
 ricostruito qui in widget Flutter). Cambio radicale rispetto al linguaggio "vetro

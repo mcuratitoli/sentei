@@ -22,7 +22,7 @@ class NoteItem {
   final String? body;
 
   /// Icona **lineare** (`CupertinoIcons`), come ogni icona dell'app
-  /// (`new design/DESIGN_GUIDELINES.md` §1) — niente emoji qui: in
+  /// (`design/DESIGN_GUIDELINES.md` §1) — niente emoji qui: in
   /// `CHANGELOG.md` l'emoji fa da marcatore di categoria nel testo, qui la
   /// stessa categoria è resa dall'icona nel quadratino d'accento.
   /// Default: [CupertinoIcons.sparkles].
@@ -356,6 +356,17 @@ const List<RoadmapGroup> kRoadmapGroups = [
         icon: CupertinoIcons.zoom_in,
         title: 'Zoom e angolazione della mappa personalizzabili',
         body: 'Prima di generare l\'immagine del percorso da condividere.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.xmark_circle,
+        title: 'Uscire dalla ricerca più facilmente',
+        body: 'Un tocco fuori dal pannello, non solo la freccia a sinistra.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.photo_on_rectangle,
+        title: 'Importare foto direttamente dalla card traccia',
+        body: 'Oggi "Trova foto vicine" le aggiunge, ma non si può ancora '
+            'scegliere quali mostrare o nascondere.',
       ),
     ],
   ),
