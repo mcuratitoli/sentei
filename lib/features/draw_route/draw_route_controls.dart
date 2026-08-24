@@ -17,6 +17,7 @@ import '../../core/util/format.dart';
 import '../../domain/models/photo_session.dart';
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/hiking_time.dart';
+import '../../domain/services/path_geometry.dart';
 import '../../domain/services/photo_session_grouper.dart';
 import '../../domain/services/track_metrics.dart';
 import '../../ui/app_bottom_sheet.dart';
@@ -26,6 +27,7 @@ import '../../ui/cai_difficulty.dart';
 import '../../ui/elevation_profile_chart.dart';
 import '../../ui/ios_menu.dart';
 import '../../ui/tokens.dart';
+import '../../ui/trail_detail_sheet.dart';
 import '../map/map_providers.dart';
 import '../offline_maps/offline_maps_providers.dart';
 import '../offline_maps/track_offline_download.dart';
@@ -335,7 +337,7 @@ class _SelectedBody extends ConsumerWidget {
               )
             else if ((track?.trailRefs.isNotEmpty ?? false) ||
                 difficulty != null)
-              _TrailInfo(refs: track?.trailRefs ?? const [], scale: difficulty),
+              _TrailInfo(track: track, scale: difficulty),
           ],
           const SizedBox(height: 8),
           // Icone nude, senza testo/sfondo. Solo le due "vista" (profilo
@@ -694,15 +696,26 @@ class _SelectedWaypointBar extends ConsumerWidget {
 }
 
 /// Numeri dei sentieri (ref CAI) attraversati + grado di difficoltà complessivo.
-class _TrailInfo extends StatelessWidget {
-  const _TrailInfo({required this.refs, required this.scale});
+/// Label dei segnavia coinvolti nella traccia + eventuale badge difficoltà.
+/// Tap su una label (§"Un segnavia per intero") apre l'approfondimento: qui
+/// però `track.trailRefs` è solo `List<String>` (nessun id/fonte associato
+/// a ogni ref, a differenza di `InspectedPoint.nearbyTrails`), quindi serve
+/// prima **risolvere** la relazione completa vicino a un punto della
+/// traccia — [_anchorFor] trova il punto a metà del tratto con quel ref
+/// (`TrackMetrics.trailSegments`, stesso schema di `TrailSegment.ref`), non
+/// un punto qualsiasi: un ref può comparire più volte lungo un percorso
+/// lungo, serve un punto vicino a **questo** tratto specifico.
+class _TrailInfo extends ConsumerWidget {
+  const _TrailInfo({required this.track, required this.scale});
 
-  final List<String> refs;
+  final DrawnTrack? track;
   final String? scale;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final s = scale; // locale: promuovibile dopo il null-check
+    final t = track;
+    final refs = t?.trailRefs ?? const [];
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Wrap(
@@ -710,11 +723,36 @@ class _TrailInfo extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          for (final r in refs) AppTrailTag(label: r),
+          for (final r in refs)
+            AppTrailTag(
+              label: r,
+              onTap: t == null
+                  ? null
+                  : () => showTrailDetailByRef(context, ref, r, _anchorFor(t, r)),
+            ),
           if (s != null) AppDifficultyBadge(scale: s),
         ],
       ),
     );
+  }
+
+  LatLng _anchorFor(DrawnTrack t, String trailRef) {
+    final segments = t.metrics?.trailSegments ?? const [];
+    final path = t.routedPath;
+    final total = const PathGeometry().totalDistance(path);
+    if (total > 0) {
+      for (final seg in segments) {
+        if (seg.ref == trailRef) {
+          final mid = (seg.fromMeters + seg.toMeters) / 2;
+          return const PathGeometry().pointAtFraction(path, mid / total);
+        }
+      }
+    }
+    // Nessun tratto trovato (dato mancante/traccia molto vecchia): meglio un
+    // punto qualsiasi della traccia che nessun punto — la risoluzione
+    // potrebbe comunque trovare il segnavia se passa vicino.
+    if (path.isNotEmpty) return path.first;
+    return t.waypoints.isNotEmpty ? t.waypoints.first : const LatLng(0, 0);
   }
 }
 

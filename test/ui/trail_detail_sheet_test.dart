@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sentei/data/trails/cai_varallo_search_service.dart';
 import 'package:sentei/data/trails/trail_service.dart';
 import 'package:sentei/domain/models/elevation_profile.dart' show TrailSegment;
 import 'package:sentei/features/draw_route/route_editor_provider.dart'
@@ -102,6 +103,46 @@ void main() {
     expect(find.text('Alta Via del Rifugio'), findsOneWidget);
     expect(find.text('Alagna → Rifugio Pastore'), findsOneWidget);
     expect(find.text('Scheda ufficiale'), findsOneWidget);
+  });
+
+  testWidgets(
+      'risultati CAI Varallo: un link per risultato, non un unico rimando generico',
+      (tester) async {
+    await tester.pumpWidget(_host(_FakeTrailService(
+      detail: const TrailDetail(
+        ref: '203',
+        points: [],
+        caiVaralloResults: [
+          CaiVaralloResult(
+              title: 'Festa Alpe Bors',
+              url: 'https://www.caivarallo.com/eventi/alpe-bors/'),
+          CaiVaralloResult(
+              title: 'Baita Alagna', url: 'https://www.caivarallo.com/rifugi/alagna/'),
+        ],
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approfondisci'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trovato anche su CAI Varallo'), findsOneWidget);
+    expect(find.text('Festa Alpe Bors'), findsOneWidget);
+    expect(find.text('Baita Alagna'), findsOneWidget);
+  });
+
+  testWidgets(
+      'nessun risultato CAI Varallo: la sezione non compare affatto',
+      (tester) async {
+    await tester.pumpWidget(_host(_FakeTrailService(
+      detail: const TrailDetail(ref: '203', points: []),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approfondisci'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trovato anche su CAI Varallo'), findsNothing);
   });
 
   testWidgets('segnavia non trovato: messaggio di errore, niente crash',

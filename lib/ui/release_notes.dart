@@ -344,15 +344,6 @@ const List<RoadmapGroup> kRoadmapGroups = [
     label: 'Prossime',
     items: [
       NoteItem(
-        // Diramazione: il segnavia seguito da un capo all'altro. Non
-        // `signature`/`scribble`, che a 18px sono due scarabocchi
-        // indistinguibili l'uno dall'altro.
-        icon: CupertinoIcons.arrow_branch,
-        title: 'Un segnavia per intero',
-        body: 'Tocca un numero sulla mappa e vedi dove parte, dove arriva e '
-            'la scheda ufficiale.',
-      ),
-      NoteItem(
         icon: CupertinoIcons.zoom_in,
         title: 'Zoom e angolazione della mappa personalizzabili',
         body: 'Prima di generare l\'immagine del percorso da condividere.',

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../data/trails/trail_service.dart';
 import '../draw_route/route_editor_provider.dart' show trailServiceProvider;
@@ -34,6 +35,45 @@ class TrailDetailState {
 class TrailDetailNotifier extends Notifier<TrailDetailState?> {
   @override
   TrailDetailState? build() => null;
+
+  /// Come [open], ma partendo solo da un [ref] (numero segnavia) e un punto
+  /// vicino — caso della card **traccia** (`_TrailInfo`,
+  /// `draw_route_controls.dart`): le sue `trailRefs` sono solo stringhe,
+  /// nessun `id`/fonte associato, quindi va prima **risolta** la relazione
+  /// completa via [TrailService.trailsNear] sul punto vicino, poi si
+  /// prosegue come [open]. Un passo in più sotto lo stesso spinner — non
+  /// visibile per l'utente, solo un fetch di rete in più prima del secondo.
+  Future<void> openByRef(String trailRef, LatLng anchorPoint) async {
+    // Placeholder solo per il titolo dello stato di caricamento: non ha
+    // ancora un id/fonte, si scarta appena la risoluzione trova quello vero.
+    final placeholder = TrailRelation(trailRef, const [], TrailSource.overpass);
+    state = TrailDetailState(relation: placeholder, stage: TrailDetailStage.loading);
+    List<TrailRelation> nearby;
+    try {
+      nearby = await ref
+          .read(trailServiceProvider)
+          .trailsNear(anchorPoint, thresholdMeters: 150);
+    } catch (_) {
+      nearby = const [];
+    }
+    if (!identical(state?.relation, placeholder)) return;
+    TrailRelation? match;
+    for (final r in nearby) {
+      if (r.ref == trailRef) {
+        match = r;
+        break;
+      }
+    }
+    if (match == null) {
+      state = TrailDetailState(
+        relation: placeholder,
+        stage: TrailDetailStage.error,
+        errorMessage: 'Segnavia non trovato — riprova più tardi.',
+      );
+      return;
+    }
+    await open(match);
+  }
 
   Future<void> open(TrailRelation relation) async {
     state = TrailDetailState(relation: relation, stage: TrailDetailStage.loading);

@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import 'cai_varallo_search_service.dart';
 import 'osm2cai_trail_service.dart';
 import 'overpass_trail_service.dart';
 import 'trail_service.dart';
@@ -16,11 +17,30 @@ class CombinedTrailService extends TrailService {
   CombinedTrailService({
     Osm2CaiTrailService? osm2cai,
     OverpassTrailService? overpass,
+    CaiVaralloSearchService? caiVarallo,
   })  : _osm2cai = osm2cai ?? Osm2CaiTrailService(),
-        _overpass = overpass ?? OverpassTrailService();
+        _overpass = overpass ?? OverpassTrailService(),
+        _caiVarallo = caiVarallo ?? CaiVaralloSearchService();
 
   final Osm2CaiTrailService _osm2cai;
   final OverpassTrailService _overpass;
+  final CaiVaralloSearchService _caiVarallo;
+
+  /// Valsesia e dintorni immediati (Varallo → Alagna, Val Sermenza, Val
+  /// Mastallone, Val Vogna): riquadro **approssimativo**, non un confine
+  /// amministrativo — serve solo a decidere se vale la pena interrogare
+  /// anche il sito di CAI Varallo (richiesta esplicita dell'utente, 24 ago
+  /// 2026), non a classificare con precisione un punto come "in Valsesia".
+  static const _valsesiaMinLat = 45.65;
+  static const _valsesiaMaxLat = 45.95;
+  static const _valsesiaMinLon = 7.85;
+  static const _valsesiaMaxLon = 8.35;
+
+  static bool _isNearValsesia(List<LatLng> points) => points.any((p) =>
+      p.latitude >= _valsesiaMinLat &&
+      p.latitude <= _valsesiaMaxLat &&
+      p.longitude >= _valsesiaMinLon &&
+      p.longitude <= _valsesiaMaxLon);
 
   @override
   Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
@@ -44,13 +64,22 @@ class CombinedTrailService extends TrailService {
   /// ricerca precedente), non ha senso interrogare l'altra. `null` se
   /// [TrailRelation.id] manca (fonte che non lo espone in modo affidabile,
   /// vedi doc su quel campo) o se il fetch non trova nulla.
+  ///
+  /// Se la geometria risultante è in **Valsesia e dintorni**, interroga
+  /// anche CAI Varallo (richiesta esplicita dell'utente) e allega i
+  /// risultati trovati — 0 o più, mai un errore verso il chiamante: è un
+  /// arricchimento locale, non deve mai far fallire la card di dettaglio.
   @override
-  Future<TrailDetail?> fetchDetail(TrailRelation relation) {
+  Future<TrailDetail?> fetchDetail(TrailRelation relation) async {
     final id = relation.id;
-    if (id == null) return Future.value(null);
-    return switch (relation.source) {
+    if (id == null) return null;
+    final detail = await switch (relation.source) {
       TrailSource.osm2cai => _osm2cai.fetchDetailById(id),
       TrailSource.overpass => _overpass.fetchDetailById(id),
     };
+    if (detail == null || !_isNearValsesia(detail.points)) return detail;
+    final query = (detail.name?.isNotEmpty ?? false) ? detail.name! : detail.ref;
+    final results = await _caiVarallo.search(query);
+    return results.isEmpty ? detail : detail.copyWith(caiVaralloResults: results);
   }
 }

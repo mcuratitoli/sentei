@@ -35,6 +35,7 @@ import '../offline_maps/offline_maps_providers.dart';
 import '../settings/settings_screen.dart';
 import 'inspected_point_provider.dart';
 import 'map_style.dart';
+import 'trail_detail_provider.dart';
 import '../tracks_list/tracks_list_screen.dart';
 
 /// Vista mappa selezionabile dal tasto "livelli" nella barra (Outdoors ↔
@@ -82,6 +83,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   PolylineAnnotationManager? _liveLine;
   // Traccia grezza importata, mostrata **tratteggiata** durante l'import.
   PolylineAnnotationManager? _importRawLine;
+  // Percorso completo del segnavia in approfondimento (§"Un segnavia per
+  // intero"): solo anteprima, tratteggiata e in un colore che non è mai
+  // usato da `kTrackPalette`, per non essere confusa con una traccia propria.
+  PolylineAnnotationManager? _trailDetailLine;
 
   /// id-cerchio→indice waypoint della traccia in modifica.
   final Map<String, int> _wpIndexById = <String, int>{};
@@ -393,11 +398,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     _inspectedDot = await map.annotations.createCircleAnnotationManager();
     _photoDots = await map.annotations.createCircleAnnotationManager();
     _photoDots!.tapEvents(onTap: _onPhotoTap);
+    // Sopra a tutto il resto: è un'anteprima temporanea, deve restare leggibile.
+    _trailDetailLine = await map.annotations.createPolylineAnnotationManager();
+    await _trailDetailLine!.setLineDasharray([2, 1.4]);
     _ready = true; // tutto creato: ora si può renderizzare
     await _renderAll();
     await _renderSteepness();
     await _renderInspectedPoint();
     await _renderPhotos();
+    await _renderTrailDetail();
     await _maybeFetchTrails();
     // Centratura iniziale (GPS) solo alla prima apertura, non a ogni cambio
     // stile: al re-setup dopo uno switch la camera va lasciata dov'è.
@@ -441,6 +450,27 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       circleColor: 0xFF1565C0, // pallino tinta primaria
       circleStrokeColor: 0xFF1C1C1E, // anello antracite
       circleStrokeWidth: 3,
+    ));
+  }
+
+  /// Percorso completo del segnavia in approfondimento (§"Un segnavia per
+  /// intero", fetta 4): disegnato solo mentre la card di dettaglio è pronta
+  /// (`TrailDetailStage.ready`) — sparisce da sola quando la card si chiude
+  /// ([TrailDetailNotifier.clear] azzera lo state a `null`).
+  Future<void> _renderTrailDetail() async {
+    final mgr = _trailDetailLine;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    final state = ref.read(trailDetailProvider);
+    final points = state?.stage == TrailDetailStage.ready
+        ? state?.detail?.points
+        : null;
+    if (points == null || points.length < 2) return;
+    await mgr.create(PolylineAnnotationOptions(
+      geometry: _lineOf(points),
+      lineColor: 0xFFE91E63, // magenta: non compare in kTrackPalette
+      lineWidth: 5,
+      lineOpacity: 0.9,
     ));
   }
 
@@ -1081,6 +1111,37 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     await map.flyTo(cam, MapAnimationOptions(duration: 800));
   }
 
+  /// Come [_scheduleFocusTrack], ma su un percorso arbitrario invece che su
+  /// una traccia salvata — usato per il segnavia in approfondimento (§"Un
+  /// segnavia per intero", fetta 4: la geometria arriva da rete, non da
+  /// `tracksProvider`).
+  void _scheduleFocusOnPoints(List<ll.LatLng> path) =>
+      _whenMapInForeground(() => _focusOnPoints(path));
+
+  Future<void> _focusOnPoints(List<ll.LatLng> path) async {
+    final map = _map;
+    if (map == null || path.isEmpty) return;
+    final padding = MbxEdgeInsets(top: 90, left: 50, bottom: 260, right: 50);
+    if (path.length == 1) {
+      await map.flyTo(
+        CameraOptions(
+          center: Point(
+              coordinates:
+                  Position(path.first.longitude, path.first.latitude)),
+          zoom: 14,
+        ),
+        MapAnimationOptions(duration: 700),
+      );
+      return;
+    }
+    final coords = [
+      for (final p in path) Point(coordinates: Position(p.longitude, p.latitude)),
+    ];
+    final cam = await map.cameraForCoordinatesPadding(
+        coords, CameraOptions(), padding, null, null);
+    await map.flyTo(cam, MapAnimationOptions(duration: 800));
+  }
+
   /// Centra la mappa su un singolo punto ("Vedi sulla mappa" dal
   /// visualizzatore foto), differendo l'operazione con lo stesso schema di
   /// [_scheduleFocusTrack] se questa route non è ancora quella in primo piano
@@ -1264,6 +1325,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     });
     ref.listen(mapFlyToPointProvider, (_, next) {
       if (next != null) _scheduleFlyToPoint(next.point);
+    });
+    ref.listen(trailDetailProvider, (_, next) {
+      _renderTrailDetail();
+      if (next?.stage == TrailDetailStage.ready) {
+        final points = next?.detail?.points ?? const <ll.LatLng>[];
+        if (points.length >= 2) _scheduleFocusOnPoints(points);
+      }
     });
     if (editingId != null) {
       ref.listen(livePathProvider(editingId), (_, __) => _renderAll());

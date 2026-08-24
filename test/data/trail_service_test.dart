@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:sentei/data/trails/cai_varallo_search_service.dart';
 import 'package:sentei/data/trails/combined_trail_service.dart';
 import 'package:sentei/data/trails/osm2cai_trail_service.dart';
 import 'package:sentei/data/trails/overpass_trail_service.dart';
@@ -131,6 +132,34 @@ const _osm2caiDetailCollectionBody = '''
 }
 ''';
 
+// Stesso ref "7", ma con geometria lontana dalla Valsesia (longitudine 15,
+// zona Dolomiti) — per verificare che il gate geografico escluda CAI Varallo.
+const _osm2caiFarFromValsesiaBody = '''
+{
+  "type": "Feature",
+  "properties": { "ref": "7", "name": "Sentiero lontano" },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [ [15.0, 46.5], [15.01, 46.5] ]
+  }
+}
+''';
+
+// Estratto reale (semplificato) di una risposta di ricerca caivarallo.com,
+// stesso fixture di cai_varallo_search_service_test.dart.
+const _caiVaralloResultsBody = '''
+<body class="search search-results wp-theme-Divi">
+  <article><h2 class="entry-title"><a href="https://www.caivarallo.com/eventi-attivita-cai/festa-della-famiglia-alpe-bors-alagna-valsesia/">FESTA DELLA FAMIGLIA &#8211; ALPE BORS (ALAGNA VALSESIA)</a></h2></article>
+  <article><h2 class="entry-title"><a href="https://www.caivarallo.com/rifugi-cai-varallo/capanna-sociale-alagna/">Baita Alagna</a></h2></article>
+</body>
+''';
+
+const _caiVaralloNoResultsBody = '''
+<body class="search search-no-results wp-theme-Divi">
+  <h1 class="not-found-title">No Results Found</h1>
+</body>
+''';
+
 http.Client _fixed(String body) =>
     MockClient((_) async => http.Response(body, 200));
 
@@ -248,6 +277,7 @@ void main() {
       final svc = CombinedTrailService(
         osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
         overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloNoResultsBody)),
       );
       final fromOsm2cai = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
       final detail1 = await svc.fetchDetail(fromOsm2cai);
@@ -263,9 +293,59 @@ void main() {
       final svc = CombinedTrailService(
         osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
         overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloNoResultsBody)),
       );
       final noId = TrailRelation('5', const [], TrailSource.osm2cai);
       expect(await svc.fetchDetail(noId), isNull);
+    });
+
+    test(
+        'CombinedTrailService: in Valsesia interroga anche CAI Varallo e allega i risultati',
+        () async {
+      // _osm2caiDetailFeatureBody ha geometria vicino a Punta Gnifetti/Alagna
+      // (45.93, 7.87): dentro il riquadro Valsesia.
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloResultsBody)),
+      );
+      final relation = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
+      final detail = await svc.fetchDetail(relation);
+      expect(detail?.caiVaralloResults, hasLength(2));
+      expect(detail?.caiVaralloResults.first.title, contains('ALPE BORS'));
+    });
+
+    test(
+        'CombinedTrailService: fuori Valsesia NON interroga CAI Varallo (nessuna richiesta)',
+        () async {
+      var called = false;
+      final svc = CombinedTrailService(
+        // Geometria a longitudine 15 (fuori dal riquadro Valsesia, es. Dolomiti).
+        osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiFarFromValsesiaBody)),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+        caiVarallo: CaiVaralloSearchService(
+            client: MockClient((_) async {
+          called = true;
+          return http.Response(_caiVaralloResultsBody, 200);
+        })),
+      );
+      final relation = TrailRelation('7', const [], TrailSource.osm2cai, id: '99');
+      final detail = await svc.fetchDetail(relation);
+      expect(detail?.caiVaralloResults, isEmpty);
+      expect(called, isFalse);
+    });
+
+    test(
+        'CombinedTrailService: in Valsesia ma CAI Varallo non trova nulla → caiVaralloResults vuoto',
+        () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloNoResultsBody)),
+      );
+      final relation = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
+      final detail = await svc.fetchDetail(relation);
+      expect(detail?.caiVaralloResults, isEmpty);
     });
   });
 

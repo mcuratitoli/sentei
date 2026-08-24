@@ -41,6 +41,15 @@ già dato ai tester **non** le contiene, sono successive).
   millisecondi, non più sei cifre di frazione di secondo; più eventi
   registrati (salvataggi, sincronizzazione cloud, ricerca segnavia, import
   GPX).
+- 🗺️ **Un segnavia per intero**: tocca il numero di un sentiero (sulla card
+  di un punto toccato sulla mappa, o sulla card di una tua traccia) per
+  vedere dove parte, dove arriva, lunghezza e dislivelli, e il link alla
+  scheda ufficiale se disponibile — con conferma prima di caricarlo. Il
+  percorso completo del segnavia compare temporaneamente sulla mappa
+  (tratteggiato) con la visuale che si sposta per inquadrarlo tutto, e
+  sparisce chiudendo la card. In Valsesia e dintorni cerca anche sul sito
+  di CAI Varallo e propone tutti i contenuti trovati (rifugi, itinerari,
+  eventi).
 
 ## 1.0.0 (9) — 23 agosto 2026
 

@@ -30,7 +30,9 @@ distribuzione ai tester (iOS/Android), con modifiche già su `main` non ancora r
 > lavori chiusi e stimabili (validazione su device in P8), il terzo è un'epica da spezzare.
 > **Il 18 agosto** si erano aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
 > evidenziazione della traccia selezionata); **il 23 agosto** sono stati completati e tolti da
-> qui — voce ora in `CHANGELOG.md`/`docs/CHANGELOG-DEV.md`. Resta aperto solo il punto 3.
+> qui — voce ora in `CHANGELOG.md`/`docs/CHANGELOG-DEV.md`. **Il 24 agosto** anche il punto 3
+> (l'epica) è stato completato: tutti e tre i punti di questa sezione sono ora chiusi, restano
+> visibili qui per riferimento fino al prossimo giro di pulizia della roadmap.
 >
 > *Numerazione 1-3 fissa* (citata per posizione altrove: `P1.1`/`P1.2` in
 > `docs/CHANGELOG-DEV.md`/`docs/validazione-device.md`, "P1, punto 3" in P3) — non riordinata
@@ -100,36 +102,35 @@ cartelli**, non con una media inventata.
   lo stesso bisogno lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei
   tester segnala stime sistematicamente ottimiste sui tratti EE/EEA.
 
-### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — *SP 13 (epica)*
+### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — ✅ Completa (24 agosto 2026)
 
 Caso d'uso: vedo un rifugio, tocco intorno, trovo un sentiero con un numero — voglio sapere
 **dove quel segnavia parte e dove arriva**, vederlo tutto sulla mappa e aprire la scheda
-ufficiale. Oggi non è possibile: il tap sulla mappa (`map_gl_screen.dart:674`) produce solo
-l'*info punto* (quota/coordinate/località) e non interroga il layer sentieri; e soprattutto
-i modelli in `data/trails/` conservano **solo `ref` + geometria ritagliata al bounding box**
-(`TrailRelation`, `TrailRefLine`) — niente id di relazione, niente `name`/`from`/`to`, e la
-geometria finisce dove finisce lo schermo. Va spezzata così:
+ufficiale. Implementata in 4 fette + un'estensione (fetta 3b), con una UX più semplice di
+quella pianificata inizialmente: invece di un tap generico sulla mappa con
+`queryRenderedFeatures` e un menu di disambiguazione, si parte da una label segnavia **già
+visibile** — sulla card del punto ispezionato (se il tap è vicino a un sentiero) o sulla
+card di una propria traccia — e un tap sulla label apre direttamente il flusso; niente
+disambiguazione perché la label è già associata a un tratto preciso.
 
-- [ ] **Portarsi dietro l'identità della relazione** — id OSM/OSM2CAI e tag `name`, `from`,
-  `to`, `network`, `osmc:symbol` in `TrailRelation`/`TrailRefLine` e nel source GeoJSON
-  `sentei-trails`. È il prerequisito di tutto il resto.
-- [ ] **Tap → quale segnavia** — `queryRenderedFeatures` sul layer sentieri con una
-  tolleranza in pixel; se sotto il dito ci sono più segnavia sovrapposti, farli scegliere.
-- [ ] **Fetch della relazione completa** (non ritagliata): OSM2CAI espone
-  `GET /api/v2/hiking-route/{id}` in GeoJSON e `GET /api/v2/hiking-routes/{id}.gpx`
-  (vedi `docs/osm2cai-investigation.md`); fuori Italia, Overpass con `rel(<id>); out geom;`.
-- [ ] **Mostrarlo** — l'intera relazione evidenziata sulla mappa + fit-bounds, e una card
-  con numero, nome, partenza → arrivo, lunghezza, D+/D-, difficoltà CAI e **tempo stimato**
-  (riusa il punto 2 di questa sezione).
-- [ ] **Link alla scheda ufficiale** — *da verificare prima di implementare*: dell'endpoint
-  API OSM2CAI sappiamo la forma, della **pagina web** pubblica corrispondente no. Verificare
-  se esiste un permalink per id su `osm2cai.cai.it` (e cosa fare fuori Italia: fallback alla
-  relazione su `openstreetmap.org`); non inventare un URL.
-- [ ] **Da tenere separato** (non in questa epica, ma è l'estensione naturale): "usa questo
-  segnavia come traccia" — import diretto del GPX della relazione nell'editor.
+- [x] **Identità della relazione** — `TrailRelation` porta `id`/`source`/`name`/`from`/`to`/
+  `osmc:symbol` (fetta 2).
+- [x] **Fetch della relazione completa** (non ritagliata) — `TrailService.fetchDetail`,
+  OSM2CAI `GET /api/v2/hiking-route/{id}` e Overpass `rel(<id>); out geom;` (fetta 2-3).
+- [x] **Mostrarlo** — card di dettaglio (nome, capi-percorso, distanza/dislivelli, difficoltà
+  CAI) con dialog di conferma prima del fetch, dalla card del punto ispezionato (fetta 3) e
+  dalla card di una traccia propria (fetta 3b, via risoluzione `trailsNear` da un `ref` bare);
+  traccia temporanea del segnavia disegnata sulla mappa (tratteggiata, magenta, sopra a
+  tutto) con fit-bounds automatico, sparisce alla chiusura della card (fetta 4).
+- [x] **Link alla scheda ufficiale** — confermato per Overpass (permalink
+  `openstreetmap.org/relation/{id}`, sempre valido); **non implementato per OSM2CAI**
+  (`officialUrl` resta `null` per quella fonte — nessun permalink pubblico verificato,
+  principio "mai inventare un URL" ancora valido). Arricchimento ulteriore per la Valsesia:
+  ricerca su `www.caivarallo.com`, tutti i risultati trovati come link (fetta 3b).
+- [ ] **Non incluso, estensione naturale per una prossima epica**: "usa questo segnavia come
+  traccia" — import diretto del GPX della relazione nell'editor.
 
-*Totale indicativo: ~23 story point, di cui 10 già fatti (punti 1 e 2) — il punto 3 va
-rivisto una volta spezzato.*
+*13 story point.*
 
 ---
 

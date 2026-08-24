@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/util/format.dart';
@@ -9,21 +10,36 @@ import 'app_bottom_sheet.dart';
 import 'ios_menu.dart';
 import 'tokens.dart';
 
-/// Punto d'ingresso da una label segnavia (card del punto ispezionato o card
-/// traccia, §"Un segnavia per intero"): conferma prima di aprire (evita
-/// aperture accidentali con un fetch di rete dietro), poi la card di
-/// dettaglio — che si aggiorna da sola mentre [TrailDetailNotifier.open]
-/// risolve in background.
+/// Punto d'ingresso da una label segnavia **già risolta** (card del punto
+/// ispezionato, che ha già la `TrailRelation` completa con id/fonte):
+/// conferma prima di aprire (evita aperture accidentali con un fetch di
+/// rete dietro), poi la card di dettaglio — che si aggiorna da sola mentre
+/// [TrailDetailNotifier.open] risolve in background.
 Future<void> showTrailDetail(
-    BuildContext context, WidgetRef ref, TrailRelation relation) async {
+        BuildContext context, WidgetRef ref, TrailRelation relation) =>
+    _confirmThenOpen(context, ref, relation.ref,
+        () => ref.read(trailDetailProvider.notifier).open(relation));
+
+/// Come [showTrailDetail], ma da una label che ha **solo il numero
+/// segnavia** (card traccia, `_TrailInfo` in `draw_route_controls.dart`):
+/// [anchorPoint] è un punto vicino usato per risolvere la relazione
+/// completa prima del fetch vero e proprio — un passo in più sotto lo
+/// stesso spinner, invisibile per l'utente.
+Future<void> showTrailDetailByRef(
+        BuildContext context, WidgetRef ref, String trailRef, LatLng anchorPoint) =>
+    _confirmThenOpen(context, ref, trailRef,
+        () => ref.read(trailDetailProvider.notifier).openByRef(trailRef, anchorPoint));
+
+Future<void> _confirmThenOpen(BuildContext context, WidgetRef ref, String trailRef,
+    VoidCallback startFetch) async {
   await showIosConfirm(
     context: context,
-    title: 'Segnavia ${relation.ref}',
+    title: 'Segnavia $trailRef',
     message: 'Vuoi vedere il percorso completo di questo segnavia?',
     confirmLabel: 'Approfondisci',
     destructive: false,
     onConfirm: () {
-      ref.read(trailDetailProvider.notifier).open(relation);
+      startFetch();
       if (context.mounted) {
         showAppBottomSheet<void>(
           context: context,
@@ -136,6 +152,39 @@ class _TrailDetailBody extends StatelessWidget {
               ],
             ),
           ),
+        ],
+        // Risultati CAI Varallo (solo per i segnavia in Valsesia e dintorni,
+        // §"Un segnavia per intero" — richiesta esplicita dell'utente, 24
+        // ago 2026): 0 o più, ognuno un link a sé, non un unico "scopri di
+        // più" — il sito non ha una pagina segnavia dedicata univoca, la
+        // ricerca può restituire più contenuti pertinenti (eventi, rifugi,
+        // itinerari) e l'utente sceglie quale aprire.
+        if (d.caiVaralloResults.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text('Trovato anche su CAI Varallo',
+              style: AppText.captionSmall.copyWith(color: palette.secondaryLabel)),
+          const SizedBox(height: 6),
+          for (final r in d.caiVaralloResults)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: GestureDetector(
+                onTap: () =>
+                    launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(r.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.body.copyWith(color: palette.accent)),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(CupertinoIcons.arrow_up_right_square,
+                        size: 14, color: palette.accent),
+                  ],
+                ),
+              ),
+            ),
         ],
       ],
     );

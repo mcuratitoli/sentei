@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../../domain/models/elevation_profile.dart';
+import 'cai_varallo_search_service.dart';
 
 /// Errore "duro" di una ricerca segnavia (rete/timeout/HTTP non-200): distingue
 /// un **fallimento** (da ritentare) da una risposta **valida ma vuota** (la zona
@@ -74,6 +75,7 @@ class TrailDetail {
     this.ascentMeters,
     this.descentMeters,
     this.officialUrl,
+    this.caiVaralloResults = const [],
   });
 
   final String ref;
@@ -99,6 +101,26 @@ class TrailDetail {
   /// dal vivo un permalink pubblico su `osm2cai.cai.it` (vedi
   /// `docs/osm2cai-investigation.md`) — meglio nessun link che uno inventato.
   final String? officialUrl;
+
+  /// Risultati della ricerca sul sito di **CAI Varallo**, solo per i
+  /// segnavia geograficamente in **Valsesia e dintorni** (verificato con
+  /// [CombinedTrailService], non qui — questo campo è solo il contenitore).
+  /// Vuoto altrove o se la ricerca non trova nulla.
+  final List<CaiVaralloResult> caiVaralloResults;
+
+  TrailDetail copyWith({List<CaiVaralloResult>? caiVaralloResults}) => TrailDetail(
+        ref: ref,
+        points: points,
+        name: name,
+        from: from,
+        to: to,
+        caiScale: caiScale,
+        distanceMeters: distanceMeters,
+        ascentMeters: ascentMeters,
+        descentMeters: descentMeters,
+        officialUrl: officialUrl,
+        caiVaralloResults: caiVaralloResults ?? this.caiVaralloResults,
+      );
 }
 
 /// Interfaccia comune dei servizi che attribuiscono i **numeri sentiero**

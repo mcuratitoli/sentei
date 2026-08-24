@@ -11,6 +11,70 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 3b (card traccia + CAI Varallo) e fetta 4 (traccia temporanea sulla mappa)
+
+Chiude l'epica: le tre richieste dell'utente dopo aver testato la fetta 3 ("applica anche
+sulla card di una traccia", arricchimento CAI Varallo per la Valsesia, traccia temporanea
+sulla mappa).
+
+**Card traccia (`_TrailInfo`, `draw_route_controls.dart`)** — le label segnavia della
+propria traccia disegnata diventano tappabili come quelle della card del punto ispezionato,
+ma con un problema in più: `DrawnTrack.trailRefs` è solo `List<String>`, nessun
+id/fonte/geometria associati (a differenza di una `TrailRelation` già risolta). Percorso
+scelto: `TrailDetailNotifier.openByRef(trailRef, anchorPoint)` — risolve prima una
+`TrailRelation` reale via `trailsNear(anchorPoint)` (già esistente, pensato per l'uso
+originale della card del punto), POI il fetch normale — due chiamate di rete sotto un solo
+stato di loading, invisibili come passo singolo per l'utente. `anchorPoint` è il punto medio
+del tratto di quel segnavia lungo `routedPath` (via `PathGeometry.pointAtFraction`, già
+introdotto stamattina per l'inserimento nodo su sentiero), non un punto a caso della
+traccia — così `trailsNear` cerca vicino a dove il segnavia passa davvero, non a un capo
+lontano. `_TrailInfo` passa da `StatelessWidget` a `ConsumerWidget`.
+
+Bug di sviluppo lungo il percorso: un parametro chiamato `ref` (il numero segnavia, stringa)
+dentro `TrailDetailNotifier.openByRef` **oscurava** il getter Riverpod `ref` ereditato dal
+`Notifier` — `ref.read(...)` falliva perché risolveva al tipo sbagliato (`String`, non
+`Ref`). Rinominato in `trailRef`.
+
+**Arricchimento CAI Varallo** (`data/trails/cai_varallo_search_service.dart`, nuovo) — se il
+segnavia risolto cade in un bounding box approssimativo attorno alla Valsesia (lat
+45.65–45.95, lon 7.85–8.35, non un confine amministrativo reale: è solo un gate "vale la
+pena provare"), `CombinedTrailService.fetchDetail` cerca anche su `www.caivarallo.com`
+(ricerca nativa WordPress, `?s=<query>`) e allega **tutti** i risultati trovati (non uno
+solo: il sito non ha una pagina segnavia dedicata univoca — un segnavia può comparire in più
+contenuti pertinenti: eventi, rifugi, itinerari — e ogni risultato diventa un link a sé nella
+card, `TrailDetail.caiVaralloResults`). A differenza dell'endpoint OSM2CAI (mai verificato
+dal vivo, `officialUrl` resta `null` per quella fonte), `caivarallo.com` **è stato
+verificato dal vivo con richieste `curl` reali** il 24 agosto 2026 — sia la struttura di un
+risultato (`<h2 class="entry-title"><a href="...">titolo</a></h2>`) sia il body di "nessun
+risultato" (classe `search-no-results`), compreso un widget "Notizie" nella stessa pagina
+che usa la stessa classe `entry-title` ma su `<h5>`, non `<h2>` — il parser filtra
+esplicitamente per `<h2>` per non raccoglierlo per sbaglio. Sempre best-effort: qualunque
+errore (HTTP non-200, eccezione di rete, timeout) → lista vuota, mai propagato verso la card.
+
+**Traccia temporanea sulla mappa (fetta 4)** — `map_gl_screen.dart` guadagna un manager
+dedicato `_trailDetailLine` (creato per ultimo nell'ordine dei manager: z-order sopra a
+tutto il resto, dev'essere sempre leggibile), tratteggiato, colore magenta (`0xFFE91E63`,
+assente da `kTrackPalette` apposta — non deve poter essere scambiato per una traccia
+propria). Un `ref.listen(trailDetailProvider, ...)` in `map_gl_screen.dart` (stesso punto
+degli altri listener camera/overlay, accanto a `mapFocusProvider`/`mapFlyToPointProvider`)
+disegna `TrailDetail.points` quando lo stato passa a `TrailDetailStage.ready` e sposta la
+camera sull'intero segnavia (`_focusOnPoints`, un `cameraForCoordinatesPadding`/`flyTo` che
+duplica volutamente `_focusTrack` invece di generalizzarlo: quello lavora su un id di
+`tracksProvider`, questo su una lista di punti arrivata da rete, tenerli separati evita di
+forzare un'astrazione comune tra "traccia salvata" e "anteprima di rete" che non
+guadagnerebbe granché in chiarezza). La linea sparisce da sola alla chiusura della card
+(`TrailDetailNotifier.clear()` → stato `null` → `_renderTrailDetail` cancella il manager).
+
+Test: `trail_service_test.dart` esteso (arricchimento CAI Varallo dentro/fuori Valsesia, con
+verifica esplicita che **nessuna** chiamata HTTP parte se fuori zona), nuovo
+`cai_varallo_search_service_test.dart` (parsing su markup reale, no-risultati, cap
+`maxResults`, query vuota senza richiesta, errori HTTP/rete mai propagati), nuovo
+`trail_detail_provider_test.dart` (4 test diretti su `TrailDetailNotifier.openByRef`),
+`trail_detail_sheet_test.dart` esteso (risultati CAI Varallo come link multipli, sezione
+assente se vuoti).
+
+---
+
 ## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 3, dialog conferma + card di dettaglio
 
 Prima parte visibile e testabile end-to-end dell'epica: dalla card del punto ispezionato,
