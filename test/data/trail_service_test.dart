@@ -105,6 +105,32 @@ const _osm2caiTwoNearbyBody = '''
 }
 ''';
 
+// Risposta OSM2CAI a GET /api/v2/hiking-route/{id}: geometria completa (3
+// punti, non ritagliata) + ascent/descent/distance precalcolati.
+const _osm2caiDetailFeatureBody = '''
+{
+  "type": "Feature",
+  "properties": {
+    "ref": "5", "name": "Alta Via del Rifugio",
+    "from": "Alagna", "to": "Rifugio Pastore", "cai_scale": "EE",
+    "distance": 1234.5, "ascent": 456, "descent": 12
+  },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [ [7.8694, 45.9369], [7.8695, 45.9373], [7.8694, 45.9378] ]
+  }
+}
+''';
+
+// Stessa relazione ma incapsulata in una FeatureCollection (l'altra forma di
+// risposta plausibile, mai verificata dal vivo).
+const _osm2caiDetailCollectionBody = '''
+{
+  "type": "FeatureCollection",
+  "features": [ $_osm2caiDetailFeatureBody ]
+}
+''';
+
 http.Client _fixed(String body) =>
     MockClient((_) async => http.Response(body, 200));
 
@@ -174,6 +200,72 @@ void main() {
       expect(r.name, isNull);
       expect(r.from, isNull);
       expect(r.to, isNull);
+    });
+  });
+
+  group('fetchDetail', () {
+    test('OSM2CAI: parsa una risposta "Feature" diretta', () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody));
+      final detail = await svc.fetchDetailById('42');
+      expect(detail, isNotNull);
+      expect(detail!.ref, '5');
+      expect(detail.name, 'Alta Via del Rifugio');
+      expect(detail.from, 'Alagna');
+      expect(detail.to, 'Rifugio Pastore');
+      expect(detail.distanceMeters, 1234.5);
+      expect(detail.ascentMeters, 456);
+      expect(detail.descentMeters, 12);
+      expect(detail.points, hasLength(3)); // geometria completa, non ritagliata
+      expect(detail.officialUrl, isNull); // nessun permalink OSM2CAI confermato
+    });
+
+    test('OSM2CAI: parsa anche una risposta "FeatureCollection"', () async {
+      final svc =
+          Osm2CaiTrailService(client: _fixed(_osm2caiDetailCollectionBody));
+      final detail = await svc.fetchDetailById('42');
+      expect(detail?.ref, '5');
+      expect(detail?.points, hasLength(3));
+    });
+
+    test('OSM2CAI: lancia TrailLookupException su errore HTTP', () async {
+      final svc = Osm2CaiTrailService(
+          client: MockClient((_) async => http.Response('boom', 500)));
+      expect(svc.fetchDetailById('42'), throwsA(isA<TrailLookupException>()));
+    });
+
+    test('Overpass: geometria completa + permalink OSM standard', () async {
+      final svc = OverpassTrailService(client: _fixed(_overpassBody));
+      final detail = await svc.fetchDetailById('123456');
+      expect(detail, isNotNull);
+      expect(detail!.ref, '10');
+      expect(detail.name, 'Sentiero delle Guide');
+      expect(detail.officialUrl, 'https://www.openstreetmap.org/relation/123456');
+      expect(detail.distanceMeters, greaterThan(0)); // calcolato localmente
+    });
+
+    test('CombinedTrailService: smista in base alla fonte, niente fallback incrociato',
+        () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+      );
+      final fromOsm2cai = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
+      final detail1 = await svc.fetchDetail(fromOsm2cai);
+      expect(detail1?.name, 'Alta Via del Rifugio');
+
+      final fromOverpass =
+          TrailRelation('10', const [], TrailSource.overpass, id: '123456');
+      final detail2 = await svc.fetchDetail(fromOverpass);
+      expect(detail2?.name, 'Sentiero delle Guide');
+    });
+
+    test('CombinedTrailService: null se la relazione non ha id', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(client: _fixed(_osm2caiDetailFeatureBody)),
+        overpass: OverpassTrailService(client: _fixed(_overpassBody)),
+      );
+      final noId = TrailRelation('5', const [], TrailSource.osm2cai);
+      expect(await svc.fetchDetail(noId), isNull);
     });
   });
 

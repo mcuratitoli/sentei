@@ -13,6 +13,12 @@ class TrailLookupException implements Exception {
   String toString() => 'TrailLookupException: $message';
 }
 
+/// Fonte che ha prodotto una [TrailRelation] — serve a sapere **come**
+/// recuperarne la relazione completa (§"Un segnavia per intero"): endpoint e
+/// formato dell'id sono diversi per OSM2CAI (`GET /api/v2/hiking-route/{id}`)
+/// e Overpass (`rel(<id>); out geom;`).
+enum TrailSource { osm2cai, overpass }
+
 /// Una relazione sentiero generica (numero `ref` + geometria), indipendente
 /// dalla fonte (Overpass OSM grezzo o catasto CAI/OSM2CAI). Le sottoclassi di
 /// [TrailService] la producono; la logica di matching è condivisa.
@@ -23,10 +29,11 @@ class TrailLookupException implements Exception {
 /// intero" (§`docs/ROADMAP.md` P1.3): quello richiede un fetch a parte della
 /// relazione completa, per cui serve [id].
 class TrailRelation {
-  const TrailRelation(this.ref, this.points,
+  const TrailRelation(this.ref, this.points, this.source,
       {this.caiScale, this.id, this.name, this.from, this.to, this.osmcSymbol});
   final String ref;
   final List<LatLng> points;
+  final TrailSource source;
 
   /// Grado di difficoltà CAI (T/E/EE/EEA), se taggato sulla relazione.
   final String? caiScale;
@@ -51,6 +58,49 @@ class TrailRelation {
   final String? osmcSymbol;
 }
 
+/// La relazione **completa** di un segnavia (§"Un segnavia per intero"):
+/// geometria non ritagliata a nessun bounding box, più i dati mostrati nella
+/// card di dettaglio. Prodotta da un fetch a parte (per id), non dalla
+/// ricerca "cosa c'è vicino a questo percorso/punto" di [TrailRelation].
+class TrailDetail {
+  const TrailDetail({
+    required this.ref,
+    required this.points,
+    this.name,
+    this.from,
+    this.to,
+    this.caiScale,
+    this.distanceMeters,
+    this.ascentMeters,
+    this.descentMeters,
+    this.officialUrl,
+  });
+
+  final String ref;
+
+  /// Geometria dell'**intero** segnavia, dal capo-percorso all'altro.
+  final List<LatLng> points;
+  final String? name;
+  final String? from;
+  final String? to;
+  final String? caiScale;
+
+  /// Precalcolati dalla fonte quando disponibili (OSM2CAI); per Overpass
+  /// [distanceMeters] è calcolato localmente sulla geometria, [ascentMeters]/
+  /// [descentMeters] restano `null` (richiederebbero campionare l'elevazione
+  /// lungo l'intero percorso, fuori scopo per questa card).
+  final double? distanceMeters;
+  final double? ascentMeters;
+  final double? descentMeters;
+
+  /// Link alla scheda pubblica, **solo se un formato affidabile esiste** —
+  /// per Overpass è il permalink OSM standard (`openstreetmap.org/relation/
+  /// {id}`, sempre valido); per OSM2CAI resta `null` finché non si conferma
+  /// dal vivo un permalink pubblico su `osm2cai.cai.it` (vedi
+  /// `docs/osm2cai-investigation.md`) — meglio nessun link che uno inventato.
+  final String? officialUrl;
+}
+
 /// Interfaccia comune dei servizi che attribuiscono i **numeri sentiero**
 /// (ref CAI) ai tratti di un percorso. La segmentazione (campionamento del
 /// percorso + assegnazione del ref più vicino) è identica per ogni fonte ed è
@@ -68,6 +118,15 @@ abstract class TrailService {
   /// Scarica le relazioni sentiero (ref + geometria) vicine al [path].
   /// Implementata dalle sottoclassi in base alla fonte (Overpass / OSM2CAI).
   Future<List<TrailRelation>> fetchRelations(List<LatLng> path);
+
+  /// Recupera la relazione **completa** di [relation] (§"Un segnavia per
+  /// intero", `docs/ROADMAP.md` P1.3). Implementazione di base: sempre
+  /// `null` — una singola fonte (Osm2CaiTrailService/OverpassTrailService)
+  /// non basta da sola, serve poter smistare in base a
+  /// [TrailRelation.source]; solo [CombinedTrailService] lo fa per davvero.
+  /// Vive qui (non solo su quella classe) così `trailServiceProvider` può
+  /// restare tipizzato sull'astratto [TrailService].
+  Future<TrailDetail?> fetchDetail(TrailRelation relation) async => null;
 
   /// Attribuisce a ciascun tratto del percorso il **numero del sentiero**
   /// (ref CAI), restituendo segmenti per distanza cumulata. Scarica una volta

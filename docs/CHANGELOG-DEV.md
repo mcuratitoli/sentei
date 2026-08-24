@@ -11,6 +11,47 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 3, dialog conferma + card di dettaglio
+
+Prima parte visibile e testabile end-to-end dell'epica: dalla card del punto ispezionato,
+tap su una label segnavia → conferma → card di dettaglio con nome, capi-percorso,
+distanza/dislivelli (se disponibili), link alla scheda ufficiale se trovato. **Solo dalla
+card del punto** in questa fetta — la card traccia (`_TrailInfo`, `draw_route_controls.dart`)
+non ha ancora le label tappabili: le sue `trailRefs` sono solo `List<String>` (nessun
+id/fonte associato), servirebbe un passo di risoluzione in più prima del fetch vero e
+proprio. Rimandato a una fetta successiva per non allungare troppo questa.
+
+- `TrailRelation` guadagna `source: TrailSource` (osm2cai/overpass, nuovo enum): senza,
+  `fetchDetail` non saprebbe quale endpoint richiamare per una relazione già trovata.
+  `trailServiceProvider` resta tipizzato sull'astratto `TrailService` (non
+  `CombinedTrailService`): il dispatch vive come metodo di base con default `null`,
+  override reale solo in `CombinedTrailService` — così i test che fanno
+  `overrideWithValue(OverpassTrailService(...))` restano validi senza modifiche.
+- `Osm2CaiTrailService.fetchDetailById`/`OverpassTrailService.fetchDetailById` (rinominati
+  da `fetchDetail` per evitare la collisione col metodo dell'interfaccia, firma diversa:
+  `String` vs `TrailRelation`): fetch della geometria **completa**, non ritagliata.
+  `CombinedTrailService.fetchDetail(relation)` smista in base a `relation.source` — **nessun
+  fallback incrociato** qui (a differenza di `fetchRelations`): si sa già da dove viene la
+  relazione, interrogare l'altra fonte non avrebbe senso.
+- `TrailDetailProvider` (`features/map_gl/trail_detail_provider.dart`, nuovo): stato
+  loading/ready/error, guardia contro risposte in ritardo dopo che l'utente ha chiuso o
+  aperto un altro segnavia (confronto per identità della `TrailRelation`, non un token int
+  come `InspectedPointNotifier` — stessa idea, forma diversa).
+- `showTrailDetail` (`ui/trail_detail_sheet.dart`, nuovo, condiviso): dialog di conferma
+  (`showIosConfirm`) poi `showAppBottomSheet` che osserva il provider e si aggiorna da sé.
+- `AppTrailTag` guadagna `onTap` opzionale — il contenitore è già visivamente "una pillola",
+  incapsularlo in un `CupertinoButton` basta a segnalare che è cliccabile (a differenza del
+  caso "Libero" di stamattina: qui non serve altro trattamento).
+- `_PointInfoCard` (`map_gl_screen.dart`) passa da `StatelessWidget` a `ConsumerWidget`
+  (serviva `ref` per aprire il dettaglio).
+
+Test: `trail_service_test.dart` (fetchDetail per entrambe le fonti + dispatch
+`CombinedTrailService`, con e senza id), `trail_detail_sheet_test.dart` (nuovo — conferma,
+annulla, successo con dati completi, non-trovato, fallimento di rete senza eccezione
+propagata).
+
+---
+
 ## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 2, id/nome/capi-percorso sulla relazione
 
 Nessun cambiamento visibile (nessuna UI consuma ancora questi dati) — prerequisito per la

@@ -36,4 +36,21 @@ class CombinedTrailService extends TrailService {
     }
     return _overpass.fetchRelations(path);
   }
+
+  /// Recupera la relazione **completa** di [relation] (§"Un segnavia per
+  /// intero"): smista verso OSM2CAI o Overpass in base a [TrailRelation.source]
+  /// — a differenza di [fetchRelations], qui **non c'è fallback fra le due
+  /// fonti**: si sa già da dove viene la relazione (è il risultato di una
+  /// ricerca precedente), non ha senso interrogare l'altra. `null` se
+  /// [TrailRelation.id] manca (fonte che non lo espone in modo affidabile,
+  /// vedi doc su quel campo) o se il fetch non trova nulla.
+  @override
+  Future<TrailDetail?> fetchDetail(TrailRelation relation) {
+    final id = relation.id;
+    if (id == null) return Future.value(null);
+    return switch (relation.source) {
+      TrailSource.osm2cai => _osm2cai.fetchDetailById(id),
+      TrailSource.overpass => _overpass.fetchDetailById(id),
+    };
+  }
 }

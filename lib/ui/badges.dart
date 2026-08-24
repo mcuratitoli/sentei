@@ -34,15 +34,23 @@ class AppDifficultyBadge extends StatelessWidget {
 /// Tag di un numero sentiero (203, GTA, U09…): pill completamente arrotondata,
 /// sfondo bianco/superficie, bordo sottile — sempre distinto per **forma**
 /// (non colore) dal badge di difficoltà.
+///
+/// [onTap] opzionale: quando presente (§"Un segnavia per intero",
+/// `docs/ROADMAP.md` P1.3 — dalla card del punto ispezionato o della
+/// traccia) la pillola apre l'approfondimento del segnavia; il contenitore
+/// è già visivamente "una cosa a sé" (bordo+sfondo), quindi basta un
+/// `CupertinoButton` che ne riprende la forma, niente stile aggiuntivo per
+/// segnalare che è cliccabile.
 class AppTrailTag extends StatelessWidget {
-  const AppTrailTag({super.key, required this.label});
+  const AppTrailTag({super.key, required this.label, this.onTap});
 
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
+    final pill = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: palette.glassFill,
@@ -54,6 +62,13 @@ class AppTrailTag extends StatelessWidget {
         style: AppText.badge
             .copyWith(color: palette.label, fontWeight: FontWeight.w600),
       ),
+    );
+    if (onTap == null) return pill;
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onTap,
+      child: pill,
     );
   }
 }

@@ -26,6 +26,7 @@ import '../../ui/badges.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
+import '../../ui/trail_detail_sheet.dart';
 import '../../ui/whats_new.dart';
 import '../draw_route/draw_route_controls.dart';
 import '../draw_route/route_editor_provider.dart';
@@ -1742,7 +1743,7 @@ class _BottomBar extends StatelessWidget {
 /// tracce vicine: quota (DEM Terrarium, anche offline), località/provincia/
 /// nazione (reverse geocoding) e coordinate. Sta **sopra la barra** (come la
 /// ricerca) e coesiste con la card traccia (che ha priorità).
-class _PointInfoCard extends StatelessWidget {
+class _PointInfoCard extends ConsumerWidget {
   const _PointInfoCard({required this.data, required this.onClose});
 
   final InspectedPoint data;
@@ -1752,7 +1753,7 @@ class _PointInfoCard extends StatelessWidget {
       Format.coordinates(p.latitude, p.longitude);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final palette = context.palette;
     final place = data.place;
@@ -1881,7 +1882,10 @@ class _PointInfoCard extends StatelessWidget {
                         runSpacing: 4,
                         children: [
                           for (final t in data.nearbyTrails)
-                            AppTrailTag(label: t.ref),
+                            AppTrailTag(
+                              label: t.ref,
+                              onTap: () => showTrailDetail(context, ref, t),
+                            ),
                         ],
                       ),
                     ],

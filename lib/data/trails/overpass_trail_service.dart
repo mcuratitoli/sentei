@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../domain/services/path_geometry.dart';
 import 'trail_service.dart';
 
 /// Recupera i **numeri dei sentieri** (tag `ref` delle relazioni
@@ -108,6 +109,7 @@ class OverpassTrailService extends TrailService {
         relations.add(TrailRelation(
           ref,
           pts,
+          TrailSource.overpass,
           caiScale: (caiScale?.isEmpty ?? true) ? null : caiScale,
           // Id della relazione OSM: sempre presente per un elemento `relation`
           // in una risposta Overpass, a differenza di quello (non confermato)
@@ -122,6 +124,65 @@ class OverpassTrailService extends TrailService {
     }
     return relations;
   }
+
+  /// Recupera la relazione **completa** (geometria dal capo all'altro, non
+  /// ritagliata) per l'id di relazione OSM [id] — `rel(<id>); out geom;`.
+  /// `null` se non trovata. `distanceMeters` calcolato localmente sulla
+  /// geometria (Overpass non lo precalcola come OSM2CAI); `officialUrl` è il
+  /// permalink OSM standard, sempre valido.
+  Future<TrailDetail?> fetchDetailById(String id) async {
+    final query = '[out:json][timeout:$timeoutSeconds];rel($id);out geom;';
+    final http.Response res;
+    try {
+      res = await _client
+          .post(Uri.parse(endpoint),
+              headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
+              body: {'data': query})
+          .timeout(timeout);
+    } catch (e) {
+      throw TrailLookupException('overpass detail: $e');
+    }
+    if (res.statusCode != 200) {
+      throw TrailLookupException('overpass detail HTTP ${res.statusCode}');
+    }
+    final List<dynamic> elements;
+    try {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      elements = (data['elements'] as List?) ?? const [];
+    } catch (e) {
+      throw TrailLookupException('overpass detail parse: $e');
+    }
+    if (elements.isEmpty) return null;
+    final el = elements.first as Map<String, dynamic>;
+    final tags = el['tags'] as Map<String, dynamic>?;
+    final ref = (tags?['ref'] as String?)?.trim();
+    if (ref == null || ref.isEmpty) return null;
+    String? tag(String key) {
+      final v = (tags?[key] as String?)?.trim();
+      return (v == null || v.isEmpty) ? null : v;
+    }
+
+    final pts = <LatLng>[];
+    for (final mbr in (el['members'] as List? ?? const [])) {
+      if (mbr['type'] != 'way') continue;
+      for (final g in (mbr['geometry'] as List? ?? const [])) {
+        pts.add(LatLng((g['lat'] as num).toDouble(), (g['lon'] as num).toDouble()));
+      }
+    }
+    if (pts.isEmpty) return null;
+    return TrailDetail(
+      ref: ref,
+      points: pts,
+      name: tag('name'),
+      from: tag('from'),
+      to: tag('to'),
+      caiScale: tag('cai_scale'),
+      distanceMeters: const PathGeometry().totalDistance(pts),
+      officialUrl: 'https://www.openstreetmap.org/relation/$id',
+    );
+  }
+
+  int get timeoutSeconds => timeout.inSeconds;
 
   /// Campiona al massimo [max] punti dal percorso, estremi inclusi.
   List<LatLng> _sample(List<LatLng> path, int max) {

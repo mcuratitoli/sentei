@@ -106,6 +106,7 @@ class Osm2CaiTrailService extends TrailService {
         relations.add(TrailRelation(
           ref,
           pts,
+          TrailSource.osm2cai,
           caiScale: caiScale,
           // `id`: nome campo non confermato dal vivo, vedi doc su
           // TrailRelation.id — best-effort, può risultare null.
@@ -118,6 +119,59 @@ class Osm2CaiTrailService extends TrailService {
       }
     }
     return relations;
+  }
+
+  /// Recupera la relazione **completa** (geometria dal capo all'altro, non
+  /// ritagliata) per [id] — `GET /api/v2/hiking-route/{id}`. `null` se la
+  /// risposta non contiene una geometria utilizzabile. Formato della
+  /// risposta **non verificato dal vivo** (vedi `docs/osm2cai-investigation.md`
+  /// e il doc-comment di `TrailRelation.id`): tentato sia il caso "risposta =
+  /// una Feature" sia "risposta = FeatureCollection con una feature".
+  Future<TrailDetail?> fetchDetailById(String id) async {
+    final uri = Uri.parse('https://osm2cai.cai.it/api/v2/hiking-route/$id');
+    final http.Response res;
+    try {
+      res = await _client
+          .get(uri, headers: const {'User-Agent': 'sentei/1.0 (app escursionismo Alpi)'})
+          .timeout(timeout);
+    } catch (e) {
+      throw TrailLookupException('osm2cai detail: $e');
+    }
+    if (res.statusCode != 200) {
+      throw TrailLookupException('osm2cai detail HTTP ${res.statusCode}');
+    }
+    final Map<String, dynamic>? feature;
+    try {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['type'] == 'FeatureCollection') {
+        final features = (data['features'] as List?) ?? const [];
+        feature = features.isEmpty ? null : features.first as Map<String, dynamic>;
+      } else {
+        feature = data;
+      }
+    } catch (e) {
+      throw TrailLookupException('osm2cai detail parse: $e');
+    }
+    if (feature == null) return null;
+    final props = feature['properties'] as Map<String, dynamic>? ?? const {};
+    final ref = _firstNonEmpty([props['ref'], props['ref_REI'], props['ref_osm']]);
+    if (ref == null) return null;
+    final pts = <LatLng>[];
+    _collectLineCoords(feature['geometry'], pts, (_, __) => true);
+    if (pts.isEmpty) return null;
+    return TrailDetail(
+      ref: ref,
+      points: pts,
+      name: _firstNonEmpty([props['name']]),
+      from: _firstNonEmpty([props['from']]),
+      to: _firstNonEmpty([props['to']]),
+      caiScale: _firstNonEmpty([props['cai_scale'], props['cai_scale_osm']]),
+      distanceMeters: (props['distance'] as num?)?.toDouble(),
+      ascentMeters: (props['ascent'] as num?)?.toDouble(),
+      descentMeters: (props['descent'] as num?)?.toDouble(),
+      // Nessun permalink pubblico confermato per OSM2CAI — vedi
+      // TrailDetail.officialUrl.
+    );
   }
 
   static String? _firstNonEmpty(List<dynamic> values) {
