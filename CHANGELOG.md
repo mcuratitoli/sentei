@@ -19,11 +19,14 @@ Modifiche già su `main` ma non ancora distribuite (il build iOS/Android della `
 già dato ai tester **non** le contiene, sono successive).
 
 - ✏️ **Traccia "mista": tratti liberi fuori sentiero.** Disegnando o
-  modificando un percorso, il tasto "Libero" nella barra (icona a
-  scarabocchio) fa sì che i punti aggiunti da lì in poi si colleghino in
-  linea retta invece di seguire i sentieri — utile per un tratto specifico
-  (es. l'ultima salita a una cima) senza dover disattivare lo snap per
-  l'intera traccia. I tratti liberi si vedono tratteggiati sulla mappa.
+  modificando un percorso, il tasto "Libero" (icona a scarabocchio) fa sì
+  che i punti aggiunti da lì in poi si colleghino in linea retta invece di
+  seguire i sentieri — utile per un tratto specifico (es. l'ultima salita a
+  una cima) senza dover disattivare lo snap per l'intera traccia. Si trova
+  sia nella barra di disegno sia nella card del singolo punto selezionato
+  (comodo per inserire un punto libero **dentro** un tratto già disegnato,
+  non solo aggiungendo in coda). I tratti liberi si vedono tratteggiati
+  sulla mappa.
 - ✏️ **Punto selezionato**: mostra ora anche le coordinate (non solo la
   quota) e permette di aggiungere un punto anche **dopo**, non solo prima.
 - 🎨 **Menu a tre pallini più coerenti**: stesse voci nel menu della card

@@ -896,15 +896,31 @@ class Tracks extends Notifier<TracksState> {
   }
 
   /// Inserisce un waypoint a [index], `index` in `[0, lunghezza]`.
+  /// Inserisce un waypoint a [index], `index` in `[0, lunghezza]`. Se la
+  /// modalità "Libero" è attiva, **entrambi** i segmenti nati dalla
+  /// divisione nascono liberi — non solo quando si aggiunge in coda
+  /// ([addPoint]): serve anche per inserire un punto **dentro** un tratto
+  /// già agganciato (es. "Aggiungi dopo" su un punto esistente) e renderlo
+  /// libero, senza dover ridisegnare da capo (§"Traccia mista").
   void insertPoint(int index, LatLng p) {
     final t = state.editing;
     if (t == null || index < 0 || index > t.waypoints.length) return;
     _pushUndo();
     final oldCount = t.waypoints.length;
-    _updateEditing((tt) => tt.clearedComputed().copyWith(
-        waypoints: [...tt.waypoints]..insert(index, p),
-        freeSegments:
-            freeSegmentsAfterInsert(tt.freeSegments, index, oldCount)));
+    final forceFree = ref.read(freeDrawingModeProvider);
+    _updateEditing((tt) {
+      var freeSegments = freeSegmentsAfterInsert(tt.freeSegments, index, oldCount);
+      if (forceFree) {
+        freeSegments = {
+          ...freeSegments,
+          if (index - 1 >= 0) index - 1,
+          if (index < oldCount) index,
+        };
+      }
+      return tt.clearedComputed().copyWith(
+          waypoints: [...tt.waypoints]..insert(index, p),
+          freeSegments: freeSegments);
+    });
   }
 
   /// Inserisce un nuovo waypoint **a metà strada** tra il punto [index] e il
@@ -1044,12 +1060,17 @@ class SelectedWaypoint extends Notifier<int?> {
 final selectedWaypointProvider =
     NotifierProvider<SelectedWaypoint, int?>(SelectedWaypoint.new);
 
-/// Modalità "Libero" mentre si disegna (§"Traccia mista", `docs/ROADMAP.md`
-/// P3): finché è accesa, i punti aggiunti con [Tracks.addPoint] creano
-/// segmenti liberi (linea retta, non instradati) anche se
-/// [DrawnTrack.snapToTrail] resta acceso per il resto della traccia. Non è
-/// un dato della traccia (non persistito): è solo lo stato del pulsante
-/// nella barra di disegno. Si azzera esplicitamente in
+/// Modalità "Libero" mentre si disegna/modifica (§"Traccia mista",
+/// `docs/ROADMAP.md` P3): finché è accesa, i **nuovi** segmenti — sia
+/// aggiunti in coda ([Tracks.addPoint]) sia inseriti dentro un tratto
+/// esistente ([Tracks.insertPoint], es. "Aggiungi prima/dopo" sulla card del
+/// punto selezionato) — nascono liberi (linea retta, non instradati) anche
+/// se [DrawnTrack.snapToTrail] resta acceso per il resto della traccia. Il
+/// tasto compare sia nella barra di disegno principale sia nella card del
+/// punto selezionato (stesso stato, si può accendere da entrambe): serve a
+/// poter decidere "libero" anche **dopo** aver già selezionato il punto da
+/// cui inserire, non solo prima di disegnare. Non è un dato della traccia
+/// (non persistito). Si azzera esplicitamente in
 /// [Tracks.startNewDrawing]/[Tracks.editSelected] (non con un
 /// `ref.watch(activeTrackIdProvider)` come [SelectedWaypoint]: qui
 /// creerebbe una dipendenza circolare, dato che [Tracks.addPoint] legge

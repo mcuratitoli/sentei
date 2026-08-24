@@ -11,6 +11,31 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — Traccia mista: tasto "Libero" anche per un inserimento interno
+
+Seguito diretto della voce sotto, stessa sessione: l'utente ha provato la funzionalità e
+segnalato un buco reale — con una traccia a-b-c-d-e-f già disegnata, selezionando c e
+usando "Aggiungi dopo" non c'era modo di dire che il nuovo punto (una cima fuori sentiero
+tra c e d) dovesse restare libero: `Tracks.insertPoint` non guardava affatto
+`freeDrawingModeProvider`, solo `Tracks.addPoint` (aggiunta in coda) lo faceva.
+
+**Fix**: `insertPoint` ora legge anch'esso `freeDrawingModeProvider` — se acceso, **entrambi**
+i segmenti nati dalla divisione (non solo quello ereditato da `freeSegmentsAfterInsert`)
+nascono liberi. Il tasto "Libero" ora compare **anche** nella card del punto selezionato
+(`_SelectedWaypointBar`, stesso `freeDrawingModeProvider` della barra principale — un solo
+stato, acceso da entrambe le viste), con una riga di testo che conferma cosa succederà al
+prossimo inserimento ("il nuovo punto si collegherà senza seguire i sentieri"): la barra
+principale è nascosta mentre un punto è selezionato, quindi senza questa aggiunta l'utente
+avrebbe dovuto pianificare in anticipo di accenderlo *prima* di selezionare il punto — non
+il flusso naturale descritto ("clicco su c, poi decido").
+
+Test aggiunto (`draw_route_controls_test.dart`) che riproduce esattamente il caso
+segnalato: traccia di 6 punti, seleziona il terzo, accende "Libero" dalla card del punto
+(non dalla barra principale), tocca "Aggiungi dopo", verifica che **entrambi** i segmenti
+risultanti dalla divisione siano liberi.
+
+---
+
 ## 24 agosto 2026 — Traccia mista: tasto "Libero" per i tratti fuori sentiero
 
 Richiesto dall'utente con un caso concreto: Campertogno → Colma di Campertogno segue i

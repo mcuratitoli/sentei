@@ -349,6 +349,42 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
+  testWidgets(
+      '"Libero" nella card del punto selezionato: rende liberi entrambi i tratti di un inserimento interno',
+      (tester) async {
+    // Caso reale segnalato dall'utente: traccia a-b-c-d-e-f già disegnata,
+    // si seleziona c e si vuole inserire un punto (una cima fuori sentiero)
+    // tra c e d, libero da entrambi i lati — non solo aggiungendo in coda.
+    final container = await pumpCard(tester);
+    await tester.pump();
+    final notifier = container.read(tracksProvider.notifier);
+    notifier.startNewDrawing();
+    for (var i = 0; i < 6; i++) {
+      notifier.addPoint(LatLng(45.0 + i * 0.01, 7.0));
+    }
+    await tester.pumpAndSettle();
+    expect(container.read(tracksProvider).editing!.freeSegments, isEmpty);
+
+    // Seleziona c (indice 2).
+    container.read(selectedWaypointProvider.notifier).toggle(2);
+    await tester.pumpAndSettle();
+    expect(find.text('Punto 3 di 6'), findsOneWidget);
+
+    // Il tasto "Libero" è raggiungibile anche da qui, non solo dalla barra
+    // principale (nascosta mentre un punto è selezionato).
+    await tester.tap(find.byTooltip('Attiva tratto libero'));
+    await tester.pumpAndSettle();
+    expect(container.read(freeDrawingModeProvider), true);
+
+    await tester.tap(find.text('Aggiungi dopo'));
+    await tester.pumpAndSettle();
+
+    // Il nuovo punto (indice 3, tra il vecchio c e d) divide il vecchio
+    // segmento 2 in due: entrambi liberi, non solo quello ereditato.
+    expect(container.read(tracksProvider).editing!.waypoints.length, 7);
+    expect(container.read(tracksProvider).editing!.freeSegments, {2, 3});
+  });
+
   testWidgets('eliminare un punto chiede conferma prima di rimuoverlo',
       (tester) async {
     final container = await pumpCard(tester);

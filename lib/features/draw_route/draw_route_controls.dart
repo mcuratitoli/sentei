@@ -140,6 +140,7 @@ class _DrawingBody extends ConsumerWidget {
             index: selectedWp,
             total: wpCount,
             point: track!.waypoints[selectedWp],
+            snap: snap,
             onDelete: () => _confirmDeleteWaypoint(context, ref, selectedWp),
             onInsertBefore: selectedWp == 0
                 ? null
@@ -515,16 +516,21 @@ Future<void> _confirmDeleteWaypoint(
 /// traccia). Mostra quale punto, la sua **quota** (stessa fonte del punto
 /// ispezionato in esplorazione) e le sue **coordinate** (stesso formato del
 /// punto ispezionato, `Format.coordinates`), un suggerimento per lo
-/// spostamento e le azioni **Aggiungi prima**/**Aggiungi dopo** (assenti
-/// rispettivamente sul primo e sull'ultimo punto, che non hanno un
-/// precedente/successivo) ed **Elimina** (con conferma, isolata sotto perché
-/// distruttiva) — pillole chiare con icona, stesso linguaggio del resto
-/// della card (`_PillAction`), non più testo puro.
+/// spostamento, il tasto **"Libero"** (§"Traccia mista" — stesso stato di
+/// quello nella barra di disegno principale, qui perché una cima fuori
+/// sentiero si nota spesso *dopo* aver già selezionato il punto da cui
+/// inserirla, non prima di iniziare a disegnare) e le azioni **Aggiungi
+/// prima**/**Aggiungi dopo** (assenti rispettivamente sul primo e
+/// sull'ultimo punto, che non hanno un precedente/successivo) ed
+/// **Elimina** (con conferma, isolata sotto perché distruttiva) — pillole
+/// chiare con icona, stesso linguaggio del resto della card (`_PillAction`),
+/// non più testo puro.
 class _SelectedWaypointBar extends ConsumerWidget {
   const _SelectedWaypointBar({
     required this.index,
     required this.total,
     required this.point,
+    required this.snap,
     required this.onDelete,
     required this.onInsertBefore,
     required this.onInsertAfter,
@@ -534,6 +540,10 @@ class _SelectedWaypointBar extends ConsumerWidget {
   final int index;
   final int total;
   final LatLng point;
+
+  /// `DrawnTrack.snapToTrail` dell'intera traccia: se già spento, il tasto
+  /// "Libero" qui sotto è senza oggetto (è già tutto libero) e va disattivato.
+  final bool snap;
   final VoidCallback onDelete;
   final VoidCallback? onInsertBefore;
   final VoidCallback? onInsertAfter;
@@ -543,6 +553,7 @@ class _SelectedWaypointBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
     final elevation = ref.watch(waypointElevationProvider(point));
+    final freeMode = ref.watch(freeDrawingModeProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -576,6 +587,36 @@ class _SelectedWaypointBar extends ConsumerWidget {
               style:
                   AppText.captionSmall.copyWith(color: palette.tertiaryIcon)),
         ),
+        if (onInsertBefore != null || onInsertAfter != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              AppIconButton(
+                tooltip: !snap
+                    ? 'Tratto libero (l\'intera traccia è già senza sentieri)'
+                    : freeMode
+                        ? 'Disattiva tratto libero'
+                        : 'Attiva tratto libero',
+                active: freeMode,
+                size: 36,
+                onPressed: !snap
+                    ? null
+                    : () => ref.read(freeDrawingModeProvider.notifier).toggle(),
+                icon: CupertinoIcons.scribble,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  freeMode
+                      ? 'Il nuovo punto si collegherà senza seguire i sentieri'
+                      : 'Il nuovo punto seguirà i sentieri',
+                  style: AppText.captionSmall
+                      .copyWith(color: palette.secondaryLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 10),
         if (onInsertBefore != null || onInsertAfter != null) ...[
           Row(
