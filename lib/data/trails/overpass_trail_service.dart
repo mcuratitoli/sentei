@@ -90,6 +90,11 @@ class OverpassTrailService extends TrailService {
       final ref = (tags?['ref'] as String?)?.trim();
       if (ref == null || ref.isEmpty) continue;
       final caiScale = (tags?['cai_scale'] as String?)?.trim();
+      String? tag(String key) {
+        final v = (tags?[key] as String?)?.trim();
+        return (v == null || v.isEmpty) ? null : v;
+      }
+
       final pts = <LatLng>[];
       for (final mbr in (el['members'] as List? ?? const [])) {
         if (mbr['type'] != 'way') continue;
@@ -100,8 +105,19 @@ class OverpassTrailService extends TrailService {
         }
       }
       if (pts.isNotEmpty) {
-        relations.add(TrailRelation(ref, pts,
-            caiScale: (caiScale?.isEmpty ?? true) ? null : caiScale));
+        relations.add(TrailRelation(
+          ref,
+          pts,
+          caiScale: (caiScale?.isEmpty ?? true) ? null : caiScale,
+          // Id della relazione OSM: sempre presente per un elemento `relation`
+          // in una risposta Overpass, a differenza di quello (non confermato)
+          // di OSM2CAI — vedi doc su TrailRelation.id.
+          id: el['id']?.toString(),
+          name: tag('name'),
+          from: tag('from'),
+          to: tag('to'),
+          osmcSymbol: tag('osmc:symbol'),
+        ));
       }
     }
     return relations;

@@ -11,6 +11,28 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 2, id/nome/capi-percorso sulla relazione
+
+Nessun cambiamento visibile (nessuna UI consuma ancora questi dati) — prerequisito per la
+fetta 3 (fetch della relazione completa, serve un id affidabile per richiamarla).
+
+`TrailRelation` (`trail_service.dart`) guadagna `id`/`name`/`from`/`to`/`osmcSymbol`,
+opzionali. Popolati in entrambe le fonti:
+- **Overpass**: `id` dall'elemento `relation` (sempre presente, è un id OSM standard),
+  `name`/`from`/`to`/`osmc:symbol` dai tag — tutti tag OSM ben documentati, affidabili.
+- **OSM2CAI**: `name`/`from`/`to`/`osmc_symbol` confermati dai campi della risposta
+  (`docs/osm2cai-investigation.md`). **`id` NON verificato dal vivo** — il dominio
+  `osm2cai.cai.it` è bloccato dalla network policy del sandbox di sviluppo, quindi il nome
+  campo tentato (`props['id']`) è la scelta più plausibile ma non testata contro una risposta
+  reale. Annotato nel doc-comment di `TrailRelation.id` e in `docs/validazione-device.md`:
+  se la fetta 3 (fetch di `GET /api/v2/hiking-route/{id}`) fallisce sistematicamente per le
+  relazioni con fonte OSM2CAI, è il primo sospetto da controllare.
+
+Test aggiunti in `trail_service_test.dart` per entrambe le fonti (metadati estratti
+correttamente, campi assenti restano `null` non stringa vuota).
+
+---
+
 ## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 1, segnavia nella card del punto
 
 Avviata l'epica P1.3 (`docs/ROADMAP.md`), discussa con l'utente prima di scrivere codice: la

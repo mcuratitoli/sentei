@@ -16,13 +16,39 @@ class TrailLookupException implements Exception {
 /// Una relazione sentiero generica (numero `ref` + geometria), indipendente
 /// dalla fonte (Overpass OSM grezzo o catasto CAI/OSM2CAI). Le sottoclassi di
 /// [TrailService] la producono; la logica di matching è condivisa.
+///
+/// [points] resta la geometria **ritagliata al bounding box** interrogato
+/// (percorso disegnato, o punto singolo per [TrailService.trailsNear]) — va
+/// bene per etichettare/matchare, ma non per "mostrare il segnavia per
+/// intero" (§`docs/ROADMAP.md` P1.3): quello richiede un fetch a parte della
+/// relazione completa, per cui serve [id].
 class TrailRelation {
-  const TrailRelation(this.ref, this.points, {this.caiScale});
+  const TrailRelation(this.ref, this.points,
+      {this.caiScale, this.id, this.name, this.from, this.to, this.osmcSymbol});
   final String ref;
   final List<LatLng> points;
 
   /// Grado di difficoltà CAI (T/E/EE/EEA), se taggato sulla relazione.
   final String? caiScale;
+
+  /// Identificativo della relazione presso la fonte — serve a recuperarne la
+  /// geometria **completa** (non ritagliata) in un secondo fetch. Per
+  /// Overpass è l'id della relazione OSM, sempre presente. Per OSM2CAI **non
+  /// ancora verificato dal vivo** (endpoint bloccato dalla network policy del
+  /// sandbox di sviluppo, vedi `docs/osm2cai-investigation.md`): il nome
+  /// campo tentato (`id`) è il più plausibile ma va confermato su device
+  /// prima di fare affidamento su questo valore per OSM2CAI.
+  final String? id;
+
+  /// Nome del sentiero e capi-percorso (es. "da Alagna a Rifugio Pastore"),
+  /// se la fonte li espone.
+  final String? name;
+  final String? from;
+  final String? to;
+
+  /// Simbolo segnavia (es. bianco/rosso CAI), tag OSM `osmc:symbol` — bonus
+  /// per una futura resa colorata, non usato ancora da nessuna UI.
+  final String? osmcSymbol;
 }
 
 /// Interfaccia comune dei servizi che attribuiscono i **numeri sentiero**

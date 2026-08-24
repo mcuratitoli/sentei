@@ -9,6 +9,13 @@
 > Quando un punto è confermato su device, spuntarlo `[x]` con data e note (non cancellarlo:
 > qui la storia della validazione è parte del valore della lista).
 
+- [ ] **Id OSM2CAI su `TrailRelation`** (24 ago 2026, `docs/CHANGELOG-DEV.md`, §"Un segnavia
+  per intero" P1.3) — il nome campo tentato (`props['id']` nella risposta bounding-box) non è
+  mai stato verificato contro l'API reale (dominio bloccato dal sandbox di sviluppo). Se il
+  fetch della relazione completa (`GET /api/v2/hiking-route/{id}`, fetta successiva) fallisce
+  sempre per i segnavia trovati via OSM2CAI (funziona invece per quelli via Overpass, che ha
+  un id garantito), è il primo sospetto: ispezionare una risposta reale del bounding-box e
+  correggere il nome del campo.
 - [ ] **Traccia mista: tasto "Libero"** (24 ago 2026, `docs/CHANGELOG-DEV.md`) — coperto da
   test di dominio (`free_segments_test.dart`, `track_runs_test.dart`) e widget
   (`draw_route_controls_test.dart`), ma **mai visto a schermo**: comportamento del tasto

@@ -20,7 +20,12 @@ const _osm2caiBody = '''
   "features": [
     {
       "type": "Feature",
-      "properties": { "ref": "5", "ref_osm": "999", "cai_scale": "EE" },
+      "properties": {
+        "ref": "5", "ref_osm": "999", "cai_scale": "EE",
+        "id": "42", "name": "Alta Via del Rifugio",
+        "from": "Alagna", "to": "Rifugio Pastore",
+        "osmc_symbol": "red:white:red_bar"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [ [7.8694, 45.9369], [7.8694, 45.9378] ]
@@ -53,7 +58,12 @@ const _overpassBody = '''
   "elements": [
     {
       "type": "relation",
-      "tags": { "ref": "10", "cai_scale": "E" },
+      "id": 123456,
+      "tags": {
+        "ref": "10", "cai_scale": "E",
+        "name": "Sentiero delle Guide", "from": "Rima", "to": "Colma",
+        "osmc:symbol": "yellow:white:yellow_bar"
+      },
       "members": [
         {
           "type": "way",
@@ -127,6 +137,43 @@ void main() {
       final svc = Osm2CaiTrailService(
           client: _fixed('{"type":"FeatureCollection","features":[]}'));
       expect(await svc.trailSegmentsAlong([_a, _b]), isEmpty);
+    });
+  });
+
+  group('fetchRelations: id/name/from/to/osmcSymbol', () {
+    test('OSM2CAI espone i metadati oltre a ref/geometria', () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiBody));
+      final relations = await svc.fetchRelations([_a, _b]);
+      expect(relations, hasLength(1));
+      final r = relations.single;
+      expect(r.id, '42');
+      expect(r.name, 'Alta Via del Rifugio');
+      expect(r.from, 'Alagna');
+      expect(r.to, 'Rifugio Pastore');
+      expect(r.osmcSymbol, 'red:white:red_bar');
+    });
+
+    test('Overpass espone id (sempre presente) e i tag OSM standard',
+        () async {
+      final svc = OverpassTrailService(client: _fixed(_overpassBody));
+      final relations = await svc.fetchRelations([_a, _b]);
+      expect(relations, hasLength(1));
+      final r = relations.single;
+      expect(r.id, '123456');
+      expect(r.name, 'Sentiero delle Guide');
+      expect(r.from, 'Rima');
+      expect(r.to, 'Colma');
+      expect(r.osmcSymbol, 'yellow:white:yellow_bar');
+    });
+
+    test('campi assenti restano null, non stringhe vuote', () async {
+      final svc = Osm2CaiTrailService(client: _fixed(_osm2caiReiBody));
+      final relations = await svc.fetchRelations([_a, _b]);
+      final r = relations.single;
+      expect(r.id, isNull);
+      expect(r.name, isNull);
+      expect(r.from, isNull);
+      expect(r.to, isNull);
     });
   });
 

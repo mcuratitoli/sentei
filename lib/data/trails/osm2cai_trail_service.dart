@@ -103,7 +103,18 @@ class Osm2CaiTrailService extends TrailService {
       final pts = <LatLng>[];
       _collectLineCoords(feat['geometry'], pts, inBox);
       if (pts.isNotEmpty) {
-        relations.add(TrailRelation(ref, pts, caiScale: caiScale));
+        relations.add(TrailRelation(
+          ref,
+          pts,
+          caiScale: caiScale,
+          // `id`: nome campo non confermato dal vivo, vedi doc su
+          // TrailRelation.id — best-effort, può risultare null.
+          id: _firstNonEmpty([props['id']]),
+          name: _firstNonEmpty([props['name']]),
+          from: _firstNonEmpty([props['from']]),
+          to: _firstNonEmpty([props['to']]),
+          osmcSymbol: _firstNonEmpty([props['osmc_symbol']]),
+        ));
       }
     }
     return relations;
