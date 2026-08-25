@@ -475,6 +475,34 @@ void main() {
       final detail = await svc.fetchDetail(relation);
       expect(detail?.caiVarallo, isNull);
     });
+
+    test(
+        'CombinedTrailService: CAI Varallo parte in parallelo al fetch della '
+        'geometria, non dopo (richiesta esplicita utente 25 ago 2026: "non è '
+        'un ultima spiaggia")', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(
+            client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          return http.Response(_osm2caiDetailFeatureBody, 200);
+        })),
+        caiVarallo: CaiVaralloSearchService(
+            client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          return http.Response(_caiVaralloResultsBody, 200);
+        })),
+      );
+      // Punto già noto sulla relazione (dentro il riquadro Valsesia): decide
+      // "in Valsesia" prima ancora di aspettare il fetch della geometria.
+      final relation = TrailRelation(
+          '5', const [LatLng(45.93, 7.87)], TrailSource.osm2cai, id: '42');
+      final sw = Stopwatch()..start();
+      final detail = await svc.fetchDetail(relation);
+      sw.stop();
+      expect(detail?.caiVarallo, isNotNull);
+      // Se fossero in sequenza ci vorrebbero ~160ms; in parallelo, ~80ms.
+      expect(sw.elapsedMilliseconds, lessThan(140));
+    });
   });
 
   group('fetchByRefOnly', () {

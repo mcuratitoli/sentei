@@ -95,19 +95,21 @@ class CombinedTrailService extends TrailService {
   /// [TrailRelation.id] manca (fonte che non lo espone in modo affidabile,
   /// vedi doc su quel campo) o se il fetch non trova nulla.
   ///
-  /// Se la geometria risultante è in **Valsesia e dintorni**, cerca il ref
-  /// nell'**elenco ufficiale** di CAI Varallo (match esatto, non ricerca
-  /// full-text — vedi doc su [CaiVaralloSearchService]) e allega il
-  /// risultato se trovato — mai un errore verso il chiamante: è un
-  /// arricchimento locale, non deve mai far fallire la card di dettaglio.
+  /// Se [relation] è in **Valsesia e dintorni** (controllato sui suoi punti
+  /// già noti, senza aspettare il fetch della geometria completa), la
+  /// ricerca su CAI Varallo parte **subito, in parallelo** al fetch della
+  /// geometria — non una dopo l'altra: sono due fonti indipendenti, non ha
+  /// senso far aspettare una per l'altra (richiesta esplicita dell'utente,
+  /// 25 ago 2026: "non è un ultima spiaggia, va fatta sempre, meglio se in
+  /// parallelo"). Il risultato si allega quando entrambe sono pronte —
+  /// mai un errore verso il chiamante: è un arricchimento locale.
   ///
   /// Se il fetch della geometria completa **fallisce** (rete: Overpass giù,
   /// vedi `docs/CHANGELOG-DEV.md`), non butta via tutto: costruisce un
-  /// [TrailDetail] **parziale** (`geometryComplete: false`) con ciò che [relation]
-  /// già sa (ref/nome/capi-percorso/grado CAI, dalla ricerca che ha portato
-  /// a questo segnavia) e prova comunque CAI Varallo, che non dipende da
-  /// quel fetch — feedback esplicito dell'utente (25 ago 2026) dopo un
-  /// fallimento totale di Overpass: "non ha senso non mostrare nulla".
+  /// [TrailDetail] **parziale** (`geometryComplete: false`) con ciò che
+  /// [relation] già sa (ref/nome/capi-percorso/grado CAI, dalla ricerca che
+  /// ha portato a questo segnavia) — il risultato CAI Varallo, già in corso
+  /// per conto suo, si allega comunque.
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async {
     final id = relation.id;
@@ -116,6 +118,17 @@ class CombinedTrailService extends TrailService {
           '(fonte ${relation.source.name}) → null');
       return null;
     }
+    // Se [relation] porta già punti (il caso normale: viene da `trailsNear`/
+    // `fetchRelations`, mai vuoto in pratica), il controllo Valsesia si fa
+    // subito e CAI Varallo parte in parallelo al fetch della geometria. Se
+    // invece non ne ha (relazione "nuda", solo test o edge case), non si
+    // rinuncia alla ricerca: si rimanda a dopo il fetch, controllando
+    // `detail.points` — un tick più tardi, ma il risultato finale
+    // ("interrogato se in Valsesia") resta lo stesso.
+    final earlyValsesia = _isNearValsesia(relation.points);
+    final earlyCaiVaralloFuture =
+        earlyValsesia ? _caiVarallo.findByRef(relation.ref) : null;
+
     TrailDetail? detail;
     try {
       detail = await switch (relation.source) {
@@ -148,22 +161,27 @@ class CombinedTrailService extends TrailService {
                 : null,
             geometryComplete: false,
           );
-    if (detail == null || !_isNearValsesia(detail.points)) return detail;
-    final result = await _caiVarallo.findByRef(detail.ref);
-    debugPrint('[trails] combined.fetchDetail "${relation.ref}": in Valsesia, '
+    if (detail == null) return null;
+    final caiVaralloFuture = earlyCaiVaralloFuture ??
+        (_isNearValsesia(detail.points)
+            ? _caiVarallo.findByRef(detail.ref)
+            : Future<CaiVaralloResult?>.value());
+    final result = await caiVaralloFuture;
+    debugPrint('[trails] combined.fetchDetail "${relation.ref}": '
         'CAI Varallo → ${result == null ? "nessun match" : result.url}');
     return result == null ? detail : detail.copyWith(caiVarallo: result);
   }
 
   /// Ultima spiaggia per la card **traccia** (`TrailDetailNotifier.openByRef`)
-  /// quando non si riesce nemmeno a risolvere il ref in una relazione vera —
+  /// quando non si riesce a risolvere il ref in una relazione vera —
   /// OSM2CAI/Overpass entrambi giù, o senza quel ref nei dintorni. La ricerca
   /// su CAI Varallo non dipende da nessuna delle due fonti (usa solo il ref
-  /// e la posizione), quindi può ancora dare un risultato utile — feedback
-  /// esplicito dell'utente (25 ago 2026): "sul sito del CAI Varallo lo trovo
-  /// subito, non ha senso non mostrarmi nulla". Solo per i segnavia in
-  /// Valsesia e dintorni (stesso gate di [fetchDetail]); `null` altrove o se
-  /// il ref non è nemmeno nell'elenco ufficiale.
+  /// e la posizione): `TrailDetailNotifier` la avvia già in **parallelo**
+  /// alla risoluzione OpenStreetMap, non solo qui a valle di un fallimento —
+  /// questo metodo resta comunque l'unico punto che sa come costruire un
+  /// [TrailDetail] da un ref bare, per questo lo richiama entrambe le volte.
+  /// Solo per i segnavia in Valsesia e dintorni (stesso gate di
+  /// [fetchDetail]); `null` altrove o se il ref non è nemmeno in elenco.
   @override
   Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async {
     if (!_isNearValsesia([anchor])) return null;

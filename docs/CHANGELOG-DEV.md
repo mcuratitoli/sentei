@@ -11,6 +11,53 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — CAI Varallo in parallelo (non "ultima spiaggia"); partenza/arrivo su due righe
+
+Settimo e ultimo giro della serata. Due richieste:
+
+1. **Capi-percorso più leggibili**: "Alagna → Rifugio Pastore" su una riga sola con una
+   freccetta non distingueva bene i due punti a colpo d'occhio. Ora partenza e arrivo sono su
+   due righe separate, ciascuna con un'icona diversa (un pin per la partenza, una bandiera
+   per l'arrivo — stessa metafora di qualunque app di mappe) invece della sola freccia
+   generica. Nuovo `_EndpointRow` in `trail_detail_sheet.dart`.
+2. **CAI Varallo non è più "ultima spiaggia"**: fin dalla fetta di ieri sera, la ricerca su
+   CAI Varallo partiva **solo dopo** aver saputo l'esito della fonte OpenStreetMap (o, nel
+   caso della card traccia, solo se la risoluzione falliva del tutto). L'utente ha chiarito la
+   richiesta: va fatta **sempre**, appena si sa di essere in Valsesia — **in parallelo**, non
+   in coda. Due punti toccati:
+   - `CombinedTrailService.fetchDetail`: il controllo Valsesia si fa ora sui punti **già noti
+     sulla relazione** (quelli della ricerca che ha portato a questo segnavia, sempre
+     popolati nell'uso reale), non su quelli — non ancora disponibili — della geometria
+     completa. Se il controllo può farsi subito, CAI Varallo parte **nello stesso istante**
+     del fetch della geometria, non dopo; il risultato si allega quando entrambi sono pronti.
+     Ripiego per compatibilità (usato solo dai test che passano una relazione "nuda", senza
+     punti — mai il caso in produzione): se non si può decidere subito, si ricontrolla dopo il
+     fetch sui punti della geometria, come prima.
+   - `TrailDetailNotifier.openByRef` (card traccia): `fetchByRefOnly` (solo ref + punto di
+     ancoraggio, indipendente da OpenStreetMap) parte **subito**, in parallelo alla
+     risoluzione `trailsNear` — non più tentato solo come ripiego se quella non trova un
+     match esatto. Se la risoluzione OpenStreetMap va comunque a buon fine, questo risultato
+     "in parallelo" viene scartato (`open()` fa la sua propria ricerca CAI Varallo, già in
+     parallelo al fetch della geometria) — una chiamata in più verso una singola pagina
+     statica, non paragonabile al volume di Overpass di cui ci si è preoccupati poco fa.
+
+   Effetto pratico confermato dall'utente come accettabile: un segnavia può finire per
+   mostrare **solo** il link CAI Varallo (nessun nome/capi-percorso da OpenStreetMap, nessuna
+   traccia sulla mappa) se la fonte OpenStreetMap fallisce del tutto ma CAI Varallo risponde —
+   comportamento già coperto dall'avviso "Percorso completo non disponibile ora" introdotto
+   nella fetta precedente (testo generalizzato: non parla più solo di "rete", visto che ora
+   copre anche il caso "non risolto su OpenStreetMap" senza che sia necessariamente un
+   problema di connessione).
+
+Test: nuovo test di tempistica in `trail_service_test.dart` (CAI Varallo e geometria
+impiegano ~80ms ciascuno con mock deliberatamente lenti; il tempo totale resta vicino a 80ms,
+non alla somma — prova che girano davvero in parallelo, non solo che il risultato finale è
+corretto); nuovo test analogo in `trail_detail_provider_test.dart` per `openByRef`
+(`fetchByRefOnly` invocato prima che `trailsNear` sia risolto, non dopo un suo fallimento);
+`trail_detail_sheet_test.dart` aggiornato per le due righe separate di partenza/arrivo.
+
+---
+
 ## 25 agosto 2026 — Riduce il volume di richieste a Overpass (sospetto autolimite dopo troppi test)
 
 Quinto giro della stessa serata. Durante il test del fix precedente, Overpass ha iniziato a

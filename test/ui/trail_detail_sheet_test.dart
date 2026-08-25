@@ -120,7 +120,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Alta Via del Rifugio'), findsOneWidget);
-    expect(find.text('Alagna → Rifugio Pastore'), findsOneWidget);
+    // Partenza e arrivo su due righe separate (25 ago 2026), non più
+    // "Alagna → Rifugio Pastore" su una sola riga.
+    expect(find.text('Alagna'), findsOneWidget);
+    expect(find.text('Rifugio Pastore'), findsOneWidget);
     expect(find.text('OpenStreetMap'), findsOneWidget);
   });
 

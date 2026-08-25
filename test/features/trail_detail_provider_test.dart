@@ -38,7 +38,69 @@ class _FakeTrailService implements TrailService {
       nearby;
 }
 
+/// Fake dedicato a verificare l'**ordine temporale** delle chiamate:
+/// `fetchByRefOnly` segnala se viene invocato prima che `trailsNear` (che
+/// impiega un po', a simulare la risoluzione OpenStreetMap) sia **risolto** —
+/// non necessariamente dopo che è partito, dato che nell'implementazione
+/// reale `fetchByRefOnly` parte per primo, prima ancora di `trailsNear`.
+class _TimingFakeTrailService implements TrailService {
+  _TimingFakeTrailService({required this.onFetchByRefOnlyCalled});
+  final void Function({required bool beforeTrailsNearResolved})
+      onFetchByRefOnlyCalled;
+  bool _trailsNearResolved = false;
+
+  @override
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+          {double? radiusMeters}) async =>
+      const [];
+
+  @override
+  Future<TrailDetail?> fetchDetail(TrailRelation relation) async => null;
+
+  @override
+  Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async {
+    onFetchByRefOnlyCalled(beforeTrailsNearResolved: !_trailsNearResolved);
+    return null;
+  }
+
+  @override
+  Future<List<TrailSegment>> trailSegmentsAlong(List<LatLng> path) async => const [];
+
+  @override
+  Future<List<TrailRelation>> trailsNear(LatLng point,
+      {double thresholdMeters = 60}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    _trailsNearResolved = true;
+    return const [];
+  }
+}
+
 void main() {
+  test(
+      'openByRef: fetchByRefOnly parte subito, non aspetta che trailsNear sia '
+      'risolto — non un ultima spiaggia dopo che quella fallisce (richiesta '
+      'esplicita utente 25 ago 2026)', () async {
+    var called = false;
+    var wasBeforeResolved = false;
+    final fake = _TimingFakeTrailService(
+      onFetchByRefOnlyCalled: ({required beforeTrailsNearResolved}) {
+        called = true;
+        wasBeforeResolved = beforeTrailsNearResolved;
+      },
+    );
+    final container = ProviderContainer(overrides: [
+      trailServiceProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+
+    await container
+        .read(trailDetailProvider.notifier)
+        .openByRef('203', const LatLng(45.9, 7.9));
+
+    expect(called, isTrue);
+    expect(wasBeforeResolved, isTrue);
+  });
+
   test('openByRef: risolve il ref vicino e completa il fetch', () async {
     final container = ProviderContainer(overrides: [
       trailServiceProvider.overrideWithValue(_FakeTrailService(

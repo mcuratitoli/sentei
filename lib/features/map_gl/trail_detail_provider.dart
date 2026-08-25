@@ -51,11 +51,26 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
     // ancora un id/fonte, si scarta appena la risoluzione trova quello vero.
     final placeholder = TrailRelation(trailRef, const [], TrailSource.overpass);
     state = TrailDetailState(relation: placeholder, stage: TrailDetailStage.loading);
+    final service = ref.read(trailServiceProvider);
+
+    // CAI Varallo parte **subito, in parallelo** alla risoluzione
+    // OpenStreetMap — non è un'ultima spiaggia da tentare solo se quella
+    // fallisce (richiesta esplicita dell'utente, 25 ago 2026). Se la
+    // risoluzione va a buon fine, questo risultato viene scartato: `open`
+    // qui sotto rifà la sua ricerca CAI Varallo per conto suo (già in
+    // parallelo al fetch della geometria) — una chiamata in più, leggera
+    // (una singola pagina, nessun retry), non la stessa categoria di
+    // Overpass di cui si è ridotto il volume poco fa.
+    final caiOnlyFuture = service
+        .fetchByRefOnly(trailRef, anchorPoint)
+        .catchError((Object e) {
+      debugPrint('[trails] openByRef "$trailRef": fetchByRefOnly ha lanciato: $e');
+      return null;
+    });
+
     List<TrailRelation> nearby;
     try {
-      nearby = await ref
-          .read(trailServiceProvider)
-          .trailsNear(anchorPoint, thresholdMeters: 150);
+      nearby = await service.trailsNear(anchorPoint, thresholdMeters: 150);
     } catch (e) {
       debugPrint('[trails] openByRef "$trailRef": trailsNear ha lanciato: $e');
       nearby = const [];
@@ -74,39 +89,29 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
         break;
       }
     }
-    if (match == null) {
-      debugPrint('[trails] openByRef "$trailRef": nessuna relazione vicina ha '
-          'questo ref esatto, provo comunque CAI Varallo prima di arrendermi');
-      TrailDetail? fallback;
-      try {
-        fallback = await ref
-            .read(trailServiceProvider)
-            .fetchByRefOnly(trailRef, anchorPoint);
-      } catch (e) {
-        debugPrint('[trails] openByRef "$trailRef": fetchByRefOnly ha lanciato: $e');
-        fallback = null;
-      }
-      if (!identical(state?.relation, placeholder)) return;
-      if (fallback != null) {
-        debugPrint('[trails] openByRef "$trailRef": trovato su CAI Varallo, '
-            'mostro comunque (senza percorso completo)');
-        state = TrailDetailState(
-            relation: placeholder,
-            stage: TrailDetailStage.ready,
-            detail: fallback);
-        return;
-      }
-      debugPrint('[trails] openByRef "$trailRef": non trovato nemmeno lì → non trovato');
-      state = TrailDetailState(
-        relation: placeholder,
-        stage: TrailDetailStage.error,
-        errorMessage: 'Segnavia non trovato — riprova più tardi.',
-      );
+    if (match != null) {
+      debugPrint('[trails] openByRef "$trailRef": match trovato '
+          '(${match.source.name}, id=${match.id})');
+      await open(match);
       return;
     }
-    debugPrint('[trails] openByRef "$trailRef": match trovato '
-        '(${match.source.name}, id=${match.id})');
-    await open(match);
+    debugPrint('[trails] openByRef "$trailRef": nessuna relazione vicina ha '
+        'questo ref esatto, verifico l\'esito (già in corso) di CAI Varallo');
+    final fallback = await caiOnlyFuture;
+    if (!identical(state?.relation, placeholder)) return;
+    if (fallback != null) {
+      debugPrint('[trails] openByRef "$trailRef": trovato su CAI Varallo, '
+          'mostro comunque (senza percorso completo)');
+      state = TrailDetailState(
+          relation: placeholder, stage: TrailDetailStage.ready, detail: fallback);
+      return;
+    }
+    debugPrint('[trails] openByRef "$trailRef": non trovato nemmeno lì → non trovato');
+    state = TrailDetailState(
+      relation: placeholder,
+      stage: TrailDetailStage.error,
+      errorMessage: 'Segnavia non trovato — riprova più tardi.',
+    );
   }
 
   Future<void> open(TrailRelation relation) async {

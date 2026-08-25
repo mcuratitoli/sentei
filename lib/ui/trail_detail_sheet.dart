@@ -108,7 +108,7 @@ class TrailDetailCard extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Può richiedere una decina di secondi se la rete è lenta.',
+                            'Può richiedere qualche decina di secondi...',
                             textAlign: TextAlign.center,
                             style: AppText.footnote
                                 .copyWith(color: palette.secondaryLabel),
@@ -152,19 +152,18 @@ class _TrailDetailBody extends StatelessWidget {
           Text(d.name!, style: AppText.value.copyWith(color: palette.label)),
           const SizedBox(height: 8),
         ],
+        // Partenza e arrivo su due righe separate (non più "A → B" su una
+        // riga sola): un'unica riga con una freccetta non distingueva bene
+        // i due capi-percorso a colpo d'occhio — richiesta esplicita
+        // dell'utente, 25 ago 2026. Pin per la partenza, bandiera per
+        // l'arrivo: stessa metafora di qualunque app di mappe/navigazione.
         if (hasEnds) ...[
-          Row(
-            children: [
-              Icon(CupertinoIcons.arrow_right, size: 15, color: palette.iconGreyLight),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${d.from ?? '?'} → ${d.to ?? '?'}',
-                  style: AppText.body.copyWith(color: palette.bodyText),
-                ),
-              ),
-            ],
-          ),
+          if (d.from?.isNotEmpty ?? false)
+            _EndpointRow(icon: CupertinoIcons.location_solid, label: d.from!),
+          if (d.to?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 3),
+            _EndpointRow(icon: CupertinoIcons.flag_fill, label: d.to!),
+          ],
           const SizedBox(height: 8),
         ],
         Wrap(
@@ -206,7 +205,7 @@ class _TrailDetailBody extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Percorso completo non disponibile ora (rete) — riprova più tardi.',
+                  'Percorso completo non disponibile ora — riprova più tardi.',
                   style: AppText.footnote.copyWith(color: palette.secondaryLabel),
                 ),
               ),
@@ -222,6 +221,26 @@ class _TrailDetailBody extends StatelessWidget {
           const SizedBox(height: 8),
           _ExternalLinkRow(label: 'CAI Varallo', url: d.caiVarallo!.url),
         ],
+      ],
+    );
+  }
+}
+
+class _EndpointRow extends StatelessWidget {
+  const _EndpointRow({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: palette.iconGreyLight),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(label, style: AppText.body.copyWith(color: palette.bodyText)),
+        ),
       ],
     );
   }
