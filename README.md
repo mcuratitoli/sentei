@@ -57,7 +57,7 @@ flutter run \
 
 ## 🗺️ Roadmap
 
-> **Stato attuale (23 ago 2026):** beta **`1.0.0+9`** rilasciata ai tester — **iOS su TestFlight** + **APK Android**. UI iOS-native con **modalità scura**, editing avanzato dei tracciati, import GPX riallineato, sync **iCloud** (iOS) e **Google Drive** (iOS + Android), tempo di percorrenza stimato, esportazione immagine del percorso.
+> **Stato attuale (26 ago 2026):** beta **`1.0.0+10`** rilasciata ai tester — **iOS su TestFlight** + **APK Android**. UI iOS-native con **modalità scura**, editing avanzato dei tracciati, import GPX riallineato, sync **iCloud** (iOS) e **Google Drive** (iOS + Android), tempo di percorrenza stimato, esportazione immagine del percorso, segnavia CAI visti per intero sulla mappa.
 
 - **Fase 0** — Setup + mappa ✅
 - **Fase 1 (MVP)** — Disegno + snap-to-trail, distanza/dislivello, GPX, aree offline ✅ *(download offline implementato, da validare in modalità aereo su device)*

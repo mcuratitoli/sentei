@@ -69,6 +69,43 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 10,
+    date: '26 agosto 2026',
+    highlights: [
+      NoteItem(
+        icon: CupertinoIcons.signature,
+        title: 'Un segnavia per intero',
+        body: 'Tocca il numero di un sentiero per vedere dove parte, dove '
+            'arriva e il percorso completo sulla mappa, con link a '
+            'OpenStreetMap e — in Valsesia — a CAI Varallo.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.scribble,
+        title: 'Traccia "mista": tratti liberi fuori sentiero',
+        body: 'Il tasto "Libero" fa collegare in linea retta invece di '
+            'seguire i sentieri, per un tratto specifico.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.map_pin_ellipse,
+        title: 'Punto selezionato più completo',
+        body: 'Mostra anche le coordinate e permette di aggiungere un '
+            'punto anche dopo, non solo prima.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.ellipsis_circle,
+        title: 'Menu a tre pallini più coerenti',
+        body: 'Stesse voci sulla card traccia e nella lista tracciati.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.wrench,
+        title: 'Bugfix e rifiniture',
+        body: 'Punto inserito su un tratto sul sentiero, log più leggibili, '
+            'piccole correzioni grafiche non tutte elencate qui.',
+      ),
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 9,
     date: '23 agosto 2026',
     highlights: [
@@ -344,20 +381,21 @@ const List<RoadmapGroup> kRoadmapGroups = [
     label: 'Prossime',
     items: [
       NoteItem(
+        icon: CupertinoIcons.exclamationmark_triangle,
+        title: 'Segnavia: ricerca più affidabile',
+        body: 'A volte non trova un percorso o una scheda CAI Varallo che '
+            'esiste davvero — al lavoro per renderlo più costante.',
+      ),
+      NoteItem(
         icon: CupertinoIcons.zoom_in,
         title: 'Zoom e angolazione della mappa personalizzabili',
         body: 'Prima di generare l\'immagine del percorso da condividere.',
       ),
       NoteItem(
-        icon: CupertinoIcons.xmark_circle,
-        title: 'Uscire dalla ricerca più facilmente',
-        body: 'Un tocco fuori dal pannello, non solo la freccia a sinistra.',
-      ),
-      NoteItem(
         icon: CupertinoIcons.photo_on_rectangle,
-        title: 'Importare foto direttamente dalla card traccia',
-        body: 'Oggi "Trova foto vicine" le aggiunge, ma non si può ancora '
-            'scegliere quali mostrare o nascondere.',
+        title: 'Foto: vista a griglia e importazione dalla card traccia',
+        body: 'Selezione multipla e possibilità di scegliere quali foto '
+            'mostrare, non solo aggiungerle tutte.',
       ),
     ],
   ),
@@ -365,9 +403,30 @@ const List<RoadmapGroup> kRoadmapGroups = [
     label: 'Più avanti',
     items: [
       NoteItem(
-        icon: CupertinoIcons.square_grid_2x2,
-        title: 'Foto in griglia, con selezione multipla',
-        body: 'Più zoom sulla mappa nel punto dello scatto.',
+        icon: CupertinoIcons.xmark_circle,
+        title: 'Uscire dalla ricerca più facilmente',
+        body: 'Un tocco fuori dal pannello, non solo la freccia a sinistra.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.map,
+        title: 'Sentieri disegnati in modo più chiaro sulla mappa',
+        body: 'Linee più leggibili, più vicine allo stile di una cartina '
+            'CAI stampata.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.location_fill,
+        title: 'Registrazione della traccia dal vivo',
+        body: 'Seguire il percorso col GPS mentre si cammina, non solo '
+            'disegnarlo prima o importarlo da un GPX.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.speedometer,
+        title: 'Unità di misura imperiali',
+        body: 'Oggi solo metri e chilometri.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.globe,
+        title: 'Sentèi anche in inglese',
       ),
     ],
   ),

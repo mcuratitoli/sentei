@@ -15,21 +15,19 @@
   25 ago) — OSM2CAI non restituisce mai risultati, quindi il campo `id` di quella risposta non
   è mai esercitato. Il dubbio originale (nome campo non confermato) resta aperto ma diventato
   irrilevante finché l'endpoint stesso non torna a funzionare.
-- [ ] **"Un segnavia per intero", flusso completo** (24-25 ago 2026, `docs/CHANGELOG-DEV.md`,
-  §P1.3 fetta 3/3b/4 + due giri di fix post-test) — **riaperto dopo il secondo giro di
-  correzioni del 25 agosto**: la *risoluzione* del segnavia (anchor → `trailsNear` →
-  fallback Overpass → `fetchDetail`) era già stata confermata dal vivo lo stesso giorno sui
-  segnavia 251/253 della traccia "Rassa Alpe Toso" ed è rimasta invariata, ma sei modifiche
-  successive alla UI/ai dati non sono ancora state riviste a schermo: card di dettaglio
-  **non più modale** (ora persistente sopra una mappa esplorabile — cambio strutturale, non
-  solo cosmetico), chiusura **completa** (non ridotta) della card sotto, retry su più istanze
-  Overpass, etichetta "OpenStreetMap" al posto di "Scheda ufficiale", link CAI Varallo singolo
-  da un elenco ufficiale (dominio diverso da prima, mai riprovato dal vivo con questo nuovo
-  meccanismo), e correzione dei "rami" a linea retta sulla geometria Overpass (verificata
-  contro una relazione reale scaricata a mano, non ancora vista disegnata sulla mappa
-  dell'app). **Scoperta collaterale invariata**: OSM2CAI è di fatto sempre fuori uso in
-  produzione (405, vedi sopra) — la ricerca passa sempre da Overpass. Resta da vedere anche
-  su un iPhone fisico (non solo simulatore).
+- [x] **"Un segnavia per intero", flusso completo su simulatore** — **confermato dal vivo il
+  25-26 agosto 2026** dopo una lunga sessione di test reali (segnavia 251, 253, 215, 215A,
+  215C, 251A, 251C, 261, GTA, SI, 203, tutti risolti su più tracce diverse): card **non più
+  modale** (persistente sopra una mappa esplorabile), chiusura completa della card
+  sottostante, retry/interruttore su OSM2CAI/Overpass, etichetta "OpenStreetMap", link CAI
+  Varallo singolo, correzione dei "rami" a linea retta sulla geometria Overpass, dettaglio
+  parziale quando il fetch fallisce ma la relazione è già risolta. **Restano 2 bug aperti**
+  (non un fallimento del flusso in sé): CAI Varallo non trova sempre segnavia confermati
+  esistenti (251C), e l'affidabilità di Overpass va riconfermata con un giro di test più
+  disteso — entrambi in `docs/ROADMAP.md` P2, punti 5-6, non approfonditi per scelta
+  esplicita dell'utente in questa sessione. **Scoperta collaterale**: OSM2CAI è di fatto
+  sempre fuori uso in produzione (405, vedi sopra) — la ricerca passa sempre da Overpass.
+  **Resta da vedere su un iPhone fisico** (non solo simulatore).
 - [ ] **Traccia mista: tasto "Libero"** (24 ago 2026, `docs/CHANGELOG-DEV.md`) — coperto da
   test di dominio (`free_segments_test.dart`, `track_runs_test.dart`) e widget
   (`draw_route_controls_test.dart`), ma **mai visto a schermo**: comportamento del tasto

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 /// Un segnavia trovato nell'elenco ufficiale di CAI Varallo (§"Un segnavia
@@ -24,6 +25,20 @@ class CaiVaralloResult {
 /// **Verificato dal vivo** il 25 agosto 2026: 441 voci su un'unica pagina
 /// (nessuna paginazione, nonostante il dubbio iniziale), struttura HTML
 /// confermata con richieste `curl` reali (non un formato indovinato).
+///
+/// ⚠️ **Aggiornamento 26 agosto 2026** — quella verifica non è più affidabile
+/// al 100%: un segnavia (251C) confermato manualmente presente sul sito non
+/// veniva trovato dall'app, e un `curl` diretto nella stessa serata ha
+/// restituito **due volte di fila una pagina con `HTTP 200` ma zero righe**
+/// (struttura della pagina intatta — stesso "Ordina per", stesso footer "Vai
+/// alle pagine >>" — ma l'elenco vuoto in mezzo), a fronte di richieste
+/// dell'app riuscite poco prima con centinaia di voci. Il sito sembra quindi
+/// **intermittente** (nella stessa categoria di affidabilità di Overpass,
+/// non un bug di parsing nostro confermato) — ma non è escluso al 100% un
+/// problema di formato/match dal nostro lato. Non ancora approfondito, vedi
+/// `docs/ROADMAP.md` (bug aperto). Log diagnostici aggiunti in [findByRef]
+/// per la prossima sessione: distinguono "pagina arrivata ma vuota" da
+/// "pagina con voci ma nessun match".
 class CaiVaralloSearchService {
   CaiVaralloSearchService({
     http.Client? client,
@@ -66,19 +81,39 @@ class CaiVaralloSearchService {
           .get(Uri.parse(listUrl),
               headers: const {'User-Agent': 'sentei/1.0 (app escursionismo Alpi)'})
           .timeout(timeout);
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        debugPrint('[trails] caivarallo "$target": HTTP ${res.statusCode}');
+        return null;
+      }
       final body = res.body;
+      // Log diagnostico permanente (non solo per il bug del 26 ago 2026 sul
+      // segnavia 251C, mai trovato nonostante esista sul sito): distingue
+      // "la pagina è arrivata ma senza righe" (probabile intermittenza del
+      // sito, osservata dal vivo con `curl` diretto la stessa notte — due
+      // richieste di fila hanno restituito la lista completamente vuota,
+      // pur con `HTTP 200` e la struttura della pagina intatta) da "la
+      // pagina aveva righe ma nessuna con questo ref esatto" (più probabile
+      // un problema di formato/match nostro). Senza questo, i due casi sono
+      // indistinguibili da un `null` secco nei log.
+      var count = 0;
       for (final m in _entryPattern.allMatches(body)) {
+        count++;
         if (m.group(2)!.trim() != target) continue;
         final id = m.group(1)!;
         final title = _cleanTitle(m.group(3)!);
+        debugPrint('[trails] caivarallo "$target": trovato dopo $count voci '
+            '(su almeno altrettante nella pagina)');
         return CaiVaralloResult(
           title: title.isEmpty ? 'Segnavia $target' : title,
           url: '$detailBaseUrl?sentiero=$id',
         );
       }
+      debugPrint('[trails] caivarallo "$target": non trovato fra $count voci '
+          'nella pagina${count == 0 ? " (lista vuota — probabile intermittenza "
+              "del sito, non necessariamente un ref inesistente)" : ""}');
       return null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] caivarallo "$target" fallito: $e');
       return null;
     }
   }

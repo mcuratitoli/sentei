@@ -13,10 +13,7 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
-## Non ancora rilasciato
-
-Modifiche già su `main` ma non ancora distribuite (il build iOS/Android della `1.0.0+9`
-già dato ai tester **non** le contiene, sono successive).
+## 1.0.0 (10) — 26 agosto 2026
 
 - ✏️ **Traccia "mista": tratti liberi fuori sentiero.** Disegnando o
   modificando un percorso, il tasto "Libero" (icona a scarabocchio) fa sì

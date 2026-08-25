@@ -3,9 +3,8 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 24 agosto 2026 · **Stato:** beta `1.0.0+9` in preparazione per la
-distribuzione ai tester (iOS/Android), con modifiche già su `main` non ancora rilasciate
-(vedi `CHANGELOG.md`, sezione "Non ancora rilasciato").
+**Aggiornato:** 26 agosto 2026 · **Stato:** beta `1.0.0+10` in preparazione per la
+distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità della build.
 
 ## Come leggere questo documento
 
@@ -125,10 +124,20 @@ disambiguazione perché la label è già associata a un tratto preciso.
 - [x] **Link alla scheda ufficiale** — confermato per Overpass (permalink
   `openstreetmap.org/relation/{id}`, sempre valido); **non implementato per OSM2CAI**
   (`officialUrl` resta `null` per quella fonte — nessun permalink pubblico verificato,
-  principio "mai inventare un URL" ancora valido). Arricchimento ulteriore per la Valsesia:
-  ricerca su `www.caivarallo.com`, tutti i risultati trovati come link (fetta 3b).
+  principio "mai inventare un URL" ancora valido, e l'endpoint OSM2CAI si è rivelato
+  comunque sempre rotto in produzione — vedi `docs/osm2cai-investigation.md`).
+  Arricchimento ulteriore per la Valsesia: match esatto sull'elenco ufficiale di
+  `www.caivarallo.it` (non più `caivarallo.com`, scartato il 25 ago per risultati non
+  pertinenti), in parallelo alla ricerca OpenStreetMap, non come ripiego a valle.
+- [x] **Resilienza di rete** (25-26 ago 2026, testata dal vivo per un'intera serata) —
+  interruttore su OSM2CAI (sempre rotto, salta il giro di rete inutile) e su Overpass (dopo
+  un fallimento totale); corsa a staffetta fra le istanze Overpass invece di un giro
+  sequenziale; dettaglio **parziale** (nome/capi-percorso/link, niente traccia sulla mappa)
+  quando il fetch della geometria fallisce ma la relazione era già stata risolta.
 - [ ] **Non incluso, estensione naturale per una prossima epica**: "usa questo segnavia come
   traccia" — import diretto del GPX della relazione nell'editor.
+- **2 bug aperti dal test dal vivo del 26 agosto**, non approfonditi per ora — vedi P2,
+  punti 5 e 6.
 
 *13 story point.*
 
@@ -140,7 +149,9 @@ disambiguazione perché la label è già associata a un tratto preciso.
 > primo lavoro dopo P1. **Il 18 agosto** due punti sono stati promossi a P1 (tasto elimina,
 > evidenziazione traccia selezionata) e uno tolto perché già rilasciato in `1.0.0+8`
 > (focus mappa dopo l'import — 29 luglio 2026, vedi `docs/CHANGELOG-DEV.md`), risultava
-> ancora aperto qui per una svista. Ordine aggiornato per SP crescente.
+> ancora aperto qui per una svista. Ordine aggiornato per SP crescente. **Il 26 agosto** si
+> sono aggiunti i punti 5-6 (bug emersi dal test dal vivo su P1.3), in coda invece che
+> riordinati per SP — nati a fine sessione, mantenerne l'ordine di scoperta per ora.
 
 1. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sotto, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
@@ -185,8 +196,28 @@ disambiguazione perché la label è già associata a un tratto preciso.
       parte del bisogno reale (più/meno zoom, ruota un po') con molto meno rischio tecnico
       di A; A vale la pena solo se serve controllo davvero libero (pan per spostare il
       centro, tilt libero).
+5. [ ] **[FIX] CAI Varallo: alcuni segnavia esistenti non vengono trovati** — *SP 3*.
+   Segnalato dall'utente il 26 agosto 2026: il segnavia 251C, verificato manualmente
+   presente sul sito, risultava "non trovato" da `CaiVaralloSearchService.findByRef`.
+   Investigazione lampo (non una fix) la stessa notte: un `curl` diretto verso l'elenco ha
+   restituito **due volte di fila** `HTTP 200` con la struttura della pagina intatta ma
+   **zero righe** nel mezzo, a fronte di richieste dell'app riuscite poco prima con
+   centinaia di voci (251, 253, 215, 215C tutte trovate). Il sito sembra quindi
+   **intermittente** (stessa categoria di affidabilità di Overpass) più che un bug di
+   parsing sicuro dal nostro lato — ma non escluso al 100%. Log diagnostico già aggiunto
+   (`cai_varallo_search_service.dart`, 26 ago): distingue "pagina vuota" da "pagina con
+   voci ma nessun match esatto" per la prossima sessione. Non approfondito oltre su
+   richiesta esplicita dell'utente ("per ora lascia così").
+6. [ ] **[FIX] Affidabilità della ricerca Overpass da riconfermare** — *SP 2*. Durante i
+   test dal vivo del 25-26 agosto 2026 la ricerca falliva spesso (fino a `Connection
+   refused` su tutte le istanze); i fix della stessa serata (interruttore, mirror ridotto a
+   uno indipendente, corsa a staffetta con avanzamento rapido su fallimento) hanno
+   visibilmente migliorato la situazione nelle ultime prove, ma l'utente non si fida ancora
+   al 100% ("anche se ora sembra migliorato"). Da riverificare con un giro di test più
+   lungo/rilassato (non concentrato in un'unica sessione di più ore, che può aver
+   contribuito essa stessa al problema — vedi `docs/CHANGELOG-DEV.md`, 25 ago).
 
-*Totale indicativo: ~14 story point — riferimento per pianificare, non un vincolo rigido.*
+*Totale indicativo: ~19 story point — riferimento per pianificare, non un vincolo rigido.*
 
 ---
 

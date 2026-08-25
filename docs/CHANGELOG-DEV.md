@@ -11,6 +11,46 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 26 agosto 2026 — Chiusura sessione: fix testo non centrato, bug aperti loggati per dopo
+
+Ultimo giro della maratona di test su "Un segnavia per intero", prima di preparare il
+rilascio. Due segnalazioni dell'utente, entrambe **annotate ma non approfondite ora** su
+richiesta esplicita ("per ora lascia così e non approfondire") — vedi `docs/ROADMAP.md` per
+i due nuovi punti aperti:
+
+1. **Alcuni segnavia verificati manualmente sul sito CAI Varallo non vengono trovati
+   dall'app** (esempio concreto: 251C). Investigazione lampo (non una fix) per capire cosa
+   scrivere nel bug report: un `curl` diretto verso l'elenco, la stessa notte, ha restituito
+   **due volte di fila** una pagina `HTTP 200` con la struttura intatta (stesso "Ordina per",
+   stesso footer "Vai alle pagine >>") ma **zero righe** nel mezzo — a fronte di richieste
+   dell'app riuscite poco prima con centinaia di voci (251, 253, 215, 215C tutte trovate).
+   Il sito sembra quindi **intermittente**, nella stessa categoria di affidabilità di
+   Overpass, più che un bug di parsing sicuro dal nostro lato — ma non escluso al 100%.
+   Aggiunto log diagnostico permanente in `CaiVaralloSearchService.findByRef`
+   (`cai_varallo_search_service.dart`): distingue "pagina arrivata ma vuota" (probabile
+   intermittenza) da "pagina con voci ma nessun match esatto" (più probabile un problema di
+   formato/match nostro) — nei log di stanotte non si riusciva a distinguere i due casi, solo
+   un `null` secco.
+2. **La ricerca su OpenStreetMap (Overpass) falliva spesso durante i test di stanotte**,
+   poi migliorata dai fix di stasera (mirror ridotto, staffetta con avanzamento rapido,
+   interruttore dopo un fallimento totale — vedi le voci precedenti in questo changelog).
+   L'utente conferma un miglioramento ma non si fida ancora al 100% ("anche se ora sembra
+   migliorato") — lasciato come punto aperto da ricontrollare in una sessione futura con più
+   tempo a disposizione, non chiuso definitivamente stanotte.
+
+Fix minore nel frattempo: il testo esplicativo sotto lo spinner di caricamento non appariva
+centrato sulla card — la colonna di testo si stringeva sulla riga più lunga e veniva poi
+allineata a sinistra dalla colonna esterna della card (`crossAxisAlignment.start`); la riga
+più corta risultava centrata solo rispetto a quella, non rispetto alla card intera.
+`SizedBox(width: double.infinity)` attorno alla colonna di testo in `trail_detail_sheet.dart`
+la fa ora centrare sull'intera card.
+
+Monitoraggio dal vivo (`Monitor` sui log `[trails]`) chiuso a fine sessione — non serve più,
+i meccanismi di fallback/interruttore si sono dimostrati sufficientemente affidabili nei
+test di stanotte da non richiedere più supervisione continua.
+
+---
+
 ## 25 agosto 2026 — CAI Varallo in parallelo (non "ultima spiaggia"); partenza/arrivo su due righe
 
 Settimo e ultimo giro della serata. Due richieste:
