@@ -8,6 +8,7 @@ import 'package:sentei/data/trails/trail_service.dart';
 import 'package:sentei/domain/models/elevation_profile.dart' show TrailSegment;
 import 'package:sentei/features/draw_route/route_editor_provider.dart'
     show trailServiceProvider;
+import 'package:sentei/features/map_gl/inspected_point_provider.dart';
 import 'package:sentei/ui/trail_detail_sheet.dart';
 
 /// Fake controllabile: [detail] la risposta di fetchDetail (`null` = "non
@@ -40,16 +41,28 @@ class _FakeTrailService implements TrailService {
 final _relation =
     TrailRelation('203', const [], TrailSource.overpass, id: '123');
 
+// `TrailDetailCard` è ora persistente e non modale (§"Un segnavia per
+// intero", 25 ago 2026: niente più `showAppBottomSheet` — l'utente deve
+// poter esplorare la mappa sotto), quindi l'host deve includerla nell'albero
+// come farebbe `map_gl_screen.dart`, non aspettarsela da una route pushata.
 Widget _host(TrailService service) => ProviderScope(
       overrides: [trailServiceProvider.overrideWithValue(service)],
       child: MaterialApp(
         home: Consumer(
           builder: (context, ref, _) => Scaffold(
-            body: Center(
-              child: CupertinoButton(
-                onPressed: () => showTrailDetail(context, ref, _relation),
-                child: const Text('open'),
-              ),
+            body: Stack(
+              children: [
+                Center(
+                  child: CupertinoButton(
+                    onPressed: () => showTrailDetail(context, ref, _relation),
+                    child: const Text('open'),
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.bottomCenter,
+                  child: TrailDetailCard(),
+                ),
+              ],
             ),
           ),
         ),
@@ -84,7 +97,7 @@ void main() {
   });
 
   testWidgets(
-      'confermando: la card mostra nome/capi-percorso/link ufficiale',
+      'confermando: la card mostra nome/capi-percorso/link OpenStreetMap',
       (tester) async {
     await tester.pumpWidget(_host(_FakeTrailService(
       detail: const TrailDetail(
@@ -104,23 +117,21 @@ void main() {
 
     expect(find.text('Alta Via del Rifugio'), findsOneWidget);
     expect(find.text('Alagna → Rifugio Pastore'), findsOneWidget);
-    expect(find.text('Scheda ufficiale'), findsOneWidget);
+    expect(find.text('OpenStreetMap'), findsOneWidget);
   });
 
   testWidgets(
-      'risultati CAI Varallo: un link per risultato, non un unico rimando generico',
+      'match CAI Varallo: un link verso l\'elenco ufficiale',
       (tester) async {
     await tester.pumpWidget(_host(_FakeTrailService(
       detail: const TrailDetail(
         ref: '203',
         points: [],
-        caiVaralloResults: [
-          CaiVaralloResult(
-              title: 'Festa Alpe Bors',
-              url: 'https://www.caivarallo.com/eventi/alpe-bors/'),
-          CaiVaralloResult(
-              title: 'Baita Alagna', url: 'https://www.caivarallo.com/rifugi/alagna/'),
-        ],
+        caiVarallo: CaiVaralloResult(
+          title: 'Rassa - Alpe Toso - Colle del Loo',
+          url:
+              'https://www.caivarallo.it/valsesia/sentieri-valsesia/sentieri-valsesia-dettaglio.php?sentiero=417',
+        ),
       ),
     )));
     await tester.tap(find.text('open'));
@@ -128,13 +139,11 @@ void main() {
     await tester.tap(find.text('Approfondisci'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Trovato anche su CAI Varallo'), findsOneWidget);
-    expect(find.text('Festa Alpe Bors'), findsOneWidget);
-    expect(find.text('Baita Alagna'), findsOneWidget);
+    expect(find.text('CAI Varallo'), findsOneWidget);
   });
 
   testWidgets(
-      'nessun risultato CAI Varallo: la sezione non compare affatto',
+      'nessun match CAI Varallo: il link non compare',
       (tester) async {
     await tester.pumpWidget(_host(_FakeTrailService(
       detail: const TrailDetail(ref: '203', points: []),
@@ -144,7 +153,54 @@ void main() {
     await tester.tap(find.text('Approfondisci'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Trovato anche su CAI Varallo'), findsNothing);
+    expect(find.text('CAI Varallo'), findsNothing);
+  });
+
+  testWidgets(
+      'confermando: chiude la card del punto ispezionato sotto, non solo la riduce',
+      (tester) async {
+    final container = ProviderContainer(overrides: [
+      trailServiceProvider.overrideWithValue(
+          _FakeTrailService(detail: const TrailDetail(ref: '203', points: []))),
+    ]);
+    addTearDown(container.dispose);
+    // Un punto ispezionato "acceso" a mano (bypassa `inspect()`, che
+    // lancerebbe elevazione/geocoding/segnavia reali): basta che lo stato
+    // sia non-null perché il test verifichi la chiusura.
+    container.read(inspectedPointProvider.notifier).state =
+        const InspectedPoint(point: LatLng(45.93, 7.87));
+
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, _) => Scaffold(
+            body: Stack(
+              children: [
+                Center(
+                  child: CupertinoButton(
+                    onPressed: () => showTrailDetail(context, ref, _relation),
+                    child: const Text('open'),
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.bottomCenter,
+                  child: TrailDetailCard(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+
+    expect(container.read(inspectedPointProvider), isNotNull);
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approfondisci'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(inspectedPointProvider), isNull);
   });
 
   testWidgets('segnavia non trovato: messaggio di errore, niente crash',
@@ -168,5 +224,21 @@ void main() {
 
     expect(find.textContaining('non trovato'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('chiudendo con la × la card sparisce', (tester) async {
+    await tester.pumpWidget(_host(_FakeTrailService(
+      detail: const TrailDetail(ref: '203', points: []),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approfondisci'));
+    await tester.pumpAndSettle();
+    expect(find.text('Segnavia 203'), findsOneWidget);
+
+    await tester.tap(find.byIcon(CupertinoIcons.xmark).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Segnavia 203'), findsNothing);
   });
 }

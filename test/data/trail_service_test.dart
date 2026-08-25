@@ -79,6 +79,46 @@ const _overpassBody = '''
 }
 ''';
 
+// Relazione con 3 "member" way, la centrale (indice 1) data **invertita**
+// rispetto alle vicine (il suo ultimo punto, non il primo, è quello che
+// combacia col precedente) — riproduce dal vivo il bug del segnavia 251 (25
+// ago 2026): un "ramo" a linea retta inesistente su OpenStreetMap, causato
+// da una concatenazione ingenua che non controllava l'orientamento.
+const _overpassMisorientedMembersBody = '''
+{
+  "elements": [
+    {
+      "type": "relation",
+      "id": 999,
+      "tags": { "ref": "251" },
+      "members": [
+        {
+          "type": "way",
+          "geometry": [
+            { "lat": 45.70, "lon": 8.00 },
+            { "lat": 45.71, "lon": 8.00 }
+          ]
+        },
+        {
+          "type": "way",
+          "geometry": [
+            { "lat": 45.72, "lon": 8.00 },
+            { "lat": 45.71, "lon": 8.00 }
+          ]
+        },
+        {
+          "type": "way",
+          "geometry": [
+            { "lat": 45.72, "lon": 8.00 },
+            { "lat": 45.73, "lon": 8.00 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+''';
+
 // Due sentieri paralleli vicini (ref "5" esattamente su un punto, "6" a
 // ~31 m verso est): per verificare che `trailsNear` restituisca entrambi,
 // ordinati per distanza crescente.
@@ -145,19 +185,17 @@ const _osm2caiFarFromValsesiaBody = '''
 }
 ''';
 
-// Estratto reale (semplificato) di una risposta di ricerca caivarallo.com,
-// stesso fixture di cai_varallo_search_service_test.dart.
+// Estratto reale (semplificato) dell'elenco caivarallo.it, stesso fixture di
+// cai_varallo_search_service_test.dart — contiene il ref "5" (usato dalle
+// fixture OSM2CAI qui sopra) così `findByRef('5')` trova un match esatto.
 const _caiVaralloResultsBody = '''
-<body class="search search-results wp-theme-Divi">
-  <article><h2 class="entry-title"><a href="https://www.caivarallo.com/eventi-attivita-cai/festa-della-famiglia-alpe-bors-alagna-valsesia/">FESTA DELLA FAMIGLIA &#8211; ALPE BORS (ALAGNA VALSESIA)</a></h2></article>
-  <article><h2 class="entry-title"><a href="https://www.caivarallo.com/rifugi-cai-varallo/capanna-sociale-alagna/">Baita Alagna</a></h2></article>
-</body>
+<a href="sentieri-valsesia-dettaglio.php?sentiero=417" class="nosottolineato">Segnavia <span class="fasciarossa">&nbsp;5 (51)&nbsp;</span></a> | Catasto <span class="fasciaazzurra">&nbsp;5&nbsp;</span></a>  | Dislivello: 1535 m<br /><a href="sentieri-valsesia-dettaglio.php?sentiero=417" class="nosottolineato"><h3><strong>Alta Via del Rifugio ...</strong></h3></a>&nbsp;<br />Partenza da: Alagna - Arrivo: Rifugio Pastore<br /><br /><br /><br />
 ''';
 
+// Stesso elenco ma senza il ref "5": `findByRef('5')` deve dare `null`, non
+// un match a caso su un altro ref presente in pagina.
 const _caiVaralloNoResultsBody = '''
-<body class="search search-no-results wp-theme-Divi">
-  <h1 class="not-found-title">No Results Found</h1>
-</body>
+<a href="sentieri-valsesia-dettaglio.php?sentiero=427" class="nosottolineato">Segnavia <span class="fasciarossa">&nbsp;253 (53)&nbsp;</span></a> | Catasto <span class="fasciaazzurra">&nbsp;253&nbsp;</span></a>  | Dislivello: 900 m<br /><a href="sentieri-valsesia-dettaglio.php?sentiero=427" class="nosottolineato"><h3><strong>Bocchetta del Croso ...</strong></h3></a>&nbsp;<br />Partenza da: Alpe Toso - Arrivo: Bocchetta del Croso<br /><br /><br /><br />
 ''';
 
 http.Client _fixed(String body) =>
@@ -272,6 +310,25 @@ void main() {
       expect(detail.distanceMeters, greaterThan(0)); // calcolato localmente
     });
 
+    test(
+        'Overpass: raddrizza un member way invertito, niente ramo a linea retta '
+        '(bug segnavia 251, 25 ago 2026)', () async {
+      final svc =
+          OverpassTrailService(client: _fixed(_overpassMisorientedMembersBody));
+      final detail = await svc.fetchDetailById('999');
+      expect(detail, isNotNull);
+      // Percorso continuo dal capo all'altro: nessun salto fra punti
+      // consecutivi (i due estremi sono ~333 m via haversine; se il member
+      // invertito non fosse raddrizzato, un salto isolato supererebbe
+      // ampiamente questa soglia).
+      const distance = Distance();
+      for (var i = 0; i < detail!.points.length - 1; i++) {
+        expect(distance(detail.points[i], detail.points[i + 1]), lessThan(2000));
+      }
+      expect(detail.points.first.latitude, closeTo(45.70, 1e-9));
+      expect(detail.points.last.latitude, closeTo(45.73, 1e-9));
+    });
+
     test('CombinedTrailService: smista in base alla fonte, niente fallback incrociato',
         () async {
       final svc = CombinedTrailService(
@@ -311,8 +368,8 @@ void main() {
       );
       final relation = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
       final detail = await svc.fetchDetail(relation);
-      expect(detail?.caiVaralloResults, hasLength(2));
-      expect(detail?.caiVaralloResults.first.title, contains('ALPE BORS'));
+      expect(detail?.caiVarallo, isNotNull);
+      expect(detail?.caiVarallo?.title, contains('Alta Via del Rifugio'));
     });
 
     test(
@@ -331,7 +388,7 @@ void main() {
       );
       final relation = TrailRelation('7', const [], TrailSource.osm2cai, id: '99');
       final detail = await svc.fetchDetail(relation);
-      expect(detail?.caiVaralloResults, isEmpty);
+      expect(detail?.caiVarallo, isNull);
       expect(called, isFalse);
     });
 
@@ -345,7 +402,7 @@ void main() {
       );
       final relation = TrailRelation('5', const [], TrailSource.osm2cai, id: '42');
       final detail = await svc.fetchDetail(relation);
-      expect(detail?.caiVaralloResults, isEmpty);
+      expect(detail?.caiVarallo, isNull);
     });
   });
 

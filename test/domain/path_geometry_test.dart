@@ -144,4 +144,77 @@ void main() {
       expect(calc.pointAtFraction([p], 0.3), p);
     });
   });
+
+  group('stitchSegments', () {
+    test('segmenti già nello stesso verso: concatenati così come sono', () {
+      final result = calc.stitchSegments([
+        [const LatLng(0, 0), const LatLng(0, 1)],
+        [const LatLng(0, 1), const LatLng(0, 2)],
+      ]);
+      expect(result, [
+        const LatLng(0, 0),
+        const LatLng(0, 1),
+        const LatLng(0, 1),
+        const LatLng(0, 2),
+      ]);
+    });
+
+    test(
+        'un segmento invertito rispetto al precedente viene raddrizzato '
+        '(bug osservato dal vivo: rami a linea retta inesistenti sul segnavia 251)',
+        () {
+      // Il secondo segmento è dato "al contrario": il suo ULTIMO punto è
+      // quello che in realtà continua dal primo segmento, non il primo.
+      final result = calc.stitchSegments([
+        [const LatLng(0, 0), const LatLng(0, 1)],
+        [const LatLng(0, 2), const LatLng(0, 1)], // invertito
+      ]);
+      expect(result, [
+        const LatLng(0, 0),
+        const LatLng(0, 1),
+        const LatLng(0, 1), // raddrizzato: parte da qui...
+        const LatLng(0, 2), // ...non da (0,2) come nell'ordine originale
+      ]);
+    });
+
+    test('catena di più segmenti con inversioni alternate', () {
+      final result = calc.stitchSegments([
+        [const LatLng(0, 0), const LatLng(0, 1)],
+        [const LatLng(0, 2), const LatLng(0, 1)], // invertito
+        [const LatLng(0, 2), const LatLng(0, 3)], // dritto
+      ]);
+      expect(result.first, const LatLng(0, 0));
+      expect(result.last, const LatLng(0, 3));
+      // Nessun salto: ogni punto consecutivo è vicino al precedente (non un
+      // balzo da un capo sbagliato all'altro).
+      const distance = Distance();
+      for (var i = 0; i < result.length - 1; i++) {
+        expect(distance(result[i], result[i + 1]), lessThan(150000));
+      }
+    });
+
+    test('segmenti vuoti vengono ignorati', () {
+      final result = calc.stitchSegments([
+        [const LatLng(0, 0), const LatLng(0, 1)],
+        const [],
+        [const LatLng(0, 1), const LatLng(0, 2)],
+      ]);
+      expect(result, [
+        const LatLng(0, 0),
+        const LatLng(0, 1),
+        const LatLng(0, 1),
+        const LatLng(0, 2),
+      ]);
+    });
+
+    test('nessun segmento: lista vuota', () {
+      expect(calc.stitchSegments(const []), isEmpty);
+      expect(calc.stitchSegments(const [[]]), isEmpty);
+    });
+
+    test('un solo segmento: ritornato invariato', () {
+      final seg = [const LatLng(0, 0), const LatLng(0, 1)];
+      expect(calc.stitchSegments([seg]), seg);
+    });
+  });
 }

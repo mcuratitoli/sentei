@@ -19,10 +19,12 @@ class OverpassTrailService extends TrailService {
   OverpassTrailService({
     http.Client? client,
     this.endpoint = 'https://overpass-api.de/api/interpreter',
+    List<String>? mirrorEndpoints,
     this.timeout = const Duration(seconds: 25),
     this.maxPoints = 30,
     this.aroundMeters = 40,
-  }) : _client = client ?? http.Client();
+  })  : _client = client ?? http.Client(),
+        _mirrors = mirrorEndpoints ?? _defaultMirrors;
 
   final http.Client _client;
   final String endpoint;
@@ -33,6 +35,44 @@ class OverpassTrailService extends TrailService {
 
   /// Raggio (m) entro cui cercare i sentieri attorno ai punti campionati.
   final int aroundMeters;
+
+  /// Istanze pubbliche alternative, provate in ordine se [endpoint] fallisce
+  /// o va in timeout: il server principale (`overpass-api.de`) è pubblico e
+  /// gratuito, e osservato dal vivo restituire timeout (`HTTP 504`) sotto
+  /// carico (25 ago 2026) — un fallimento isolato che un secondo tentativo,
+  /// spesso su un'istanza meno affollata, risolve. Nessuna di queste
+  /// richiede una chiave API (stesso servizio Overpass, mirror indipendenti).
+  final List<String> _mirrors;
+  static const _defaultMirrors = [
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+  ];
+
+  /// Prova [endpoint] e via via ogni mirror finché uno risponde `200`;
+  /// lancia [TrailLookupException] solo se **tutti** falliscono. Ogni
+  /// tentativo usa l'intero [timeout] configurato: nel caso peggiore (tutti
+  /// giù) l'attesa totale cresce di conseguenza, accettabile per un'azione
+  /// interattiva rara (tap deliberato + conferma), non per una ricerca in
+  /// background.
+  Future<http.Response> _postToAnyEndpoint(String query) async {
+    Object? lastError;
+    for (final url in [endpoint, ..._mirrors]) {
+      try {
+        final res = await _client
+            .post(Uri.parse(url),
+                headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
+                body: {'data': query})
+            .timeout(timeout);
+        if (res.statusCode == 200) return res;
+        lastError = 'HTTP ${res.statusCode}';
+        debugPrint('[trails] overpass $url → HTTP ${res.statusCode}, provo il prossimo');
+      } catch (e) {
+        lastError = e;
+        debugPrint('[trails] overpass $url fallito ($e), provo il prossimo');
+      }
+    }
+    throw TrailLookupException('overpass: tutte le istanze fallite ($lastError)');
+  }
 
   /// Scarica le relazioni `route=hiking` vicine al percorso con la geometria,
   /// filtrando i punti al bounding box del percorso (+ margine).
@@ -57,21 +97,10 @@ class OverpassTrailService extends TrailService {
         'rel["route"="hiking"](around:$radius,$coords);'
         'out geom;';
 
-    // Fallimento (rete/timeout/HTTP non-200) → lancia [TrailLookupException];
-    // risposta valida senza relazioni → lista vuota (nessun segnavia qui).
-    final http.Response res;
-    try {
-      res = await _client
-          .post(Uri.parse(endpoint),
-              headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
-              body: {'data': query})
-          .timeout(timeout);
-    } catch (e) {
-      throw TrailLookupException('overpass: $e');
-    }
-    if (res.statusCode != 200) {
-      throw TrailLookupException('overpass HTTP ${res.statusCode}');
-    }
+    // Fallimento (rete/timeout/HTTP non-200 su TUTTE le istanze) → lancia
+    // [TrailLookupException]; risposta valida senza relazioni → lista vuota
+    // (nessun segnavia qui).
+    final res = await _postToAnyEndpoint(query);
     final List<dynamic> elements;
     try {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -148,19 +177,7 @@ class OverpassTrailService extends TrailService {
   /// permalink OSM standard, sempre valido.
   Future<TrailDetail?> fetchDetailById(String id) async {
     final query = '[out:json][timeout:$timeoutSeconds];rel($id);out geom;';
-    final http.Response res;
-    try {
-      res = await _client
-          .post(Uri.parse(endpoint),
-              headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
-              body: {'data': query})
-          .timeout(timeout);
-    } catch (e) {
-      throw TrailLookupException('overpass detail: $e');
-    }
-    if (res.statusCode != 200) {
-      throw TrailLookupException('overpass detail HTTP ${res.statusCode}');
-    }
+    final res = await _postToAnyEndpoint(query);
     final List<dynamic> elements;
     try {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -178,13 +195,21 @@ class OverpassTrailService extends TrailService {
       return (v == null || v.isEmpty) ? null : v;
     }
 
-    final pts = <LatLng>[];
+    // Le `member` way di una relazione non sono garantite tutte nello stesso
+    // verso: concatenarle senza controllo può saldare fine-con-fine invece di
+    // fine-con-inizio, creando un salto a linea retta — vedi doc su
+    // `PathGeometry.stitchSegments`, che sceglie l'orientamento giusto per
+    // ogni way in base a quella precedente.
+    final ways = <List<LatLng>>[];
     for (final mbr in (el['members'] as List? ?? const [])) {
       if (mbr['type'] != 'way') continue;
-      for (final g in (mbr['geometry'] as List? ?? const [])) {
-        pts.add(LatLng((g['lat'] as num).toDouble(), (g['lon'] as num).toDouble()));
-      }
+      final way = <LatLng>[
+        for (final g in (mbr['geometry'] as List? ?? const []))
+          LatLng((g['lat'] as num).toDouble(), (g['lon'] as num).toDouble()),
+      ];
+      if (way.isNotEmpty) ways.add(way);
     }
+    final pts = const PathGeometry().stitchSegments(ways);
     if (pts.isEmpty) return null;
     return TrailDetail(
       ref: ref,

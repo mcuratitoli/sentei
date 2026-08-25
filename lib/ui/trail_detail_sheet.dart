@@ -5,8 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/util/format.dart';
 import '../data/trails/trail_service.dart';
-import '../features/draw_route/route_editor_provider.dart'
-    show trackCardExpandedProvider;
+import '../features/draw_route/route_editor_provider.dart' show tracksProvider;
 import '../features/map_gl/inspected_point_provider.dart';
 import '../features/map_gl/trail_detail_provider.dart';
 import 'app_bottom_sheet.dart';
@@ -16,7 +15,8 @@ import 'tokens.dart';
 /// Punto d'ingresso da una label segnavia **già risolta** (card del punto
 /// ispezionato, che ha già la `TrailRelation` completa con id/fonte):
 /// conferma prima di aprire (evita aperture accidentali con un fetch di
-/// rete dietro), poi la card di dettaglio — che si aggiorna da sola mentre
+/// rete dietro), poi la card di dettaglio ([TrailDetailCard], persistente
+/// nello `Stack` di `map_gl_screen.dart`) — che si aggiorna da sola mentre
 /// [TrailDetailNotifier.open] risolve in background.
 Future<void> showTrailDetail(
         BuildContext context, WidgetRef ref, TrailRelation relation) =>
@@ -42,53 +42,70 @@ Future<void> _confirmThenOpen(BuildContext context, WidgetRef ref, String trailR
     confirmLabel: 'Approfondisci',
     destructive: false,
     onConfirm: () {
-      // Focus sul segnavia: la card sotto (punto ispezionato o traccia) non
-      // deve restare in sovrimpressione mentre si guarda il percorso intero.
+      // Da questo momento il focus è solo il segnavia: la card del punto
+      // ispezionato o della traccia selezionata non deve restare aperta
+      // sotto — chiusura **completa**, non solo ridotta (richiesta esplicita
+      // dell'utente dopo aver visto la traccia restare a metà schermo).
       ref.read(inspectedPointProvider.notifier).clear();
-      ref.read(trackCardExpandedProvider.notifier).collapse();
+      ref.read(tracksProvider.notifier).deselect();
       startFetch();
-      if (context.mounted) {
-        showAppBottomSheet<void>(
-          context: context,
-          builder: (_) => const _TrailDetailSheet(),
-        ).whenComplete(() => ref.read(trailDetailProvider.notifier).clear());
-      }
     },
   );
 }
 
-class _TrailDetailSheet extends ConsumerWidget {
-  const _TrailDetailSheet();
+/// Card di dettaglio segnavia: **persistente e non modale**, nello `Stack`
+/// di `map_gl_screen.dart` come la card traccia/punto/foto — non più una
+/// `showModalBottomSheet` (richiesta esplicita dell'utente, 25 ago 2026: con
+/// lo scrim scuro e il tap-fuori che chiude tutto non si poteva esplorare la
+/// mappa sottostante col percorso evidenziato). Visibile quando
+/// [trailDetailProvider] non è `null`; il rendering del tracciato
+/// tratteggiato sulla mappa è gestito a parte in `map_gl_screen.dart`
+/// (`_renderTrailDetail`, invariato).
+class TrailDetailCard extends ConsumerWidget {
+  const TrailDetailCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(trailDetailProvider);
-    final palette = context.palette;
     if (state == null) return const SizedBox.shrink();
+    final palette = context.palette;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppSheetHeader(
-          title: 'Segnavia ${state.relation.ref}',
-          onClose: () => Navigator.of(context).pop(),
+    return SizedBox(
+      width: double.infinity,
+      child: AppSheetSurface(
+        floating: false,
+        onDismiss: () => ref.read(trailDetailProvider.notifier).clear(),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSheetHeader(
+                  title: 'Segnavia ${state.relation.ref}',
+                  onClose: () => ref.read(trailDetailProvider.notifier).clear(),
+                ),
+                switch (state.stage) {
+                  TrailDetailStage.loading => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(child: CupertinoActivityIndicator()),
+                    ),
+                  TrailDetailStage.error => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        state.errorMessage ?? 'Segnavia non trovato.',
+                        style: AppText.body.copyWith(color: palette.secondaryLabel),
+                      ),
+                    ),
+                  TrailDetailStage.ready => _TrailDetailBody(detail: state.detail!),
+                },
+              ],
+            ),
+          ),
         ),
-        switch (state.stage) {
-          TrailDetailStage.loading => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: CupertinoActivityIndicator()),
-            ),
-          TrailDetailStage.error => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                state.errorMessage ?? 'Segnavia non trovato.',
-                style: AppText.body.copyWith(color: palette.secondaryLabel),
-              ),
-            ),
-          TrailDetailStage.ready => _TrailDetailBody(detail: state.detail!),
-        },
-      ],
+      ),
     );
   }
 }
@@ -145,55 +162,44 @@ class _TrailDetailBody extends StatelessWidget {
         ),
         if (d.officialUrl != null) ...[
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: () => launchUrl(Uri.parse(d.officialUrl!),
-                mode: LaunchMode.externalApplication),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Scheda ufficiale',
-                    style: AppText.body.copyWith(color: palette.accent)),
-                const SizedBox(width: 4),
-                Icon(CupertinoIcons.arrow_up_right_square,
-                    size: 14, color: palette.accent),
-              ],
-            ),
+          _ExternalLinkRow(
+            label: 'OpenStreetMap',
+            url: d.officialUrl!,
           ),
         ],
-        // Risultati CAI Varallo (solo per i segnavia in Valsesia e dintorni,
-        // §"Un segnavia per intero" — richiesta esplicita dell'utente, 24
-        // ago 2026): 0 o più, ognuno un link a sé, non un unico "scopri di
-        // più" — il sito non ha una pagina segnavia dedicata univoca, la
-        // ricerca può restituire più contenuti pertinenti (eventi, rifugi,
-        // itinerari) e l'utente sceglie quale aprire.
-        if (d.caiVaralloResults.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text('Trovato anche su CAI Varallo',
-              style: AppText.captionSmall.copyWith(color: palette.secondaryLabel)),
-          const SizedBox(height: 6),
-          for (final r in d.caiVaralloResults)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: GestureDetector(
-                onTap: () =>
-                    launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(r.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.body.copyWith(color: palette.accent)),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(CupertinoIcons.arrow_up_right_square,
-                        size: 14, color: palette.accent),
-                  ],
-                ),
-              ),
-            ),
+        // Corrispondenza nell'elenco ufficiale di CAI Varallo (solo per i
+        // segnavia in Valsesia e dintorni) — match esatto sul ref, quindi al
+        // più uno, non una lista di risultati "forse pertinenti" come nel
+        // tentativo precedente (ricerca full-text su un altro sito, scartata
+        // il 25 ago 2026 per risultati sbagliati).
+        if (d.caiVarallo != null) ...[
+          const SizedBox(height: 8),
+          _ExternalLinkRow(label: 'CAI Varallo', url: d.caiVarallo!.url),
         ],
       ],
+    );
+  }
+}
+
+class _ExternalLinkRow extends StatelessWidget {
+  const _ExternalLinkRow({required this.label, required this.url});
+
+  final String label;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return GestureDetector(
+      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: AppText.body.copyWith(color: palette.accent)),
+          const SizedBox(width: 4),
+          Icon(CupertinoIcons.arrow_up_right_square, size: 14, color: palette.accent),
+        ],
+      ),
     );
   }
 }

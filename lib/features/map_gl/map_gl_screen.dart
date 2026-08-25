@@ -1269,6 +1269,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // Info punto in esplorazione (mini-card): solo se non c'è la card traccia.
     final inspected = ref.watch(inspectedPointProvider);
     final showPointCard = inspected != null && !showCard && !importing;
+    // Dettaglio segnavia in approfondimento (§"Un segnavia per intero"): ha
+    // priorità assoluta (chiude punto/traccia all'apertura, vedi
+    // `trail_detail_sheet.dart`), quindi qui serve solo per nascondere le
+    // altre card/la barra sotto mentre è visibile.
+    final trailDetailOpen = ref.watch(trailDetailProvider) != null;
     // Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico").
     final selectedPhoto = ref.watch(selectedPhotoProvider);
     // La card traccia (selezione/disegno) ha priorità: azzera il punto
@@ -1382,7 +1387,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
               alignment: Alignment.bottomCenter,
               children: [
                 SafeArea(
-                  bottom: !showCard,
+                  bottom: !showCard && !trailDetailOpen,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1423,8 +1428,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
                         const SizedBox(height: 12),
                       ],
                       // La toolbar c'è quando NON è mostrata la card traccia
-                      // (che occupa il fondo dello schermo) né l'import.
-                      if (!showCard && !importing)
+                      // (che occupa il fondo dello schermo), l'import, né il
+                      // dettaglio di un segnavia (stessa priorità).
+                      if (!showCard && !importing && !trailDetailOpen)
                         _BottomBar(
                           onSearch: _openSearch,
                           onLayers: _onLayers,
@@ -1463,6 +1469,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
                     onClose: () =>
                         ref.read(selectedPhotoProvider.notifier).clear(),
                   ),
+                // Dettaglio segnavia (§"Un segnavia per intero"): priorità
+                // massima, sopra a qualunque altra card — apre chiudendo già
+                // punto/traccia sotto (`trail_detail_sheet.dart`), quindi non
+                // dovrebbe mai comparire insieme alle altre, ma resta in cima
+                // per coerenza con lo stesso schema di `PhotoDetailCard`.
+                if (trailDetailOpen) const TrailDetailCard(),
               ],
             ),
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../domain/services/path_geometry.dart';
 import 'trail_service.dart';
 
 /// Recupera i **numeri dei sentieri** dal **catasto ufficiale CAI** via
@@ -167,8 +168,8 @@ class Osm2CaiTrailService extends TrailService {
     final props = feature['properties'] as Map<String, dynamic>? ?? const {};
     final ref = _firstNonEmpty([props['ref'], props['ref_REI'], props['ref_osm']]);
     if (ref == null) return null;
-    final pts = <LatLng>[];
-    _collectLineCoords(feature['geometry'], pts, (_, __) => true);
+    final pts =
+        const PathGeometry().stitchSegments(_collectLineParts(feature['geometry']));
     if (pts.isEmpty) return null;
     return TrailDetail(
       ref: ref,
@@ -224,5 +225,39 @@ class Osm2CaiTrailService extends TrailService {
         }
       }
     }
+  }
+
+  /// Come [_collectLineCoords], ma senza filtro bbox e **preservando i
+  /// confini di ogni parte** (una `LineString` = una parte sola, una
+  /// `MultiLineString` = una lista di parti) invece di appiattirle in
+  /// un'unica lista: serve a [fetchDetailById], che deve poi ricomporle con
+  /// [PathGeometry.stitchSegments] — le parti di un MultiLineString GeoJSON
+  /// non sono garantite tutte nello stesso verso, esattamente come le
+  /// `member` way di una relazione OSM (vedi doc su quel metodo).
+  static List<List<LatLng>> _collectLineParts(dynamic geometry) {
+    if (geometry is! Map) return const [];
+    final type = geometry['type'];
+    final coords = geometry['coordinates'];
+    if (coords is! List) return const [];
+
+    LatLng? toPoint(dynamic pt) {
+      if (pt is! List || pt.length < 2) return null;
+      return LatLng((pt[1] as num).toDouble(), (pt[0] as num).toDouble());
+    }
+
+    if (type == 'LineString') {
+      final part = [for (final pt in coords) toPoint(pt)].whereType<LatLng>().toList();
+      return part.isEmpty ? const [] : [part];
+    }
+    if (type == 'MultiLineString') {
+      final parts = <List<LatLng>>[];
+      for (final line in coords) {
+        if (line is! List) continue;
+        final part = [for (final pt in line) toPoint(pt)].whereType<LatLng>().toList();
+        if (part.isNotEmpty) parts.add(part);
+      }
+      return parts;
+    }
+    return const [];
   }
 }

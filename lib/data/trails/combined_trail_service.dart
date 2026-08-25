@@ -74,9 +74,10 @@ class CombinedTrailService extends TrailService {
   /// [TrailRelation.id] manca (fonte che non lo espone in modo affidabile,
   /// vedi doc su quel campo) o se il fetch non trova nulla.
   ///
-  /// Se la geometria risultante è in **Valsesia e dintorni**, interroga
-  /// anche CAI Varallo (richiesta esplicita dell'utente) e allega i
-  /// risultati trovati — 0 o più, mai un errore verso il chiamante: è un
+  /// Se la geometria risultante è in **Valsesia e dintorni**, cerca il ref
+  /// nell'**elenco ufficiale** di CAI Varallo (match esatto, non ricerca
+  /// full-text — vedi doc su [CaiVaralloSearchService]) e allega il
+  /// risultato se trovato — mai un errore verso il chiamante: è un
   /// arricchimento locale, non deve mai far fallire la card di dettaglio.
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async {
@@ -94,10 +95,9 @@ class CombinedTrailService extends TrailService {
         '(${relation.source.name}, id=$id) → '
         '${detail == null ? "null" : "${detail.points.length} punti"}');
     if (detail == null || !_isNearValsesia(detail.points)) return detail;
-    final query = (detail.name?.isNotEmpty ?? false) ? detail.name! : detail.ref;
-    final results = await _caiVarallo.search(query);
+    final result = await _caiVarallo.findByRef(detail.ref);
     debugPrint('[trails] combined.fetchDetail "${relation.ref}": in Valsesia, '
-        'CAI Varallo → ${results.length} risultati per "$query"');
-    return results.isEmpty ? detail : detail.copyWith(caiVaralloResults: results);
+        'CAI Varallo → ${result == null ? "nessun match" : result.url}');
+    return result == null ? detail : detail.copyWith(caiVarallo: result);
   }
 }

@@ -11,6 +11,82 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — "Un segnavia per intero": 6 correzioni dal secondo giro di test dal vivo
+
+Secondo giro di test sulla traccia "Rassa Alpe Toso" (segnavia 251/253), dopo il fix del
+raggio di ricerca. Sei segnalazioni, tutte affrontate:
+
+1. **Overpass, resiliente a un'istanza pubblica sovraccarica** — il fallimento isolato
+   (`HTTP 504`) di ieri non era accettabile per un'azione interattiva. `OverpassTrailService`
+   prova ora **in sequenza** l'istanza principale (`overpass-api.de`) e due mirror pubblici
+   indipendenti (`lz4.overpass-api.de`, `overpass.private.coffee`), fermandosi al primo `200`;
+   lancia `TrailLookupException` solo se **tutte** falliscono. Non elimina la possibilità di
+   fallimento (nessuna garanzia è possibile su un servizio di rete gratuito), ma riduce
+   drasticamente la probabilità pratica — verificato che il fallback tenta davvero tutti e
+   tre gli endpoint prima di arrendersi (`trail_service_test.dart`).
+2. **"Scheda ufficiale" → "OpenStreetMap"** — l'etichetta non diceva a chi la legge cosa sta
+   per aprire; ora nomina la fonte, coerente con la label "CAI Varallo" accanto.
+3. **Chiusura completa della card sotto, non riduzione** — `_confirmThenOpen`
+   (`trail_detail_sheet.dart`) ora chiama `tracksProvider.notifier.deselect()` invece di
+   `trackCardExpandedProvider.notifier.collapse()`: la card traccia sparisce del tutto (non
+   resta ridotta a mezzo schermo), coerente con `inspectedPointProvider.notifier.clear()` già
+   presente per la card punto. Fix di ieri insufficiente — richiesta ripetuta esplicitamente.
+4. **Card di dettaglio non più modale** — cambio più corposo: `TrailDetailCard`
+   (`trail_detail_sheet.dart`) è ora un widget **persistente e non modale**, montato nello
+   `Stack` di `map_gl_screen.dart` esattamente come la card traccia/punto/foto (`AppSheetSurface`
+   con `onDismiss`, non più `showModalBottomSheet`). Prima lo scrim nero al 45% e il
+   tap-fuori-chiude-tutto (comportamento di `showAppBottomSheet`) impedivano di esplorare la
+   mappa con il segnavia evidenziato sotto — esattamente il punto di questa fetta. La traccia
+   tratteggiata sulla mappa (fetta 4, invariata) ora si vede e si può ispezionare mentre la
+   card resta aperta. `map_gl_screen.dart`: nuovo `trailDetailOpen` watcher, che nasconde
+   toolbar/altre card e toglie il padding di sicurezza duplicato, stesso schema di `showCard`.
+5. **CAI Varallo: sostituita la ricerca full-text con un lookup esatto** — il tentativo di
+   ieri (ricerca `?s=` sul sito WordPress `caivarallo.com`) restituiva "risultati" **non
+   pertinenti al segnavia** (eventi, pagine a caso): un numero di sentiero è un pessimo
+   termine di ricerca full-text. Sostituito con un dominio e un meccanismo diversi:
+   `www.caivarallo.it/valsesia/sentieri-valsesia/sentieri-tutti.php?ord=segnavia`, l'**elenco
+   ufficiale** di tutti i sentieri della sottosezione (441 voci, **una sola pagina, nessuna
+   paginazione** nonostante il dubbio iniziale — verificato dal vivo con curl il 25 ago 2026),
+   con match **esatto** sulla colonna "Catasto" (il numero di riferimento pulito — la colonna
+   "Segnavia" affiancata include invece vecchie numerazioni fra parentesi, es. "251 (51)", da
+   scartare per il match). Un ref o è in elenco (un solo risultato, sempre pertinente) o non
+   c'è (nessun risultato) — mai una lista di link "forse". `TrailDetail.caiVaralloResults:
+   List<CaiVaralloResult>` → `TrailDetail.caiVarallo: CaiVaralloResult?` (un solo campo
+   nullable, non più una lista): la UI ora mostra un unico link "CAI Varallo" accanto a
+   "OpenStreetMap", stesso stile.
+6. **Overpass: raddrizza le `member` way invertite prima di disegnarle** — causa-radice del
+   "ramo" a linea retta visto sul segnavia 251 (assente su OpenStreetMap, confermato dallo
+   screenshot dell'utente): `OverpassTrailService.fetchDetailById` concatenava le way membro
+   di una relazione **nell'ordine e nel verso ricevuti da Overpass**, che non garantisce
+   entrambi — una way "al contrario" (il suo ultimo punto, non il primo, combacia con la way
+   precedente) produce un salto a linea retta da un capo sbagliato all'altro. Confermato dal
+   vivo scaricando la relazione 251 reale (id `15870089`, via `lz4.overpass-api.de` dopo che
+   l'istanza principale era sovraccarica): il member "way 211430342" è esattamente in questa
+   condizione. Fix: nuovo `PathGeometry.stitchSegments(List<List<LatLng>>)` (dominio, puro,
+   testato), che per ogni segmento successivo al primo sceglie l'orientamento (diretto o
+   invertito) che minimizza la distanza dal punto d'arrivo corrente, invece di assumerlo
+   sempre corretto. Applicato sia a `OverpassTrailService.fetchDetailById` (le `member` way)
+   sia — per coerenza, anche se l'endpoint è oggi non funzionante (vedi sotto) —
+   `Osm2CaiTrailService.fetchDetailById` (le parti di un eventuale `MultiLineString`, nuovo
+   `_collectLineParts` che preserva i confini di parte invece di appiattirli come il
+   `_collectLineCoords` esistente, lasciato invariato per l'uso con bbox di `fetchRelations`).
+
+Aggiornamento sulla scoperta di ieri (OSM2CAI sempre `HTTP 405` in produzione): confermata
+ancora oggi, invariata — vedi `docs/osm2cai-investigation.md`.
+
+Test: nuovo `group('stitchSegments')` in `path_geometry_test.dart` (6 casi: verso già
+corretto, un segmento invertito raddrizzato, catena con inversioni alternate senza salti,
+segmenti vuoti ignorati, nessun segmento, un solo segmento); nuovo test in
+`trail_service_test.dart` con una relazione a 3 member way (quella centrale invertita) che
+verifica l'assenza di salti nella geometria finale; nuovi test per il retry multi-istanza di
+Overpass; `cai_varallo_search_service_test.dart` riscritto da zero per `findByRef` (match
+esatto, ref assente, non confondere col numero fra parentesi, ref vuoto, errori di rete);
+`trail_detail_sheet_test.dart` aggiornato per la card persistente (l'host di test ora monta
+anche `TrailDetailCard` nell'albero, non si aspetta più una route pushata) e per la chiusura
+completa della card sottostante (verificata con un `ProviderContainer` reale, non un fake).
+
+---
+
 ## 25 agosto 2026 — Verifica dal vivo del fix + scoperta: OSM2CAI 405 in produzione
 
 Dopo il fix del raggio (voce successiva in questo changelog), verifica dal vivo sul

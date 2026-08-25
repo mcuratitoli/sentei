@@ -83,6 +83,36 @@ class PathGeometry {
     return path.last;
   }
 
+  /// Ricompone una geometria segmentata (le `member` way di una relazione
+  /// OSM, o le parti di un GeoJSON MultiLineString) in un unico percorso
+  /// continuo. Le fonti non garantiscono che i segmenti siano tutti nello
+  /// stesso verso: concatenarli "così come arrivano" può far combaciare la
+  /// fine di uno con la fine (non l'inizio) del successivo, producendo un
+  /// salto a linea retta da un capo sbagliato all'altro — osservato dal vivo
+  /// sul segnavia 251 (25 ago 2026, `docs/CHANGELOG-DEV.md`: rami inesistenti
+  /// sulla mappa, assenti su OpenStreetMap). Per ogni segmento successivo al
+  /// primo, sceglie l'orientamento (diretto o invertito) che minimizza la
+  /// distanza dal punto d'arrivo corrente, invece di assumere sempre
+  /// l'ordine e il verso originali.
+  ///
+  /// Il primo segmento fissa il verso di partenza (non ha un predecessore
+  /// con cui confrontarsi); i segmenti vuoti vengono ignorati. Non deduplica
+  /// il punto di giunzione: un piccolo doppione a ogni saldatura è innocuo
+  /// per il disegno e per il calcolo di distanza/dislivello.
+  List<LatLng> stitchSegments(List<List<LatLng>> segments) {
+    final parts = segments.where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return const [];
+    final result = <LatLng>[...parts.first];
+    for (var i = 1; i < parts.length; i++) {
+      final seg = parts[i];
+      final tail = result.last;
+      final toFirst = distance(tail, seg.first);
+      final toLast = distance(tail, seg.last);
+      result.addAll(toLast < toFirst ? seg.reversed : seg);
+    }
+    return result;
+  }
+
   /// Distanza minima in metri tra [p] e la spezzata [path] (punto→segmento).
   /// Serve a capire se un tap sulla mappa "colpisce" il tracciato. Ritorna
   /// `double.infinity` per percorsi vuoti.

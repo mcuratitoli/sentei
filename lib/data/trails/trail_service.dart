@@ -76,7 +76,7 @@ class TrailDetail {
     this.ascentMeters,
     this.descentMeters,
     this.officialUrl,
-    this.caiVaralloResults = const [],
+    this.caiVarallo,
   });
 
   final String ref;
@@ -103,13 +103,13 @@ class TrailDetail {
   /// `docs/osm2cai-investigation.md`) — meglio nessun link che uno inventato.
   final String? officialUrl;
 
-  /// Risultati della ricerca sul sito di **CAI Varallo**, solo per i
-  /// segnavia geograficamente in **Valsesia e dintorni** (verificato con
-  /// [CombinedTrailService], non qui — questo campo è solo il contenitore).
-  /// Vuoto altrove o se la ricerca non trova nulla.
-  final List<CaiVaralloResult> caiVaralloResults;
+  /// Corrispondenza esatta nell'**elenco ufficiale** di CAI Varallo, solo
+  /// per i segnavia geograficamente in **Valsesia e dintorni** (verificato
+  /// con [CombinedTrailService], non qui — questo campo è solo il
+  /// contenitore). `null` altrove o se il ref non compare in elenco.
+  final CaiVaralloResult? caiVarallo;
 
-  TrailDetail copyWith({List<CaiVaralloResult>? caiVaralloResults}) => TrailDetail(
+  TrailDetail copyWith({CaiVaralloResult? caiVarallo}) => TrailDetail(
         ref: ref,
         points: points,
         name: name,
@@ -120,7 +120,7 @@ class TrailDetail {
         ascentMeters: ascentMeters,
         descentMeters: descentMeters,
         officialUrl: officialUrl,
-        caiVaralloResults: caiVaralloResults ?? this.caiVaralloResults,
+        caiVarallo: caiVarallo ?? this.caiVarallo,
       );
 }
 

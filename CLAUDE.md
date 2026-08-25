@@ -97,6 +97,7 @@ delle tile; il download offline deve essere limitato per area e con rate limitin
 | **Terrain RGB / Terrarium** — `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` | Elevazione (D+/D-, profilo altimetrico), cacheabile offline | DEM SRTM/Copernicus codificato Terrarium, riuso libero. |
 | **BRouter** (servizio pubblico) — `https://brouter.de/brouter` | Snap-to-trail (routing lungo i sentieri OSM) | Nessuna API key; vedi §5 per la catena di profili usata. |
 | **Nominatim** (OSM) | Geocoding di fallback (ricerca luoghi, reverse geocoding) | Rispettare la usage policy (rate limit, User-Agent). |
+| **CAI Varallo** — `https://www.caivarallo.it/valsesia/sentieri-valsesia/sentieri-tutti.php` | Link alla scheda del segnavia sul sito della sottosezione, **solo per i sentieri in Valsesia e dintorni** (`data/trails/cai_varallo_search_service.dart`) | Match esatto per numero di catasto sull'elenco ufficiale (non ricerca full-text — un tentativo precedente su `caivarallo.com`, sito diverso, dava risultati non pertinenti). Nessuna API, solo scraping mirato di una pagina pubblica. |
 
 > **Sorgenti storiche, non più in uso** dopo la migrazione a Mapbox GL: OpenTopoMap, SwissTopo,
 > IGN, OSM raster standard, overlay raster Waymarked Trails (erano i layer base dell'epoca
