@@ -24,6 +24,14 @@ raggio di ricerca. Sei segnalazioni, tutte affrontate:
    fallimento (nessuna garanzia è possibile su un servizio di rete gratuito), ma riduce
    drasticamente la probabilità pratica — verificato che il fallback tenta davvero tutti e
    tre gli endpoint prima di arrendersi (`trail_service_test.dart`).
+   - **Corretto in giornata, verifica dal vivo alla mano**: un giro di test con tutte e tre le
+     istanze effettivamente lente ha mostrato che il timeout usato per **ogni** tentativo era
+     lo stesso timeout "lato server" della query (25s, pensato per una query complessa
+     eseguita da un'istanza sana) — nel caso peggiore, **75 secondi** di attesa prima di
+     "non trovato". Separato in due concetti distinti: `timeout` resta il timeout server-side
+     nella query (`[out:json][timeout:N]`); nuovo `_perAttemptTimeout` (10s di default) è il
+     timeout **client-side per tentativo** nel giro fra le istanze — un'istanza sana risponde
+     in pochi secondi, una che non risponde entro 10s sta comunque per andare in timeout.
 2. **"Scheda ufficiale" → "OpenStreetMap"** — l'etichetta non diceva a chi la legge cosa sta
    per aprire; ora nomina la fonte, coerente con la label "CAI Varallo" accanto.
 3. **Chiusura completa della card sotto, non riduzione** — `_confirmThenOpen`

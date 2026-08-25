@@ -21,13 +21,22 @@ class OverpassTrailService extends TrailService {
     this.endpoint = 'https://overpass-api.de/api/interpreter',
     List<String>? mirrorEndpoints,
     this.timeout = const Duration(seconds: 25),
+    Duration? perAttemptTimeout,
     this.maxPoints = 30,
     this.aroundMeters = 40,
   })  : _client = client ?? http.Client(),
-        _mirrors = mirrorEndpoints ?? _defaultMirrors;
+        _mirrors = mirrorEndpoints ?? _defaultMirrors,
+        _perAttemptTimeout = perAttemptTimeout ?? const Duration(seconds: 10);
 
   final http.Client _client;
   final String endpoint;
+
+  /// Timeout **lato server** passato nella query stessa (`[out:json]
+  /// [timeout:N]`): quanto Overpass può impiegare a valutarla prima di
+  /// rinunciare da solo. Concetto diverso da [_perAttemptTimeout] (il nostro
+  /// timeout HTTP client-side per tentativo) — una query complessa può
+  /// legittimamente richiedere fino a questo tempo lato server anche quando
+  /// risponde in modo sano.
   final Duration timeout;
 
   /// Punti massimi campionati dal percorso (per non gonfiare la query).
@@ -48,12 +57,18 @@ class OverpassTrailService extends TrailService {
     'https://overpass.private.coffee/api/interpreter',
   ];
 
+  /// Timeout **per singolo tentativo** nel giro fra [endpoint] e i mirror:
+  /// deliberatamente più corto di [timeout] (25s). Osservato dal vivo (25
+  /// ago 2026): con `timeout` applicato a OGNI tentativo, un giro sfortunato
+  /// con tutte e tre le istanze lente arrivava a **75 secondi** di attesa
+  /// prima di mostrare "non trovato" — inaccettabile per un tap interattivo.
+  /// Un'istanza sana risponde in pochi secondi; una che non risponde entro
+  /// questa soglia sta quasi certamente per andare in timeout comunque, tanto
+  /// vale passare al prossimo mirror prima.
+  final Duration _perAttemptTimeout;
+
   /// Prova [endpoint] e via via ogni mirror finché uno risponde `200`;
-  /// lancia [TrailLookupException] solo se **tutti** falliscono. Ogni
-  /// tentativo usa l'intero [timeout] configurato: nel caso peggiore (tutti
-  /// giù) l'attesa totale cresce di conseguenza, accettabile per un'azione
-  /// interattiva rara (tap deliberato + conferma), non per una ricerca in
-  /// background.
+  /// lancia [TrailLookupException] solo se **tutti** falliscono.
   Future<http.Response> _postToAnyEndpoint(String query) async {
     Object? lastError;
     for (final url in [endpoint, ..._mirrors]) {
@@ -62,7 +77,7 @@ class OverpassTrailService extends TrailService {
             .post(Uri.parse(url),
                 headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
                 body: {'data': query})
-            .timeout(timeout);
+            .timeout(_perAttemptTimeout);
         if (res.statusCode == 200) return res;
         lastError = 'HTTP ${res.statusCode}';
         debugPrint('[trails] overpass $url → HTTP ${res.statusCode}, provo il prossimo');
