@@ -27,6 +27,17 @@ class CombinedTrailService extends TrailService {
   final OverpassTrailService _overpass;
   final CaiVaralloSearchService _caiVarallo;
 
+  /// **Interruttore**: dopo un fallimento OSM2CAI, salta il tentativo
+  /// (direttamente su Overpass) fino a questo istante — riprovato poi in
+  /// caso il servizio sia tornato su. Introdotto il 25 ago 2026 dopo aver
+  /// confermato dal vivo (log `[trails]` + `curl` diretto, vedi
+  /// `docs/osm2cai-investigation.md`) che l'endpoint bounding-box risponde
+  /// **sempre** `HTTP 405` in produzione: senza questo, ogni singola ricerca
+  /// pagava un giro di rete garantito inutile prima di passare a Overpass —
+  /// l'utente lo notava come lentezza ("come mai ci mette tanto?").
+  DateTime? _osm2caiDownUntil;
+  static const _osm2caiCooldown = Duration(minutes: 5);
+
   /// Valsesia e dintorni immediati (Varallo → Alagna, Val Sermenza, Val
   /// Mastallone, Val Vogna): riquadro **approssimativo**, non un confine
   /// amministrativo — serve solo a decidere se vale la pena interrogare
@@ -46,18 +57,28 @@ class CombinedTrailService extends TrailService {
   @override
   Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
       {double? radiusMeters}) async {
-    // Primario: se dà risultati li usa. Se **fallisce** (throw) o torna **vuoto**
-    // si ripiega su Overpass. L'eventuale fallimento del fallback viene
-    // **propagato** (throw): così chi risolve i segnavia distingue "cercato e
-    // non trovato" (vuoto genuino) da "ricerca fallita" (da ritentare).
-    try {
-      final primary = await _osm2cai.fetchRelations(path);
-      debugPrint('[trails] combined: OSM2CAI → ${primary.length} relazioni '
-          '(${primary.map((r) => r.ref).toList()})');
-      if (primary.isNotEmpty) return primary;
-    } on TrailLookupException catch (e) {
-      // primario ko → tenta il fallback
-      debugPrint('[trails] combined: OSM2CAI fallito ($e), provo Overpass');
+    final downUntil = _osm2caiDownUntil;
+    final skipOsm2cai = downUntil != null && DateTime.now().isBefore(downUntil);
+    if (!skipOsm2cai) {
+      // Primario: se dà risultati li usa. Se **fallisce** (throw) o torna
+      // **vuoto** si ripiega su Overpass. L'eventuale fallimento del
+      // fallback viene **propagato** (throw): così chi risolve i segnavia
+      // distingue "cercato e non trovato" (vuoto genuino) da "ricerca
+      // fallita" (da ritentare).
+      try {
+        final primary = await _osm2cai.fetchRelations(path);
+        _osm2caiDownUntil = null; // ha risposto: interruttore azzerato
+        debugPrint('[trails] combined: OSM2CAI → ${primary.length} relazioni '
+            '(${primary.map((r) => r.ref).toList()})');
+        if (primary.isNotEmpty) return primary;
+      } on TrailLookupException catch (e) {
+        _osm2caiDownUntil = DateTime.now().add(_osm2caiCooldown);
+        debugPrint('[trails] combined: OSM2CAI fallito ($e), provo Overpass '
+            '(salto OSM2CAI per i prossimi ${_osm2caiCooldown.inMinutes} min)');
+      }
+    } else {
+      debugPrint('[trails] combined: OSM2CAI saltato (interruttore attivo fino '
+          'a $downUntil), vado diretto su Overpass');
     }
     final fallback =
         await _overpass.fetchRelations(path, radiusMeters: radiusMeters);

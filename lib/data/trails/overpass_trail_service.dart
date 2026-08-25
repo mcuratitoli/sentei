@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -22,11 +23,13 @@ class OverpassTrailService extends TrailService {
     List<String>? mirrorEndpoints,
     this.timeout = const Duration(seconds: 25),
     Duration? perAttemptTimeout,
+    Duration? hedgeDelay,
     this.maxPoints = 30,
     this.aroundMeters = 40,
   })  : _client = client ?? http.Client(),
         _mirrors = mirrorEndpoints ?? _defaultMirrors,
-        _perAttemptTimeout = perAttemptTimeout ?? const Duration(seconds: 10);
+        _perAttemptTimeout = perAttemptTimeout ?? const Duration(seconds: 10),
+        _hedgeDelay = hedgeDelay ?? const Duration(seconds: 3);
 
   final http.Client _client;
   final String endpoint;
@@ -57,36 +60,99 @@ class OverpassTrailService extends TrailService {
     'https://overpass.private.coffee/api/interpreter',
   ];
 
-  /// Timeout **per singolo tentativo** nel giro fra [endpoint] e i mirror:
-  /// deliberatamente più corto di [timeout] (25s). Osservato dal vivo (25
-  /// ago 2026): con `timeout` applicato a OGNI tentativo, un giro sfortunato
-  /// con tutte e tre le istanze lente arrivava a **75 secondi** di attesa
-  /// prima di mostrare "non trovato" — inaccettabile per un tap interattivo.
-  /// Un'istanza sana risponde in pochi secondi; una che non risponde entro
-  /// questa soglia sta quasi certamente per andare in timeout comunque, tanto
-  /// vale passare al prossimo mirror prima.
+  /// Timeout **per singolo tentativo**: deliberatamente più corto di
+  /// [timeout] (25s). Un'istanza sana risponde in pochi secondi; una che non
+  /// risponde entro questa soglia sta quasi certamente per andare in timeout
+  /// comunque.
   final Duration _perAttemptTimeout;
 
-  /// Prova [endpoint] e via via ogni mirror finché uno risponde `200`;
-  /// lancia [TrailLookupException] solo se **tutti** falliscono.
+  /// Ritardo fra un tentativo e il successivo nella "corsa a staffetta" di
+  /// [_postToAnyEndpoint]: non si aspetta il timeout pieno di un'istanza
+  /// prima di provare la successiva. Configurabile (default 3s) solo per i
+  /// test, che altrimenti pagherebbero per davvero l'attesa fra i tentativi
+  /// anche con un `MockClient` che risponde all'istante.
+  final Duration _hedgeDelay;
+
+  /// Prova [endpoint] e i mirror **in corsa a staffetta** ("hedged
+  /// request"): parte subito con [endpoint]; se non ha ancora risposto dopo
+  /// [_hedgeDelay], lancia ANCHE il primo mirror (in parallelo, non al posto
+  /// del primo); se nemmeno quello ha risposto dopo un altro [_hedgeDelay],
+  /// lancia anche l'ultimo. Vince il primo che risponde `200`. Lancia
+  /// [TrailLookupException] solo se **tutti** falliscono.
+  ///
+  /// Sostituisce un giro strettamente sequenziale (prova A, aspetta il pieno
+  /// timeout, poi prova B, ...): con tre istanze lente il caso peggiore
+  /// scendeva già da 75s a 30s col solo accorciamento di [_perAttemptTimeout]
+  /// (25 ago 2026), ma restava comunque somma dei tre timeout. In corsa a
+  /// staffetta il caso peggiore è ~[_hedgeDelay]×2 + [_perAttemptTimeout]
+  /// (~16s con i valori di default) — e il caso comune (la prima istanza è
+  /// sana) resta veloce quanto una singola chiamata, perché le altre non
+  /// partono nemmeno. Costo: se la prima istanza è solo *lenta* (non giù),
+  /// nel frattempo parte comunque anche la seconda — richieste in più verso
+  /// un servizio pubblico gratuito, accettabile per un tap interattivo raro,
+  /// non per un ciclo in background.
   Future<http.Response> _postToAnyEndpoint(String query) async {
-    Object? lastError;
-    for (final url in [endpoint, ..._mirrors]) {
+    final urls = [endpoint, ..._mirrors];
+    final completer = Completer<http.Response>();
+    final errors = <Object?>[];
+    var pending = urls.length;
+    // `Timer`, non `Future.delayed`: deve poter essere **cancellato** appena
+    // uno degli endpoint risponde, altrimenti resta agganciato dopo che
+    // `_postToAnyEndpoint` è già tornato — innocuo a runtime, ma
+    // `flutter_test` (usato dai widget test che disegnano una traccia e
+    // quindi risolvono segnavia, es. `draw_route_controls_test.dart`) fa
+    // fallire il test con "A Timer is still pending even after the widget
+    // tree was disposed" se non lo si ripulisce esplicitamente.
+    final hedgeTimers = <Timer>[];
+
+    void cancelHedgeTimers() {
+      for (final t in hedgeTimers) {
+        t.cancel();
+      }
+    }
+
+    void fail(Object error) {
+      errors.add(error);
+      pending--;
+      if (pending == 0 && !completer.isCompleted) {
+        completer.completeError(
+            TrailLookupException('overpass: tutte le istanze fallite ($errors)'));
+      }
+    }
+
+    Future<void> attempt(String url) async {
       try {
         final res = await _client
             .post(Uri.parse(url),
                 headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
                 body: {'data': query})
             .timeout(_perAttemptTimeout);
-        if (res.statusCode == 200) return res;
-        lastError = 'HTTP ${res.statusCode}';
-        debugPrint('[trails] overpass $url → HTTP ${res.statusCode}, provo il prossimo');
+        if (completer.isCompleted) return;
+        if (res.statusCode == 200) {
+          completer.complete(res);
+          cancelHedgeTimers();
+        } else {
+          debugPrint('[trails] overpass $url → HTTP ${res.statusCode}');
+          fail('HTTP ${res.statusCode} da $url');
+        }
       } catch (e) {
-        lastError = e;
-        debugPrint('[trails] overpass $url fallito ($e), provo il prossimo');
+        if (completer.isCompleted) return;
+        debugPrint('[trails] overpass $url fallito ($e)');
+        fail(e);
       }
     }
-    throw TrailLookupException('overpass: tutte le istanze fallite ($lastError)');
+
+    unawaited(attempt(urls[0]));
+    for (var i = 1; i < urls.length; i++) {
+      hedgeTimers.add(Timer(_hedgeDelay * i, () {
+        if (!completer.isCompleted) attempt(urls[i]);
+      }));
+    }
+    try {
+      return await completer.future;
+    } finally {
+      cancelHedgeTimers();
+    }
   }
 
   /// Scarica le relazioni `route=hiking` vicine al percorso con la geometria,

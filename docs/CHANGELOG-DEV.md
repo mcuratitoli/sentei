@@ -11,6 +11,58 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — Terzo giro: tempi di ricerca, messaggio di caricamento, chiudere col tap altrove
+
+Terza tornata di feedback sulla stessa serata di test ("molto migliorato... ma perché ci
+mette tanto?"). Tre richieste:
+
+1. **Perché è lento, e cosa si può ottimizzare** — analisi + due interventi:
+   - **CAI Varallo è già veloce e resta così**: un solo `GET` a una pagina (l'elenco
+     ufficiale), nessun retry, timeout 10s — tipicamente sotto il secondo. Confermato,
+     nessuna modifica necessaria lì.
+   - **OSM2CAI pagava un giro di rete garantito inutile ad ogni ricerca**: confermato ieri
+     che l'endpoint risponde **sempre** `HTTP 405` in produzione (vedi entry precedente) —
+     eppure `CombinedTrailService` lo tentava comunque prima di ogni fallback a Overpass.
+     Nuovo **interruttore**: dopo il primo fallimento, salta OSM2CAI per 5 minuti (poi
+     riprova, in caso torni su) invece di pagare quel giro di rete ad ogni singola ricerca.
+   - **Overpass, da sequenziale a "corsa a staffetta" (hedged request)**: il retry
+     sequenziale di ieri (prova A, aspetta fino a 10s, poi B, poi C: fino a 30s nel caso
+     peggiore) è diventato una **corsa a staffetta** — parte subito con l'istanza
+     principale; se non risponde entro 3s, parte ANCHE il primo mirror (in parallelo, non
+     al posto); altri 3s e parte anche l'ultimo. Vince il primo `200`. Caso peggiore
+     ~16s (contro 30s), caso comune (istanza principale sana) invariato — le altre non
+     partono nemmeno. `OverpassTrailService._postToAnyEndpoint` riscritto con un
+     `Completer` condiviso; i timer di stagger sono `Timer` veri (non `Future.delayed`)
+     per poterli **cancellare** appena una richiesta vince — altrimenti un timer ancora in
+     sospeso quando il widget test smonta l'albero fa fallire `flutter_test` con "A Timer
+     is still pending even after the widget tree was disposed" (scoperto proprio scrivendo
+     il test per questo fix).
+   - **Scoperta laterale mentre si indagava il timer pendente**: tre test in
+     `draw_route_controls_test.dart` (`PhotoDetailCard mostra titolo...`, `PhotoDetailCard:
+     Scollega...`, `coerenza grafica: PhotoDetailCard...`) costruivano un `ProviderContainer`
+     **senza** l'override di `trailServiceProvider` — a differenza di `pumpCard()` più in
+     alto nello stesso file, che ce l'ha. Prima innocuo (un solo fallimento di rete reale era
+     abbastanza rapido da passare inosservato), diventato un problema reale con la corsa a
+     staffetta: il test restava appeso per **minuti** su chiamate di rete vere verso
+     `overpass-api.de`/mirror. Aggiunto l'override mancante a tutti e tre.
+2. **Messaggio di caricamento più chiaro** — sotto lo spinner della card di dettaglio, un
+   testo esplicativo ("Cerco il percorso completo…" + "Può richiedere una decina di secondi
+   se la rete è lenta"): uno spinner muto per svariati secondi sembrava bloccato.
+3. **Tap altrove sulla mappa chiude il dettaglio segnavia, come una traccia selezionata** —
+   `_selectNearest` (`map_gl_screen.dart`) già deseleziona la traccia e/o passa all'ispezione
+   di un nuovo punto ad ogni tap sulla mappa; il dettaglio segnavia restava però "orfano"
+   sopra un punto/traccia ormai diversi. `_onTap` ora chiama
+   `trailDetailProvider.notifier.clear()` in testa, prima della logica esistente — stesso
+   tap, stesso comportamento del resto delle card.
+
+Test: nuovo test di corsa a staffetta in `trail_service_test.dart` (un mirror più veloce
+vince senza aspettare il timeout pieno dell'istanza principale, con `hedgeDelay`/
+`perAttemptTimeout` ridotti per restare veloce); `hedgeDelay: Duration.zero` aggiunto al test
+di fallimento totale (altrimenti pagherebbe per davvero l'attesa di stagger anche con un
+mock istantaneo); tre `ProviderContainer` corretti in `draw_route_controls_test.dart`.
+
+---
+
 ## 25 agosto 2026 — "Un segnavia per intero": 6 correzioni dal secondo giro di test dal vivo
 
 Secondo giro di test sulla traccia "Rassa Alpe Toso" (segnavia 251/253), dopo il fix del

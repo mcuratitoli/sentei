@@ -88,9 +88,33 @@ class TrailDetailCard extends ConsumerWidget {
                   onClose: () => ref.read(trailDetailProvider.notifier).clear(),
                 ),
                 switch (state.stage) {
-                  TrailDetailStage.loading => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: CupertinoActivityIndicator()),
+                  // Testo esplicativo sotto lo spinner (richiesta esplicita
+                  // dell'utente, 25 ago 2026, dopo aver visto la ricerca
+                  // impiegare fino a una ventina di secondi su un servizio
+                  // pubblico sovraccarico): senza, uno spinner muto per
+                  // svariati secondi sembra bloccato, non "sta ancora
+                  // cercando".
+                  TrailDetailStage.loading => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        children: [
+                          const CupertinoActivityIndicator(),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Cerco il percorso completo…',
+                            textAlign: TextAlign.center,
+                            style: AppText.footnote
+                                .copyWith(color: palette.secondaryLabel),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Può richiedere una decina di secondi se la rete è lenta.',
+                            textAlign: TextAlign.center,
+                            style: AppText.footnote
+                                .copyWith(color: palette.secondaryLabel),
+                          ),
+                        ],
+                      ),
                     ),
                   TrailDetailStage.error => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),

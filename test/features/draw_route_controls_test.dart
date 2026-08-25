@@ -478,6 +478,17 @@ void main() {
     final notifier2 = ProviderContainer(overrides: [
       routingServiceProvider.overrideWithValue(_FakeRouting()),
       elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      // Mancava (a differenza di `pumpCard` qui sopra): senza, `finishDrawing`
+      // chiamava il vero `trailServiceProvider` di produzione (rete reale) —
+      // prima innocuo perché un solo fallimento era rapido, diventato un
+      // problema visibile quando `OverpassTrailService` ha iniziato a
+      // ritentare su più istanze con attese scaglionate (25 ago 2026: il
+      // test restava appeso per reali minuti invece di fallire in fretta).
+      trailServiceProvider.overrideWithValue(
+        OverpassTrailService(
+          client: MockClient((_) async => http.Response('{"elements":[]}', 200)),
+        ),
+      ),
       tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
     ]);
     addTearDown(notifier2.dispose);
@@ -547,6 +558,11 @@ void main() {
     final container2 = ProviderContainer(overrides: [
       routingServiceProvider.overrideWithValue(_FakeRouting()),
       elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      trailServiceProvider.overrideWithValue(
+        OverpassTrailService(
+          client: MockClient((_) async => http.Response('{"elements":[]}', 200)),
+        ),
+      ),
       tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
     ]);
     addTearDown(container2.dispose);
@@ -708,6 +724,11 @@ void main() {
     final container = ProviderContainer(overrides: [
       routingServiceProvider.overrideWithValue(_FakeRouting()),
       elevationServiceProvider.overrideWithValue(_FakeElevation()),
+      trailServiceProvider.overrideWithValue(
+        OverpassTrailService(
+          client: MockClient((_) async => http.Response('{"elements":[]}', 200)),
+        ),
+      ),
       tracksRepositoryProvider.overrideWithValue(_FakeRepo()),
     ]);
     addTearDown(container.dispose);

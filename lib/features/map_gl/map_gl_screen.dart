@@ -797,6 +797,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // Un tap sulla mappa chiude sempre la ricerca aperta (che sia per
     // selezionare una traccia o ispezionare un punto).
     if (_searchOpen) _closeSearch();
+    // Il dettaglio di un segnavia si comporta come una traccia selezionata
+    // (`_selectNearest` qui sotto): un tap altrove sulla mappa toglie il
+    // focus, non resta aperto "orfano" sopra un punto/traccia diversi da
+    // quelli mostrati (richiesta esplicita dell'utente, 25 ago 2026).
+    if (ref.read(trailDetailProvider) != null) {
+      ref.read(trailDetailProvider.notifier).clear();
+    }
     final state = ref.read(tracksProvider);
     if (state.drawing) {
       ref.read(inspectedPointProvider.notifier).clear();

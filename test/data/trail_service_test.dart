@@ -475,6 +475,28 @@ void main() {
       await svc.trailSegmentsAlong([_a, _b]);
       expect(capturedBody, contains('around%3A40%2C'));
     });
+
+    test(
+        'Overpass: corsa a staffetta — un mirror più veloce vince senza '
+        'aspettare il timeout pieno dell\'istanza principale lenta', () async {
+      final svc = OverpassTrailService(
+        hedgeDelay: const Duration(milliseconds: 5),
+        perAttemptTimeout: const Duration(milliseconds: 300),
+        client: MockClient((request) async {
+          if (request.url.toString() == 'https://overpass-api.de/api/interpreter') {
+            // Mai entro perAttemptTimeout: se la staffetta non scattasse, il
+            // test impiegherebbe almeno 300ms.
+            await Future<void>.delayed(const Duration(milliseconds: 600));
+          }
+          return http.Response(_overpassBody, 200);
+        }),
+      );
+      final sw = Stopwatch()..start();
+      final result = await svc.fetchRelations([_a]);
+      sw.stop();
+      expect(result, isNotEmpty);
+      expect(sw.elapsedMilliseconds, lessThan(150));
+    });
   });
 
   group('CombinedTrailService', () {
@@ -513,6 +535,9 @@ void main() {
         osm2cai: Osm2CaiTrailService(
             client: MockClient((_) async => http.Response('boom', 500))),
         overpass: OverpassTrailService(
+            // hedgeDelay azzerato: altrimenti il test aspetterebbe per
+            // davvero la staffetta fra i mirror anche con un mock istantaneo.
+            hedgeDelay: Duration.zero,
             client: MockClient((_) async => http.Response('boom', 500))),
       );
       expect(svc.trailSegmentsAlong([_a, _b]),
