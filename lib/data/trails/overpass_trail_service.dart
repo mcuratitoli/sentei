@@ -48,17 +48,35 @@ class OverpassTrailService extends TrailService {
   /// Raggio (m) entro cui cercare i sentieri attorno ai punti campionati.
   final int aroundMeters;
 
-  /// Istanze pubbliche alternative, provate in ordine se [endpoint] fallisce
-  /// o va in timeout: il server principale (`overpass-api.de`) è pubblico e
-  /// gratuito, e osservato dal vivo restituire timeout (`HTTP 504`) sotto
-  /// carico (25 ago 2026) — un fallimento isolato che un secondo tentativo,
-  /// spesso su un'istanza meno affollata, risolve. Nessuna di queste
-  /// richiede una chiave API (stesso servizio Overpass, mirror indipendenti).
+  /// Istanza pubblica alternativa, provata se [endpoint] fallisce o va in
+  /// timeout. **Una sola** (non due, come nel primo tentativo del 25 ago
+  /// 2026): `lz4.overpass-api.de` è lo **stesso operatore** di
+  /// `overpass-api.de` (un'altra istanza dello stesso progetto Overpass
+  /// "principale"), non un fallback davvero indipendente — se quell'operatore
+  /// rallenta o (sospetto, osservato dal vivo la sera del 25 ago: `Connection
+  /// refused` su entrambi contemporaneamente dopo un uso intenso durante i
+  /// test) limita le richieste da un IP, tenta comunque **due** volte contro
+  /// **lui**, raddoppiando inutilmente il carico proprio sull'operatore che
+  /// sta già faticando. `overpass.private.coffee` è un'installazione
+  /// indipendente (community `private.coffee`), l'unico vero secondo parere.
   final List<String> _mirrors;
   static const _defaultMirrors = [
-    'https://lz4.overpass-api.de/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
   ];
+
+  /// **Interruttore**: dopo un fallimento totale (tutte le istanze giù),
+  /// salta la rete del tutto per questa finestra invece di ritentare ad ogni
+  /// tap — introdotto il 25 ago 2026 dopo aver notato che una serie di test
+  /// ravvicinati faceva fallire con `Connection refused` **entrambe** le
+  /// istanze contemporaneamente: un pattern più coerente con un limite
+  /// temporaneo lato server scatenato dal nostro stesso volume di richieste
+  /// (ogni ricerca, con la corsa a staffetta, ne genera più di una) che con
+  /// un'interruzione di rete generica. Riprova comunque dopo
+  /// [_downCooldown], breve rispetto a quello di OSM2CAI (5 min, endpoint
+  /// confermato rotto in modo permanente): qui il servizio può tornare
+  /// disponibile nel giro di pochi secondi/minuti.
+  DateTime? _downUntil;
+  static const _downCooldown = Duration(seconds: 30);
 
   /// Timeout **per singolo tentativo**: deliberatamente più corto di
   /// [timeout] (25s). Un'istanza sana risponde in pochi secondi; una che non
@@ -73,85 +91,101 @@ class OverpassTrailService extends TrailService {
   /// anche con un `MockClient` che risponde all'istante.
   final Duration _hedgeDelay;
 
-  /// Prova [endpoint] e i mirror **in corsa a staffetta** ("hedged
+  /// Prova [endpoint] e il mirror **in corsa a staffetta** ("hedged
   /// request"): parte subito con [endpoint]; se non ha ancora risposto dopo
-  /// [_hedgeDelay], lancia ANCHE il primo mirror (in parallelo, non al posto
-  /// del primo); se nemmeno quello ha risposto dopo un altro [_hedgeDelay],
-  /// lancia anche l'ultimo. Vince il primo che risponde `200`. Lancia
-  /// [TrailLookupException] solo se **tutti** falliscono.
-  ///
-  /// Sostituisce un giro strettamente sequenziale (prova A, aspetta il pieno
-  /// timeout, poi prova B, ...): con tre istanze lente il caso peggiore
-  /// scendeva già da 75s a 30s col solo accorciamento di [_perAttemptTimeout]
-  /// (25 ago 2026), ma restava comunque somma dei tre timeout. In corsa a
-  /// staffetta il caso peggiore è ~[_hedgeDelay]×2 + [_perAttemptTimeout]
-  /// (~16s con i valori di default) — e il caso comune (la prima istanza è
-  /// sana) resta veloce quanto una singola chiamata, perché le altre non
-  /// partono nemmeno. Costo: se la prima istanza è solo *lenta* (non giù),
-  /// nel frattempo parte comunque anche la seconda — richieste in più verso
-  /// un servizio pubblico gratuito, accettabile per un tap interattivo raro,
-  /// non per un ciclo in background.
+  /// [_hedgeDelay] (è solo **lento**), lancia ANCHE il mirror in parallelo;
+  /// se invece [endpoint] **fallisce** prima che scada [_hedgeDelay], il
+  /// mirror parte **subito**, senza aspettare il resto dell'attesa — un
+  /// fallimento rapido (`Connection refused`, HTTP non-200) non deve costare
+  /// lo stesso ritardo di un tentativo lento ma ancora in corso. Vince il
+  /// primo che risponde `200`. Lancia [TrailLookupException] solo se
+  /// **entrambi** falliscono — e a quel punto attiva [_downUntil] (vedi
+  /// doc lì) prima di rilanciarla.
   Future<http.Response> _postToAnyEndpoint(String query) async {
+    final downUntil = _downUntil;
+    if (downUntil != null && DateTime.now().isBefore(downUntil)) {
+      debugPrint('[trails] overpass: interruttore attivo fino a $downUntil, '
+          'nessuna richiesta');
+      throw TrailLookupException(
+          'overpass: segnalato giù di recente, riprovo tra poco');
+    }
+
     final urls = [endpoint, ..._mirrors];
     final completer = Completer<http.Response>();
     final errors = <Object?>[];
     var pending = urls.length;
+    var nextIndex = 1;
     // `Timer`, non `Future.delayed`: deve poter essere **cancellato** appena
-    // uno degli endpoint risponde, altrimenti resta agganciato dopo che
-    // `_postToAnyEndpoint` è già tornato — innocuo a runtime, ma
-    // `flutter_test` (usato dai widget test che disegnano una traccia e
-    // quindi risolvono segnavia, es. `draw_route_controls_test.dart`) fa
-    // fallire il test con "A Timer is still pending even after the widget
-    // tree was disposed" se non lo si ripulisce esplicitamente.
-    final hedgeTimers = <Timer>[];
+    // uno degli endpoint risponde (o si passa al successivo prima del
+    // previsto), altrimenti resta agganciato dopo che `_postToAnyEndpoint` è
+    // già tornato — innocuo a runtime, ma `flutter_test` (usato dai widget
+    // test che disegnano una traccia e quindi risolvono segnavia, es.
+    // `draw_route_controls_test.dart`) fa fallire il test con "A Timer is
+    // still pending even after the widget tree was disposed" se non lo si
+    // ripulisce esplicitamente.
+    Timer? hedgeTimer;
 
-    void cancelHedgeTimers() {
-      for (final t in hedgeTimers) {
-        t.cancel();
-      }
+    void cancelHedgeTimer() => hedgeTimer?.cancel();
+
+    late void Function(String url) attempt;
+
+    void startNextIfAny() {
+      if (nextIndex >= urls.length || completer.isCompleted) return;
+      cancelHedgeTimer();
+      attempt(urls[nextIndex++]);
+    }
+
+    void armHedgeTimer() {
+      if (nextIndex >= urls.length) return;
+      hedgeTimer = Timer(_hedgeDelay, startNextIfAny);
     }
 
     void fail(Object error) {
       errors.add(error);
       pending--;
       if (pending == 0 && !completer.isCompleted) {
-        completer.completeError(
-            TrailLookupException('overpass: tutte le istanze fallite ($errors)'));
+        _downUntil = DateTime.now().add(_downCooldown);
+        completer.completeError(TrailLookupException(
+            'overpass: tutte le istanze fallite ($errors) — salto per '
+            '${_downCooldown.inSeconds}s'));
+      } else {
+        // Fallimento rapido: non aspettare il resto di _hedgeDelay per
+        // provare il prossimo, se ce n'è uno non ancora partito.
+        startNextIfAny();
       }
     }
 
-    Future<void> attempt(String url) async {
-      try {
-        final res = await _client
-            .post(Uri.parse(url),
-                headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
-                body: {'data': query})
-            .timeout(_perAttemptTimeout);
-        if (completer.isCompleted) return;
-        if (res.statusCode == 200) {
-          completer.complete(res);
-          cancelHedgeTimers();
-        } else {
-          debugPrint('[trails] overpass $url → HTTP ${res.statusCode}');
-          fail('HTTP ${res.statusCode} da $url');
+    attempt = (String url) {
+      unawaited(() async {
+        try {
+          final res = await _client
+              .post(Uri.parse(url),
+                  headers: const {'User-Agent': 'sentei/0.1 (hiking app)'},
+                  body: {'data': query})
+              .timeout(_perAttemptTimeout);
+          if (completer.isCompleted) return;
+          if (res.statusCode == 200) {
+            _downUntil = null; // ha risposto: interruttore azzerato
+            completer.complete(res);
+            cancelHedgeTimer();
+          } else {
+            debugPrint('[trails] overpass $url → HTTP ${res.statusCode}');
+            fail('HTTP ${res.statusCode} da $url');
+          }
+        } catch (e) {
+          if (completer.isCompleted) return;
+          debugPrint('[trails] overpass $url fallito ($e)');
+          fail(e);
         }
-      } catch (e) {
-        if (completer.isCompleted) return;
-        debugPrint('[trails] overpass $url fallito ($e)');
-        fail(e);
-      }
-    }
+      }());
+    };
 
-    unawaited(attempt(urls[0]));
-    for (var i = 1; i < urls.length; i++) {
-      hedgeTimers.add(Timer(_hedgeDelay * i, () {
-        if (!completer.isCompleted) attempt(urls[i]);
-      }));
-    }
+    attempt(urls[0]);
+    armHedgeTimer();
     try {
       return await completer.future;
     } finally {
-      cancelHedgeTimers();
+      cancelHedgeTimer();
     }
   }
 

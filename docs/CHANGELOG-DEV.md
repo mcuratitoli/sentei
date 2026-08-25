@@ -11,6 +11,83 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — Riduce il volume di richieste a Overpass (sospetto autolimite dopo troppi test)
+
+Quinto giro della stessa serata. Durante il test del fix precedente, Overpass ha iniziato a
+fallire con `Connection refused` su **tutte** le istanze contemporaneamente — un pattern
+diverso dal semplice sovraccarico (`HTTP 504`) di prima. Domanda esplicita dell'utente:
+"quante richieste stiamo facendo agli stessi server? non è che ci blocca per troppe
+richieste?".
+
+Analisi: sì, probabile. Due cause concorrenti, entrambe nostre:
+1. **Due dei tre "mirror" erano lo stesso operatore.** `overpass-api.de` (principale) e
+   `lz4.overpass-api.de` (primo mirror) sono la **stessa infrastruttura** (istanze diverse
+   dello stesso progetto Overpass "madre"), non fonti indipendenti come si era assunto il 25
+   mattina — solo `overpass.private.coffee` è davvero un operatore diverso. Ogni ricerca
+   quindi mandava **due** richieste allo stesso operatore che, per primo, mostrava segni di
+   sovraccarico.
+2. **La corsa a staffetta non avanzava più in fretta su un fallimento rapido.** Un
+   `Connection refused` (praticamente istantaneo) faceva comunque aspettare l'intero
+   `_hedgeDelay` (3s) prima di provare l'istanza successiva — nessun beneficio di velocità,
+   e nel frattempo **tutte e tre** le richieste partivano comunque ad ogni singola ricerca,
+   raddoppiando/triplicando il traffico verso server che probabilmente stavano già
+   applicando un limite temporaneo su questo IP per l'uso intenso della serata.
+
+Interventi:
+- **Mirror ridotto a uno solo** (`overpass.private.coffee`, il solo indipendente):
+  `_defaultMirrors` passa da 2 a 1 — ogni ricerca genera al più **2** richieste invece di 3,
+  e le due che restano sono davvero due pareri diversi, non lo stesso server contato due
+  volte.
+- **Fallimento rapido → si passa subito al mirror**, senza aspettare `_hedgeDelay`: la
+  staffetta ora avanza su **qualunque** fallimento (non solo un timeout lento), cancellando
+  il timer di stagger e tentando l'istanza successiva nello stesso istante.
+  `_postToAnyEndpoint` riscritto attorno a un `nextIndex` condiviso fra il timer di hedge e
+  il percorso di fallimento, invece di pre-schedulare un timer per ogni mirror a priori.
+- **Nuovo interruttore anche per Overpass** (non solo per OSM2CAI): dopo un fallimento
+  totale (entrambe le istanze giù), salta la rete del tutto per 30s invece di ritentare ad
+  ogni tap — un tap ripetuto durante un'interruzione reale non deve continuare a mandare
+  altro traffico a un servizio che ha appena detto di no. Cooldown breve (30s, contro i 5 min
+  di OSM2CAI): qui il servizio può tornare disponibile in pochi secondi, non è rotto in modo
+  permanente.
+
+**Verificato dal vivo mentre si scriveva questo fix**: un fallimento totale sul fetch della
+geometria di "GTA" (tutte e tre le istanze — ancora con la build precedente, prima del
+redeploy) ha comunque mostrato la card con i dati già noti invece di "non trovato",
+confermando che il fix della voce precedente funziona su un caso reale, non solo nei test.
+
+Test: 2 nuovi in `trail_service_test.dart` (fallimento rapido non aspetta `_hedgeDelay`;
+l'interruttore salta la rete del tutto alla richiesta successiva, verificato contando le
+chiamate al `MockClient`).
+
+---
+
+## 25 agosto 2026 — CAI Varallo come ultima spiaggia quando la relazione non si risolve affatto
+
+Sesto giro. Feedback dell'utente dopo aver visto "non trovato" per un segnavia dalla card
+traccia mentre Overpass era giù: "ha provato anche a cercare il link del CAI? non ha senso
+non mostrare nulla!" — distinto dal fix precedente (quello copre il caso in cui la relazione
+**è già stata trovata** ma il fetch della geometria fallisce; qui invece è la **risoluzione
+stessa** del ref in una relazione — `TrailDetailNotifier.openByRef`, via
+`TrailService.trailsNear` — a fallire o a non trovare nulla).
+
+In questo caso non c'è nessuna `TrailRelation` da cui recuperare nome/capi-percorso (li
+espone solo Overpass/OSM2CAI), ma la ricerca su CAI Varallo **non dipende da nessuna delle
+due fonti**: le basta il numero segnavia (già noto, è quello cliccato) e la posizione (il
+punto di ancoraggio sulla traccia, già noto). Nuovo `TrailService.fetchByRefOnly(ref,
+anchor)` (implementazione reale solo in `CombinedTrailService`, `null` di base come
+`fetchDetail`): se il punto è in Valsesia e il ref è nell'elenco ufficiale, ritorna un
+`TrailDetail` minimo (solo ref + il link CAI Varallo, `geometryComplete: false`) invece di
+`null`. `TrailDetailNotifier.openByRef` lo prova come ultima spiaggia prima di arrendersi con
+"non trovato".
+
+Test: 3 nuovi in `trail_service_test.dart` (`group('fetchByRefOnly')`: trovato in Valsesia,
+fuori Valsesia niente richiesta, in Valsesia ma non in elenco); 2 nuovi in
+`trail_detail_provider_test.dart` (mostrato comunque via CAI Varallo; errore genuino quando
+nemmeno lì si trova nulla) — quello vecchio "nessun ref corrispondente" aggiornato per
+riflettere il nuovo comportamento.
+
+---
+
 ## 25 agosto 2026 — Fix: un fallimento di rete sulla geometria buttava via anche i dati già noti
 
 Quarto giro della stessa serata: durante un test dal vivo, un fallimento totale di Overpass

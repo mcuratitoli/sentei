@@ -477,6 +477,44 @@ void main() {
     });
   });
 
+  group('fetchByRefOnly', () {
+    test(
+        'in Valsesia e trovato su CAI Varallo → dettaglio parziale con quel '
+        'link (ultima spiaggia per la card traccia quando Overpass/OSM2CAI '
+        'non risolvono nemmeno la relazione)', () async {
+      final svc = CombinedTrailService(
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloResultsBody)),
+      );
+      final detail = await svc.fetchByRefOnly('5', const LatLng(45.93, 7.87));
+      expect(detail, isNotNull);
+      expect(detail!.geometryComplete, isFalse);
+      expect(detail.caiVarallo, isNotNull);
+    });
+
+    test('fuori Valsesia → null, nessuna richiesta CAI Varallo', () async {
+      var called = false;
+      final svc = CombinedTrailService(
+        caiVarallo: CaiVaralloSearchService(
+            client: MockClient((_) async {
+          called = true;
+          return http.Response(_caiVaralloResultsBody, 200);
+        })),
+      );
+      final detail =
+          await svc.fetchByRefOnly('5', const LatLng(46.5, 15.0));
+      expect(detail, isNull);
+      expect(called, isFalse);
+    });
+
+    test('in Valsesia ma non in elenco CAI Varallo → null', () async {
+      final svc = CombinedTrailService(
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloNoResultsBody)),
+      );
+      final detail = await svc.fetchByRefOnly('5', const LatLng(45.93, 7.87));
+      expect(detail, isNull);
+    });
+  });
+
   group('trailsNear', () {
     test('trova il segnavia entro la soglia di default, vuoto se lontano',
         () async {
@@ -567,6 +605,48 @@ void main() {
       sw.stop();
       expect(result, isNotEmpty);
       expect(sw.elapsedMilliseconds, lessThan(150));
+    });
+
+    test(
+        'Overpass: un fallimento rapido (non un timeout) fa scattare subito '
+        'il mirror, senza aspettare tutto il ritardo di staffetta', () async {
+      final svc = OverpassTrailService(
+        hedgeDelay: const Duration(milliseconds: 500),
+        client: MockClient((request) async {
+          if (request.url.toString() == 'https://overpass-api.de/api/interpreter') {
+            return http.Response('boom', 500); // fallimento immediato, non un timeout
+          }
+          return http.Response(_overpassBody, 200);
+        }),
+      );
+      final sw = Stopwatch()..start();
+      final result = await svc.fetchRelations([_a]);
+      sw.stop();
+      expect(result, isNotEmpty);
+      expect(sw.elapsedMilliseconds, lessThan(200)); // ben sotto i 500ms di stagger
+    });
+
+    test(
+        'Overpass: interruttore dopo un fallimento totale, la richiesta '
+        'successiva salta la rete del tutto', () async {
+      var callCount = 0;
+      final svc = OverpassTrailService(
+        hedgeDelay: Duration.zero,
+        client: MockClient((_) async {
+          callCount++;
+          return http.Response('boom', 500);
+        }),
+      );
+      await expectLater(
+          svc.fetchRelations([_a]), throwsA(isA<TrailLookupException>()));
+      final callsAfterFirstFailure = callCount;
+      expect(callsAfterFirstFailure, greaterThan(0));
+
+      // Subito dopo, senza aspettare: l'interruttore è attivo, nessuna nuova
+      // richiesta di rete deve partire.
+      await expectLater(
+          svc.fetchRelations([_a]), throwsA(isA<TrailLookupException>()));
+      expect(callCount, callsAfterFirstFailure);
     });
   });
 

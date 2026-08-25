@@ -30,6 +30,10 @@ class _FakeTrailService implements TrailService {
   }
 
   @override
+  Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async =>
+      null;
+
+  @override
   Future<List<TrailSegment>> trailSegmentsAlong(List<LatLng> path) async => const [];
 
   @override

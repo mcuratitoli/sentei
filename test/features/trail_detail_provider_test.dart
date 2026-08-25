@@ -8,11 +8,14 @@ import 'package:sentei/features/draw_route/route_editor_provider.dart'
 import 'package:sentei/features/map_gl/trail_detail_provider.dart';
 
 /// Fake controllabile: [nearby] cosa risponde `trailsNear`, [detail] cosa
-/// risponde `fetchDetail` una volta risolta la relazione.
+/// risponde `fetchDetail` una volta risolta la relazione, [byRefOnly] cosa
+/// risponde `fetchByRefOnly` (l'ultima spiaggia quando `nearby` non ha un
+/// match esatto).
 class _FakeTrailService implements TrailService {
-  _FakeTrailService({this.nearby = const [], this.detail});
+  _FakeTrailService({this.nearby = const [], this.detail, this.byRefOnly});
   final List<TrailRelation> nearby;
   final TrailDetail? detail;
+  final TrailDetail? byRefOnly;
 
   @override
   Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
@@ -21,6 +24,10 @@ class _FakeTrailService implements TrailService {
 
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async => detail;
+
+  @override
+  Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async =>
+      byRefOnly;
 
   @override
   Future<List<TrailSegment>> trailSegmentsAlong(List<LatLng> path) async => const [];
@@ -55,7 +62,9 @@ void main() {
     expect(state?.relation.id, '42');
   });
 
-  test('openByRef: nessun ref corrispondente nelle vicinanze → errore', () async {
+  test(
+      'openByRef: nessun ref corrispondente nelle vicinanze, e nemmeno su '
+      'CAI Varallo → errore', () async {
     final container = ProviderContainer(overrides: [
       trailServiceProvider.overrideWithValue(_FakeTrailService(
         nearby: [TrailRelation('999', const [], TrailSource.overpass, id: 'x')],
@@ -71,8 +80,34 @@ void main() {
     expect(state?.stage, TrailDetailStage.error);
   });
 
-  test('openByRef: trailsNear vuoto (nessun sentiero vicino) → errore, nessuna eccezione',
+  test(
+      'openByRef: trailsNear vuoto ma trovato su CAI Varallo → mostrato '
+      'comunque (ultima spiaggia, richiesta esplicita utente 25 ago 2026)',
       () async {
+    final container = ProviderContainer(overrides: [
+      trailServiceProvider.overrideWithValue(_FakeTrailService(
+        nearby: const [],
+        byRefOnly: const TrailDetail(
+          ref: '203',
+          points: [LatLng(45.9, 7.9)],
+          geometryComplete: false,
+        ),
+      )),
+    ]);
+    addTearDown(container.dispose);
+
+    await container
+        .read(trailDetailProvider.notifier)
+        .openByRef('203', const LatLng(45.9, 7.9));
+
+    final state = container.read(trailDetailProvider);
+    expect(state?.stage, TrailDetailStage.ready);
+    expect(state?.detail?.geometryComplete, isFalse);
+  });
+
+  test(
+      'openByRef: trailsNear vuoto e nemmeno CAI Varallo trova nulla → '
+      'errore, nessuna eccezione', () async {
     final container = ProviderContainer(overrides: [
       trailServiceProvider.overrideWithValue(_FakeTrailService(nearby: const [])),
     ]);

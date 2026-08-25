@@ -76,7 +76,27 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
     }
     if (match == null) {
       debugPrint('[trails] openByRef "$trailRef": nessuna relazione vicina ha '
-          'questo ref esatto → non trovato');
+          'questo ref esatto, provo comunque CAI Varallo prima di arrendermi');
+      TrailDetail? fallback;
+      try {
+        fallback = await ref
+            .read(trailServiceProvider)
+            .fetchByRefOnly(trailRef, anchorPoint);
+      } catch (e) {
+        debugPrint('[trails] openByRef "$trailRef": fetchByRefOnly ha lanciato: $e');
+        fallback = null;
+      }
+      if (!identical(state?.relation, placeholder)) return;
+      if (fallback != null) {
+        debugPrint('[trails] openByRef "$trailRef": trovato su CAI Varallo, '
+            'mostro comunque (senza percorso completo)');
+        state = TrailDetailState(
+            relation: placeholder,
+            stage: TrailDetailStage.ready,
+            detail: fallback);
+        return;
+      }
+      debugPrint('[trails] openByRef "$trailRef": non trovato nemmeno lì → non trovato');
       state = TrailDetailState(
         relation: placeholder,
         stage: TrailDetailStage.error,

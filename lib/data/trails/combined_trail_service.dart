@@ -154,4 +154,26 @@ class CombinedTrailService extends TrailService {
         'CAI Varallo → ${result == null ? "nessun match" : result.url}');
     return result == null ? detail : detail.copyWith(caiVarallo: result);
   }
+
+  /// Ultima spiaggia per la card **traccia** (`TrailDetailNotifier.openByRef`)
+  /// quando non si riesce nemmeno a risolvere il ref in una relazione vera —
+  /// OSM2CAI/Overpass entrambi giù, o senza quel ref nei dintorni. La ricerca
+  /// su CAI Varallo non dipende da nessuna delle due fonti (usa solo il ref
+  /// e la posizione), quindi può ancora dare un risultato utile — feedback
+  /// esplicito dell'utente (25 ago 2026): "sul sito del CAI Varallo lo trovo
+  /// subito, non ha senso non mostrarmi nulla". Solo per i segnavia in
+  /// Valsesia e dintorni (stesso gate di [fetchDetail]); `null` altrove o se
+  /// il ref non è nemmeno nell'elenco ufficiale.
+  @override
+  Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async {
+    if (!_isNearValsesia([anchor])) return null;
+    final result = await _caiVarallo.findByRef(trailRef);
+    if (result == null) return null;
+    return TrailDetail(
+      ref: trailRef,
+      points: [anchor],
+      caiVarallo: result,
+      geometryComplete: false,
+    );
+  }
 }

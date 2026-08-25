@@ -175,6 +175,17 @@ abstract class TrailService {
   /// restare tipizzato sull'astratto [TrailService].
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async => null;
 
+  /// Ultima spiaggia quando non si riesce nemmeno a **risolvere** un ref in
+  /// una relazione vera (OSM2CAI/Overpass entrambi giù o senza risultati,
+  /// caso della card traccia — `TrailDetailNotifier.openByRef`): prova a
+  /// mostrare qualcosa usando **solo** il numero segnavia già noto e un
+  /// punto vicino, senza bisogno di alcuna relazione risolta. Implementazione
+  /// di base: sempre `null` (solo [CombinedTrailService] sa cercare su CAI
+  /// Varallo). Vive qui per lo stesso motivo di [fetchDetail] — mantenere
+  /// `trailServiceProvider` tipizzato sull'astratto [TrailService].
+  Future<TrailDetail?> fetchByRefOnly(String trailRef, LatLng anchor) async =>
+      null;
+
   /// Attribuisce a ciascun tratto del percorso il **numero del sentiero**
   /// (ref CAI), restituendo segmenti per distanza cumulata. Scarica una volta
   /// le geometrie vicine ([fetchRelations]) e fa il matching locale: a ogni
