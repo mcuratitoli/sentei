@@ -11,6 +11,39 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — Fix: un fallimento di rete sulla geometria buttava via anche i dati già noti
+
+Quarto giro della stessa serata: durante un test dal vivo, un fallimento totale di Overpass
+(vedi sopra: fino a `Connection refused` su tutte e tre le istanze, sospetta ritorsione del
+servizio pubblico dopo molte richieste ravvicinate durante i test di stasera — la corsa a
+staffetta manda fino a 3 richieste per ricerca) ha fatto uscire "Segnavia non trovato" per il
+251, che pure era già stato **trovato e identificato** un attimo prima (`trailsNear` aveva già
+risolto la relazione — solo il fetch della geometria *completa* falliva). Feedback
+dell'utente: "ha provato anche a cercare il link del CAI? non ha senso non mostrare nulla!".
+
+Causa: `CombinedTrailService.fetchDetail` non distingueva "il fetch è fallito" da "il fetch ha
+risposto ma non ha trovato nulla" — un'eccezione di rete sul fetch della geometria buttava via
+**anche** ref/nome/capi-percorso/grado CAI, già noti dalla `TrailRelation` risolta un istante
+prima, **e** impediva di provare CAI Varallo, che non dipende affatto da quel fetch (usa solo
+il `ref`, non la geometria).
+
+Fix: `fetchDetail` ora cattura l'eccezione e costruisce un `TrailDetail` **parziale**
+(`geometryComplete: false`) con i campi già disponibili sulla relazione — sempre che questa
+abbia almeno un punto noto (altrimenti resta `null`: niente su cui costruire nulla). Prova
+comunque CAI Varallo (usa i punti della relazione, non quelli del fetch fallito, per il
+gate geografico Valsesia). La UI (`_TrailDetailBody`) mostra tutto il resto normalmente più
+un avviso ("Percorso completo non disponibile ora (rete) — riprova più tardi"); la traccia
+tratteggiata sulla mappa e il fit-bounds della camera (`map_gl_screen.dart`) restano
+disattivati quando `geometryComplete` è `false` — disegnare un troncone ritagliato come fosse
+l'intero segnavia sarebbe più ingannevole che non disegnare nulla.
+
+Test: 3 nuovi casi in `trail_service_test.dart` (dettaglio parziale con CAI Varallo tentato
+comunque; `null` genuino quando la relazione non ha nemmeno un punto noto; dettaglio parziale
+da OSM2CAI senza inventare un `officialUrl`); nuovo widget test in `trail_detail_sheet_test.dart`
+per l'avviso in UI.
+
+---
+
 ## 25 agosto 2026 — Terzo giro: tempi di ricerca, messaggio di caricamento, chiudere col tap altrove
 
 Terza tornata di feedback sulla stessa serata di test ("molto migliorato... ma perché ci

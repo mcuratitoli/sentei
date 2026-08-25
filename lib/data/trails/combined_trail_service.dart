@@ -100,6 +100,14 @@ class CombinedTrailService extends TrailService {
   /// full-text — vedi doc su [CaiVaralloSearchService]) e allega il
   /// risultato se trovato — mai un errore verso il chiamante: è un
   /// arricchimento locale, non deve mai far fallire la card di dettaglio.
+  ///
+  /// Se il fetch della geometria completa **fallisce** (rete: Overpass giù,
+  /// vedi `docs/CHANGELOG-DEV.md`), non butta via tutto: costruisce un
+  /// [TrailDetail] **parziale** (`geometryComplete: false`) con ciò che [relation]
+  /// già sa (ref/nome/capi-percorso/grado CAI, dalla ricerca che ha portato
+  /// a questo segnavia) e prova comunque CAI Varallo, che non dipende da
+  /// quel fetch — feedback esplicito dell'utente (25 ago 2026) dopo un
+  /// fallimento totale di Overpass: "non ha senso non mostrare nulla".
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async {
     final id = relation.id;
@@ -108,13 +116,38 @@ class CombinedTrailService extends TrailService {
           '(fonte ${relation.source.name}) → null');
       return null;
     }
-    final detail = await switch (relation.source) {
-      TrailSource.osm2cai => _osm2cai.fetchDetailById(id),
-      TrailSource.overpass => _overpass.fetchDetailById(id),
-    };
+    TrailDetail? detail;
+    try {
+      detail = await switch (relation.source) {
+        TrailSource.osm2cai => _osm2cai.fetchDetailById(id),
+        TrailSource.overpass => _overpass.fetchDetailById(id),
+      };
+    } catch (e) {
+      debugPrint('[trails] combined.fetchDetail "${relation.ref}": fetch '
+          'geometria completa fallito ($e) — mostro comunque i dati già noti');
+    }
     debugPrint('[trails] combined.fetchDetail "${relation.ref}" '
         '(${relation.source.name}, id=$id) → '
-        '${detail == null ? "null" : "${detail.points.length} punti"}');
+        '${detail == null ? "fallito/vuoto" : "${detail.points.length} punti"}');
+    // `null` da qui in poi significa "il fetch ha risposto ma non ha trovato
+    // nulla" (relazione cancellata/id sbagliato): quello sì che resta `null`
+    // verso il chiamante, non ha senso mostrare una relazione che la fonte
+    // dice non esistere più. Solo l'**eccezione** (sopra) diventa un
+    // dettaglio parziale.
+    detail ??= relation.points.isEmpty
+        ? null
+        : TrailDetail(
+            ref: relation.ref,
+            points: relation.points,
+            name: relation.name,
+            from: relation.from,
+            to: relation.to,
+            caiScale: relation.caiScale,
+            officialUrl: relation.source == TrailSource.overpass
+                ? 'https://www.openstreetmap.org/relation/$id'
+                : null,
+            geometryComplete: false,
+          );
     if (detail == null || !_isNearValsesia(detail.points)) return detail;
     final result = await _caiVarallo.findByRef(detail.ref);
     debugPrint('[trails] combined.fetchDetail "${relation.ref}": in Valsesia, '

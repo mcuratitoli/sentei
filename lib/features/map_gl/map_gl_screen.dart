@@ -462,9 +462,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     if (mgr == null) return;
     await mgr.deleteAll();
     final state = ref.read(trailDetailProvider);
-    final points = state?.stage == TrailDetailStage.ready
-        ? state?.detail?.points
-        : null;
+    // Se il fetch della geometria completa è fallito (rete), `detail.points`
+    // è solo il tratto ritagliato già noto dalla ricerca — disegnarlo come
+    // fosse l'intero segnavia sarebbe ingannevole (§`geometryComplete`,
+    // `trail_service.dart`).
+    final ready = state?.stage == TrailDetailStage.ready &&
+        (state?.detail?.geometryComplete ?? false);
+    final points = ready ? state?.detail?.points : null;
     if (points == null || points.length < 2) return;
     await mgr.create(PolylineAnnotationOptions(
       geometry: _lineOf(points),
@@ -1340,7 +1344,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     });
     ref.listen(trailDetailProvider, (_, next) {
       _renderTrailDetail();
-      if (next?.stage == TrailDetailStage.ready) {
+      // Stesso motivo di `_renderTrailDetail`: senza la geometria completa
+      // non ha senso inquadrare la mappa su un tratto ritagliato che non
+      // rappresenta l'intero segnavia.
+      if (next?.stage == TrailDetailStage.ready &&
+          (next?.detail?.geometryComplete ?? false)) {
         final points = next?.detail?.points ?? const <ll.LatLng>[];
         if (points.length >= 2) _scheduleFocusOnPoints(points);
       }

@@ -357,6 +357,77 @@ void main() {
     });
 
     test(
+        'CombinedTrailService: fetch della geometria completa fallito → '
+        'dettaglio parziale con ciò che si sa già, non null (feedback utente '
+        '25 ago 2026: "non ha senso non mostrare nulla")', () async {
+      final svc = CombinedTrailService(
+        overpass: OverpassTrailService(
+          hedgeDelay: Duration.zero,
+          client: MockClient((_) async => http.Response('boom', 500)),
+        ),
+        caiVarallo: CaiVaralloSearchService(client: _fixed(_caiVaralloResultsBody)),
+      );
+      // Punto in Valsesia (dentro il riquadro): geometria "ritagliata" già
+      // nota dalla ricerca precedente, non quella completa.
+      final relation = TrailRelation(
+        '5',
+        const [LatLng(45.93, 7.87)],
+        TrailSource.overpass,
+        id: '999',
+        name: 'Alta Via del Rifugio',
+        from: 'Alagna',
+        to: 'Rifugio Pastore',
+        caiScale: 'EE',
+      );
+      final detail = await svc.fetchDetail(relation);
+      expect(detail, isNotNull);
+      expect(detail!.geometryComplete, isFalse);
+      expect(detail.name, 'Alta Via del Rifugio');
+      expect(detail.from, 'Alagna');
+      expect(detail.to, 'Rifugio Pastore');
+      expect(detail.caiScale, 'EE');
+      expect(detail.points, relation.points);
+      expect(detail.officialUrl, 'https://www.openstreetmap.org/relation/999');
+      expect(detail.distanceMeters, isNull); // non calcolabile senza la geometria vera
+      // CAI Varallo tentato comunque: non dipende dal fetch fallito.
+      expect(detail.caiVarallo, isNotNull);
+    });
+
+    test(
+        'CombinedTrailService: fetch fallito e relazione senza punti noti → '
+        'null (niente su cui costruire nemmeno un dettaglio parziale)',
+        () async {
+      final svc = CombinedTrailService(
+        overpass: OverpassTrailService(
+          hedgeDelay: Duration.zero,
+          client: MockClient((_) async => http.Response('boom', 500)),
+        ),
+      );
+      final relation =
+          TrailRelation('5', const [], TrailSource.overpass, id: '999');
+      expect(await svc.fetchDetail(relation), isNull);
+    });
+
+    test(
+        'CombinedTrailService: fetch fallito, fonte OSM2CAI → dettaglio '
+        'parziale ma senza officialUrl inventato', () async {
+      final svc = CombinedTrailService(
+        osm2cai: Osm2CaiTrailService(
+            client: MockClient((_) async => http.Response('boom', 500))),
+      );
+      final relation = TrailRelation(
+        '5',
+        const [LatLng(46.5, 15.0)], // fuori Valsesia: niente CAI Varallo
+        TrailSource.osm2cai,
+        id: '999',
+      );
+      final detail = await svc.fetchDetail(relation);
+      expect(detail, isNotNull);
+      expect(detail!.geometryComplete, isFalse);
+      expect(detail.officialUrl, isNull);
+    });
+
+    test(
         'CombinedTrailService: in Valsesia interroga anche CAI Varallo e allega i risultati',
         () async {
       // _osm2caiDetailFeatureBody ha geometria vicino a Punta Gnifetti/Alagna

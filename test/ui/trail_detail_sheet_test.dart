@@ -157,6 +157,28 @@ void main() {
   });
 
   testWidgets(
+      'geometria non completa: mostra comunque nome/link e un avviso, '
+      'nessun crash (feedback utente 25 ago 2026)', (tester) async {
+    await tester.pumpWidget(_host(_FakeTrailService(
+      detail: const TrailDetail(
+        ref: '203',
+        points: [LatLng(45.93, 7.87)],
+        name: 'Alta Via del Rifugio',
+        officialUrl: 'https://www.openstreetmap.org/relation/123',
+        geometryComplete: false,
+      ),
+    )));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approfondisci'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alta Via del Rifugio'), findsOneWidget);
+    expect(find.text('OpenStreetMap'), findsOneWidget);
+    expect(find.textContaining('Percorso completo non disponibile'), findsOneWidget);
+  });
+
+  testWidgets(
       'confermando: chiude la card del punto ispezionato sotto, non solo la riduce',
       (tester) async {
     final container = ProviderContainer(overrides: [

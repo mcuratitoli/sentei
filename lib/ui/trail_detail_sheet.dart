@@ -191,6 +191,28 @@ class _TrailDetailBody extends StatelessWidget {
             url: d.officialUrl!,
           ),
         ],
+        // Fetch della geometria completa fallito (rete): mostrato comunque
+        // tutto il resto (nome/capi-percorso/link), ma con un avviso — non
+        // c'è un percorso completo da disegnare sulla mappa questa volta.
+        // Introdotto il 25 ago 2026 dopo un fallimento totale di Overpass
+        // durante un test dal vivo ("non ha senso non mostrare nulla").
+        if (!d.geometryComplete) ...[
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(CupertinoIcons.exclamationmark_triangle,
+                  size: 14, color: palette.secondaryLabel),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Percorso completo non disponibile ora (rete) — riprova più tardi.',
+                  style: AppText.footnote.copyWith(color: palette.secondaryLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
         // Corrispondenza nell'elenco ufficiale di CAI Varallo (solo per i
         // segnavia in Valsesia e dintorni) — match esatto sul ref, quindi al
         // più uno, non una lista di risultati "forse pertinenti" come nel

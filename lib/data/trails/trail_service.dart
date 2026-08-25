@@ -77,6 +77,7 @@ class TrailDetail {
     this.descentMeters,
     this.officialUrl,
     this.caiVarallo,
+    this.geometryComplete = true,
   });
 
   final String ref;
@@ -109,6 +110,18 @@ class TrailDetail {
   /// contenitore). `null` altrove o se il ref non compare in elenco.
   final CaiVaralloResult? caiVarallo;
 
+  /// `false` quando [points] **non** è la geometria completa del segnavia,
+  /// ma solo quella (ritagliata, spesso pochi punti) già nota dalla ricerca
+  /// che ha portato a questo segnavia — usata come ripiego quando il fetch
+  /// della geometria completa fallisce (rete). Introdotto il 25 ago 2026
+  /// dopo un fallimento totale di Overpass durante un test dal vivo: prima,
+  /// un fetch fallito buttava via **anche** ref/nome/capi-percorso/link CAI
+  /// Varallo, già noti e non dipendenti da quel fetch — "non ha senso non
+  /// mostrare nulla" (feedback testuale dell'utente). La UI usa questo flag
+  /// per non disegnare/inquadrare sulla mappa un troncone che sembrerebbe
+  /// (a torto) l'intero percorso, e per avvisare che i dati sono parziali.
+  final bool geometryComplete;
+
   TrailDetail copyWith({CaiVaralloResult? caiVarallo}) => TrailDetail(
         ref: ref,
         points: points,
@@ -121,6 +134,7 @@ class TrailDetail {
         descentMeters: descentMeters,
         officialUrl: officialUrl,
         caiVarallo: caiVarallo ?? this.caiVarallo,
+        geometryComplete: geometryComplete,
       );
 }
 
