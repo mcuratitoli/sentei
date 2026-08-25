@@ -35,15 +35,25 @@ class OverpassTrailService extends TrailService {
 
   /// Scarica le relazioni `route=hiking` vicine al percorso con la geometria,
   /// filtrando i punti al bounding box del percorso (+ margine).
+  ///
+  /// [radiusMeters], quando passato (da `trailsNear`), **sostituisce**
+  /// [aroundMeters] nella query: senza, un tap a 50-60 m da un segnavia reale
+  /// non veniva nemmeno scaricato (raggio fisso di 40 m, più piccolo della
+  /// soglia usata poi per accettare il risultato) — bug osservato dal vivo il
+  /// 25 ago 2026. Per [trailSegmentsAlong] (percorso disegnato, non passa
+  /// [radiusMeters]) il raggio stretto resta intenzionale: tanti punti
+  /// campionati, query più mirata.
   @override
-  Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+      {double? radiusMeters}) async {
     final sample = _sample(path, maxPoints);
     final coords = sample.map((p) => '${p.latitude},${p.longitude}').join(',');
+    final radius = radiusMeters ?? aroundMeters;
     // Cerca direttamente le relazioni route=hiking nel raggio, senza passare per
     // le way con highway. Questo copre anche sentieri su ghiacciaio e tracciati
     // alpini che non hanno il tag highway (frequente in Valle d'Aosta e alta quota).
     final query = '[out:json][timeout:25];'
-        'rel["route"="hiking"](around:$aroundMeters,$coords);'
+        'rel["route"="hiking"](around:$radius,$coords);'
         'out geom;';
 
     // Fallimento (rete/timeout/HTTP non-200) → lancia [TrailLookupException];

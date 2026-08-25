@@ -43,7 +43,8 @@ class CombinedTrailService extends TrailService {
       p.longitude <= _valsesiaMaxLon);
 
   @override
-  Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+      {double? radiusMeters}) async {
     // Primario: se dà risultati li usa. Se **fallisce** (throw) o torna **vuoto**
     // si ripiega su Overpass. L'eventuale fallimento del fallback viene
     // **propagato** (throw): così chi risolve i segnavia distingue "cercato e
@@ -54,7 +55,7 @@ class CombinedTrailService extends TrailService {
     } on TrailLookupException {
       // primario ko → tenta il fallback
     }
-    return _overpass.fetchRelations(path);
+    return _overpass.fetchRelations(path, radiusMeters: radiusMeters);
   }
 
   /// Recupera la relazione **completa** di [relation] (§"Un segnavia per

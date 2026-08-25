@@ -139,7 +139,17 @@ abstract class TrailService {
 
   /// Scarica le relazioni sentiero (ref + geometria) vicine al [path].
   /// Implementata dalle sottoclassi in base alla fonte (Overpass / OSM2CAI).
-  Future<List<TrailRelation>> fetchRelations(List<LatLng> path);
+  ///
+  /// [radiusMeters] è un suggerimento del raggio di ricerca effettivo da
+  /// usare nella query di rete (non solo nel filtro finale sui risultati):
+  /// serve a [trailsNear], che altrimenti interrogherebbe la fonte con un
+  /// raggio fisso più piccolo della soglia richiesta dal chiamante — bug
+  /// osservato dal vivo (24 ago 2026): un segnavia a 50-60 m da un tap
+  /// veniva scartato perché mai neanche scaricato, non perché fuori soglia.
+  /// `null` (il caso di [trailSegmentsAlong], percorso disegnato) lascia
+  /// alla sottoclasse il proprio raggio di default.
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+      {double? radiusMeters});
 
   /// Recupera la relazione **completa** di [relation] (§"Un segnavia per
   /// intero", `docs/ROADMAP.md` P1.3). Implementazione di base: sempre
@@ -222,7 +232,7 @@ abstract class TrailService {
       {double thresholdMeters = 60}) async {
     final List<TrailRelation> relations;
     try {
-      relations = await fetchRelations([point]);
+      relations = await fetchRelations([point], radiusMeters: thresholdMeters);
     } catch (_) {
       return const [];
     }

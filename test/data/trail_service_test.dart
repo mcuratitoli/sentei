@@ -386,6 +386,38 @@ void main() {
       final found = await svc.trailsNear(point, thresholdMeters: 10);
       expect(found.map((r) => r.ref).toList(), ['5']);
     });
+
+    test(
+        'Overpass: la soglia richiesta diventa il raggio della query, non il '
+        'default fisso dell\'istanza (bug osservato dal vivo, 25 ago 2026: '
+        'un segnavia a 50-60 m veniva scartato perché mai scaricato, con un '
+        'raggio fisso di 40 m indipendente dalla soglia)', () async {
+      String? capturedBody;
+      final svc = OverpassTrailService(
+        aroundMeters: 40,
+        client: MockClient((request) async {
+          capturedBody = request.body;
+          return http.Response(_overpassBody, 200);
+        }),
+      );
+      await svc.trailsNear(_a, thresholdMeters: 150);
+      expect(capturedBody, contains('around%3A150.0%2C'));
+      expect(capturedBody, isNot(contains('around%3A40%2C')));
+    });
+
+    test('Overpass: senza soglia esplicita (trailSegmentsAlong) usa il default',
+        () async {
+      String? capturedBody;
+      final svc = OverpassTrailService(
+        aroundMeters: 40,
+        client: MockClient((request) async {
+          capturedBody = request.body;
+          return http.Response(_overpassBody, 200);
+        }),
+      );
+      await svc.trailSegmentsAlong([_a, _b]);
+      expect(capturedBody, contains('around%3A40%2C'));
+    });
   });
 
   group('CombinedTrailService', () {

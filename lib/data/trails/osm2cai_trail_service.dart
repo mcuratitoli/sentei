@@ -35,9 +35,15 @@ class Osm2CaiTrailService extends TrailService {
   final String osm2caiStatus;
 
   @override
-  Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async {
-    // Bounding box del percorso (+ margine ~0.01°). Il server rifiuta bbox
-    // troppo grandi (HTTP 500); attorno a un percorso disegnato è sempre piccolo.
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+      {double? radiusMeters}) async {
+    // Bounding box del percorso (+ margine ~0.01°, ~1,1 km): [radiusMeters]
+    // (usato da `trailsNear`, mai oltre 150 m) resta sempre ben dentro questo
+    // margine fisso, quindi non serve allargarlo dinamicamente — a differenza
+    // di Overpass (vedi `overpass_trail_service.dart`), che con un raggio
+    // fisso più piccolo del margine qui sopra rischiava di non scaricare
+    // affatto un segnavia vicino. Il server rifiuta bbox troppo grandi (HTTP
+    // 500); attorno a un percorso disegnato è sempre piccolo.
     var minLat = 90.0, maxLat = -90.0, minLon = 180.0, maxLon = -180.0;
     for (final p in path) {
       minLat = math.min(minLat, p.latitude);

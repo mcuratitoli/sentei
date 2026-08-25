@@ -11,6 +11,47 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — Fix: `trailsNear` scartava segnavia reali per un raggio di query troppo stretto
+
+Feedback dal vivo sulla fetta 3/3b/4 di ieri: (1) toccando la mappa vicino a un sentiero
+noto, la card del punto non mostrava alcuna label segnavia; (2) dalla card di una traccia,
+toccando la stessa label segnavia più volte, ~2 volte su 3 usciva "non trovato" — non
+affidabile.
+
+Causa-radice: `TrailService.trailsNear(point, {thresholdMeters})` accetta una soglia
+configurabile (60 m per il tap sulla mappa, `inspected_point_provider.dart`; 150 m per
+risolvere un `ref` bare dalla card traccia, `trail_detail_provider.openByRef`) — ma la
+usava **solo per filtrare i risultati già scaricati**, non per decidere quanto cercare in
+rete. `OverpassTrailService.fetchRelations` (fallback quando OSM2CAI non ha il sentiero
+cadastrato o il tag `ref` manca in quella zona) mandava sempre una query Overpass con un
+raggio **fisso di 40 m** (`aroundMeters`, pensato per `trailSegmentsAlong` lungo un percorso
+disegnato, dove ha senso restare stretti) — indipendente dalla soglia richiesta dal
+chiamante. Un segnavia a 50-150 m dal punto non veniva **nemmeno scaricato**, non scartato
+dopo: il filtro finale (`d <= thresholdMeters`) non poteva salvarlo perché la lista di
+partenza era già vuota. Spiega entrambi i sintomi: (1) un tap "vicino ma non troppo" a un
+sentiero senza copertura OSM2CAI cadeva sempre fuori dal raggio Overpass di 40 m; (2) la
+risoluzione via `openByRef` è intermittente perché dipende da quale fonte risponde prima
+(OSM2CAI cataloga alcuni segnavia e non altri nello stesso bbox) — quando cade sul fallback
+Overpass, il punto di ancoraggio (centro del tratto instradato) può stare oltre i 40 m dal
+vertice OSM più vicino pur essendo ben dentro i 150 m dichiarati come soglia accettabile.
+
+Fix: `TrailService.fetchRelations` guadagna un parametro opzionale `radiusMeters`,
+propagato da `trailsNear` come raggio di query effettivo (non solo di filtro).
+`OverpassTrailService.fetchRelations` lo usa al posto di `aroundMeters` quando presente;
+`trailSegmentsAlong` (percorso disegnato, non passa `radiusMeters`) resta invariato — query
+strette intenzionali lì, dove il match è già vincolato a 25 m ogni ~50 m di campionamento.
+`Osm2CaiTrailService` ignora il parametro: il suo margine di bbox fisso (~0,01°, ~1,1 km) è
+già più largo di qualunque soglia in uso (max 150 m), non ha lo stesso problema.
+`CombinedTrailService.fetchRelations` inoltra il parametro al fallback Overpass.
+
+Test: nuovo `trailsNear Overpass: la soglia richiesta diventa il raggio della query`
+(cattura il body della richiesta HTTP e verifica `around:150` invece del default `around:40`
+quando `trailsNear` chiama con `thresholdMeters: 150`) + un test di controllo che
+`trailSegmentsAlong` continua a usare il default. Tutte le classi che implementano
+`TrailService` nei test (`_FakeTrailService` in due file) aggiornate alla nuova firma.
+
+---
+
 ## 24 agosto 2026 — "Un segnavia per intero" (P1.3): fetta 3b (card traccia + CAI Varallo) e fetta 4 (traccia temporanea sulla mappa)
 
 Chiude l'epica: le tre richieste dell'utente dopo aver testato la fetta 3 ("applica anche

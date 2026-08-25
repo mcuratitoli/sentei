@@ -18,7 +18,9 @@ class _FakeTrailService implements TrailService {
   final bool throwOnFetch;
 
   @override
-  Future<List<TrailRelation>> fetchRelations(List<LatLng> path) async => const [];
+  Future<List<TrailRelation>> fetchRelations(List<LatLng> path,
+          {double? radiusMeters}) async =>
+      const [];
 
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async {

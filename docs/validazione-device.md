@@ -16,13 +16,17 @@
   sempre per i segnavia trovati via OSM2CAI (funziona invece per quelli via Overpass, che ha
   un id garantito), è il primo sospetto: ispezionare una risposta reale del bounding-box e
   correggere il nome del campo.
-- [ ] **"Un segnavia per intero", flusso completo** (24 ago 2026, `docs/CHANGELOG-DEV.md`,
-  §P1.3 fetta 3/3b/4) — coperto da test di dominio/widget con fake/mock, mai visto a
-  schermo: tap su una label (card punto e card traccia), dialog di conferma, card di
-  dettaglio con dati reali da OSM2CAI/Overpass, traccia temporanea + fit-bounds sulla mappa
-  per un segnavia lungo/tortuoso, e l'arricchimento CAI Varallo per un segnavia reale in
-  Valsesia (`caivarallo.com` è raggiungibile dal sandbox di sviluppo, verificato — ma non lo
-  stesso di una rete cellulare reale su device).
+- [ ] **"Un segnavia per intero", flusso completo** (24-25 ago 2026, `docs/CHANGELOG-DEV.md`,
+  §P1.3 fetta 3/3b/4 + fix raggio `trailsNear`) — **prima verifica dal vivo (24 ago) ha
+  trovato un bug reale**: segnavia noti non intercettati toccando la mappa, e risoluzione
+  intermittente (~2 volte su 3 "non trovato") toccando la stessa label dalla card traccia.
+  Causa-radice confermata e corretta (25 ago): `OverpassTrailService` interrogava sempre un
+  raggio fisso di 40 m indipendente dalla soglia richiesta da `trailsNear` (60-150 m) — vedi
+  il changelog per il fix. **Resta da riverificare dal vivo** con questo fix: tap su una
+  label (card punto e card traccia) su più segnavia noti, card di dettaglio con dati reali,
+  traccia temporanea + fit-bounds sulla mappa, arricchimento CAI Varallo per un segnavia
+  reale in Valsesia (`caivarallo.com` raggiungibile dal sandbox di sviluppo, verificato — ma
+  non lo stesso di una rete cellulare reale su device).
 - [ ] **Traccia mista: tasto "Libero"** (24 ago 2026, `docs/CHANGELOG-DEV.md`) — coperto da
   test di dominio (`free_segments_test.dart`, `track_runs_test.dart`) e widget
   (`draw_route_controls_test.dart`), ma **mai visto a schermo**: comportamento del tasto
