@@ -9,24 +9,25 @@
 > Quando un punto è confermato su device, spuntarlo `[x]` con data e note (non cancellarlo:
 > qui la storia della validazione è parte del valore della lista).
 
-- [ ] **Id OSM2CAI su `TrailRelation`** (24 ago 2026, `docs/CHANGELOG-DEV.md`, §"Un segnavia
-  per intero" P1.3) — il nome campo tentato (`props['id']` nella risposta bounding-box) non è
-  mai stato verificato contro l'API reale (dominio bloccato dal sandbox di sviluppo). Se il
-  fetch della relazione completa (`GET /api/v2/hiking-route/{id}`, fetta successiva) fallisce
-  sempre per i segnavia trovati via OSM2CAI (funziona invece per quelli via Overpass, che ha
-  un id garantito), è il primo sospetto: ispezionare una risposta reale del bounding-box e
-  correggere il nome del campo.
-- [ ] **"Un segnavia per intero", flusso completo** (24-25 ago 2026, `docs/CHANGELOG-DEV.md`,
-  §P1.3 fetta 3/3b/4 + fix raggio `trailsNear`) — **prima verifica dal vivo (24 ago) ha
-  trovato un bug reale**: segnavia noti non intercettati toccando la mappa, e risoluzione
-  intermittente (~2 volte su 3 "non trovato") toccando la stessa label dalla card traccia.
-  Causa-radice confermata e corretta (25 ago): `OverpassTrailService` interrogava sempre un
-  raggio fisso di 40 m indipendente dalla soglia richiesta da `trailsNear` (60-150 m) — vedi
-  il changelog per il fix. **Resta da riverificare dal vivo** con questo fix: tap su una
-  label (card punto e card traccia) su più segnavia noti, card di dettaglio con dati reali,
-  traccia temporanea + fit-bounds sulla mappa, arricchimento CAI Varallo per un segnavia
-  reale in Valsesia (`caivarallo.com` raggiungibile dal sandbox di sviluppo, verificato — ma
-  non lo stesso di una rete cellulare reale su device).
+- [x] **Id OSM2CAI su `TrailRelation`** — **superato dai fatti (25 ago 2026)**, non più
+  verificabile nella forma originaria: `POST /api/geojson/hiking_routes/bounding_box`
+  risponde sempre `HTTP 405` in produzione (vedi `docs/osm2cai-investigation.md`, aggiornamento
+  25 ago) — OSM2CAI non restituisce mai risultati, quindi il campo `id` di quella risposta non
+  è mai esercitato. Il dubbio originale (nome campo non confermato) resta aperto ma diventato
+  irrilevante finché l'endpoint stesso non torna a funzionare.
+- [x] **"Un segnavia per intero", flusso completo** (24-25 ago 2026, `docs/CHANGELOG-DEV.md`,
+  §P1.3 fetta 3/3b/4 + fix raggio `trailsNear`) — **confermato dal vivo il 25 agosto** sulla
+  traccia "Rassa Alpe Toso": segnavia 251 e 253, entrambi risolti con successo end-to-end
+  (anchor → `trailsNear` → fallback Overpass → `fetchDetail` → card pronta con arricchimento
+  CAI Varallo), log `[trails]` alla mano. La prima verifica (24 ago) aveva trovato un bug
+  reale (raggio di query fisso a 40 m, corretto il 25 ago — vedi changelog) e un fallimento
+  isolato per un timeout Overpass (`HTTP 504`, servizio pubblico, non un nostro bug — la
+  UI ha mostrato correttamente "non trovato" invece di un crash). **Confermato anche**: chiusura
+  della card sottostante e traccia temporanea sulla mappa. **Scoperta collaterale**: OSM2CAI
+  è di fatto sempre fuori uso in produzione (405, vedi sopra) — la ricerca oggi passa sempre
+  da Overpass, non da OSM2CAI nonostante sia il "primario" nel codice. Resta da vedere
+  l'export CAI Varallo/traccia temporanea su più segnavia e su un iPhone fisico (non solo
+  simulatore).
 - [ ] **Traccia mista: tasto "Libero"** (24 ago 2026, `docs/CHANGELOG-DEV.md`) — coperto da
   test di dominio (`free_segments_test.dart`, `track_runs_test.dart`) e widget
   (`draw_route_controls_test.dart`), ma **mai visto a schermo**: comportamento del tasto

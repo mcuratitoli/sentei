@@ -5,6 +5,22 @@
 > `app/Http/Controllers/V2/HikingRoutesRegionControllerV2.php`, `app/Models/HikingRoute.php`.
 > Endpoint **non testati live** (dominio `osm2cai.cai.it` bloccato dalla network policy del sandbox);
 > la struttura è ricavata dal sorgente, autoritativa ma da confermare in esecuzione reale.
+>
+> ⚠️ **Aggiornamento 25 agosto 2026 — `POST /api/geojson/hiking_routes/bounding_box` confermato
+> rotto in produzione.** Test dal vivo sul simulatore (log `[trails]`) e conferma diretta con
+> `curl` (il dominio si è rivelato raggiungibile da questa sessione, a differenza di sessioni
+> precedenti) mostrano che l'endpoint risponde **sempre `HTTP 405 Method Not Allowed`** con
+> header `allow: GET, HEAD` — nonostante `routes/api.php` su `develop`/`main`/`master` di
+> GitHub dichiari esplicitamente `Route::post(...)` per quella rotta (verificato su tutti e
+> tre). Provate anche varianti GET (query string → `404 {"error":"Model not found"}`; path
+> segments in stile `/bb/{bbox}/{sda}` → `404 Not Found` pagina Laravel). Conclusione: la
+> **produzione di `osm2cai.cai.it` non riflette il sorgente pubblico** per questa rotta (cache
+> delle rotte Laravel non rigenerata, o deploy da un branch privato) — problema lato loro, non
+> risolvibile lato client. `Osm2CaiTrailService.fetchRelations` fallisce sempre con
+> `TrailLookupException`, `CombinedTrailService` ripiega **sempre** su Overpass (che infatti
+> copre la ricerca in pratica, verificato funzionante sui segnavia 251/253 vicino a Rassa).
+> Nessun fix di codice possibile qui: da ricontrollare periodicamente se CAI/SOSEC
+> ridistribuisce l'endpoint corretto.
 
 ## Cos'è
 

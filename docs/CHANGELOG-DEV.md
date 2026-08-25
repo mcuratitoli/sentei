@@ -11,6 +11,49 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 25 agosto 2026 — Verifica dal vivo del fix + scoperta: OSM2CAI 405 in produzione
+
+Dopo il fix del raggio (voce successiva in questo changelog), verifica dal vivo sul
+simulatore con log `[trails]` estesi (aggiunti apposta, vedi sotto) e chiusura delle card
+sottostanti all'apertura del dettaglio segnavia (`showTrailDetail`/`showTrailDetailByRef`
+ora chiamano `inspectedPointProvider.clear()` + `trackCardExpandedProvider.collapse()` prima
+di avviare il fetch — la card di un punto o di una traccia non deve restare in sovraimpressione
+mentre si guarda il segnavia).
+
+**Risultato della verifica**: sulla traccia "Rassa Alpe Toso", i segnavia 251 e 253 si sono
+risolti correttamente end-to-end (anchor point sul tratto giusto → `trailsNear` con soglia
+150 m → match per ref → `fetchDetail` → card pronta, con arricchimento CAI Varallo per
+entrambi). Un fallimento isolato con `overpass HTTP 504` (timeout del servizio pubblico) ha
+mostrato correttamente "non trovato" invece di un crash — comportamento accettabile per una
+richiesta best-effort a un servizio gratuito, non un bug.
+
+**Scoperta collaterale, seguita fino in fondo**: in ogni singola risoluzione, OSM2CAI ha
+fallito con `HTTP 405 Method Not Allowed`. Verificato **fuori dall'app**, con `curl` diretto
+verso `osm2cai.cai.it` (raggiungibile da questa sessione, a differenza di sessioni precedenti
+di sviluppo): la risposta conferma `allow: GET, HEAD` per
+`POST /api/geojson/hiking_routes/bounding_box` — l'esatto endpoint e metodo che
+`Osm2CaiTrailService` chiama, e che il sorgente pubblico del progetto (`webmappsrl/osm2cai`,
+controllato su `develop`, `main` e `master`) dichiara **esplicitamente come `Route::post`**.
+Testate anche due varianti GET (query string classica → `404 {"error":"Model not found"}`;
+path-segment in stile `/bb/{bbox}/{sda}`, come gli altri endpoint REST dello stesso progetto
+→ `404` pagina Laravel). Conclusione: la **produzione non riflette il sorgente pubblico** per
+questa rotta specifica (cache delle rotte Laravel non rigenerata dopo un deploy, o un branch
+di produzione privato diverso da quelli pubblici) — un problema lato CAI/SOSEC, non
+risolvibile lato client. Dettagli in `docs/osm2cai-investigation.md` (aggiornamento in cima
+al file) e `docs/validazione-device.md`. Effetto pratico, oggi: **ogni ricerca segnavia passa
+sempre da Overpass**, mai da OSM2CAI, nonostante il codice lo tratti come fonte primaria — il
+fallback della fetta 2/3 (`CombinedTrailService`) si è dimostrato indispensabile, non solo
+difensivo.
+
+File toccati per i log: `trail_detail_provider.dart` (`openByRef`/`open`),
+`draw_route_controls.dart` (`_TrailInfo._anchorFor`), `combined_trail_service.dart`
+(dispatch + esito di ogni fonte), `trail_service.dart` (`trailsNear`: query, risultati
+grezzi, filtro per soglia), `osm2cai_trail_service.dart`/`overpass_trail_service.dart`
+(bbox/raggio usato, conteggio raw, ref estratti) — tutti tag `[trails]`, seguono la pratica
+di log della sessione (aggiungerne ai punti di decisione/fallimento, non solo su richiesta).
+
+---
+
 ## 25 agosto 2026 — Fix: `trailsNear` scartava segnavia reali per un raggio di query troppo stretto
 
 Feedback dal vivo sulla fetta 3/3b/4 di ieri: (1) toccando la mappa vicino a un sentiero
