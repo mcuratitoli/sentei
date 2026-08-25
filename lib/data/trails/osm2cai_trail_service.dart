@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -88,6 +89,8 @@ class Osm2CaiTrailService extends TrailService {
     } catch (e) {
       throw TrailLookupException('osm2cai parse: $e');
     }
+    debugPrint('[trails] osm2cai bbox ($minLat,$minLon)-($maxLat,$maxLon) → '
+        '${features.length} feature grezze');
 
     bool inBox(double lat, double lon) =>
         lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
@@ -124,6 +127,8 @@ class Osm2CaiTrailService extends TrailService {
         ));
       }
     }
+    debugPrint('[trails] osm2cai → ${relations.length} relazioni con ref valido: '
+        '${relations.map((r) => "${r.ref}(id=${r.id})").toList()}');
     return relations;
   }
 

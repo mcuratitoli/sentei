@@ -5,6 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/util/format.dart';
 import '../data/trails/trail_service.dart';
+import '../features/draw_route/route_editor_provider.dart'
+    show trackCardExpandedProvider;
+import '../features/map_gl/inspected_point_provider.dart';
 import '../features/map_gl/trail_detail_provider.dart';
 import 'app_bottom_sheet.dart';
 import 'ios_menu.dart';
@@ -39,6 +42,10 @@ Future<void> _confirmThenOpen(BuildContext context, WidgetRef ref, String trailR
     confirmLabel: 'Approfondisci',
     destructive: false,
     onConfirm: () {
+      // Focus sul segnavia: la card sotto (punto ispezionato o traccia) non
+      // deve restare in sovrimpressione mentre si guarda il percorso intero.
+      ref.read(inspectedPointProvider.notifier).clear();
+      ref.read(trackCardExpandedProvider.notifier).collapse();
       startFetch();
       if (context.mounted) {
         showAppBottomSheet<void>(

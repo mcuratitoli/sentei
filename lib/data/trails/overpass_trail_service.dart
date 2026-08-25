@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -78,6 +79,9 @@ class OverpassTrailService extends TrailService {
     } catch (e) {
       throw TrailLookupException('overpass parse: $e');
     }
+    debugPrint('[trails] overpass around:$radius su ${sample.length} punti → '
+        '${elements.length} relazioni grezze, ref: '
+        '${elements.map((e) => (e as Map)['tags']?['ref']).toList()}');
 
     // Bounding box del percorso (+ margine ~0.01°).
     var minLat = 90.0, maxLat = -90.0, minLon = 180.0, maxLon = -180.0;
@@ -132,6 +136,8 @@ class OverpassTrailService extends TrailService {
         ));
       }
     }
+    debugPrint('[trails] overpass → ${relations.length} relazioni con geometria '
+        'nel bbox: ${relations.map((r) => "${r.ref}(id=${r.id},${r.points.length}pt)").toList()}');
     return relations;
   }
 

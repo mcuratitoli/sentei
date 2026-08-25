@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -44,6 +45,8 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
   /// prosegue come [open]. Un passo in più sotto lo stesso spinner — non
   /// visibile per l'utente, solo un fetch di rete in più prima del secondo.
   Future<void> openByRef(String trailRef, LatLng anchorPoint) async {
+    debugPrint('[trails] openByRef "$trailRef" da anchor '
+        '(${anchorPoint.latitude}, ${anchorPoint.longitude})');
     // Placeholder solo per il titolo dello stato di caricamento: non ha
     // ancora un id/fonte, si scarta appena la risoluzione trova quello vero.
     final placeholder = TrailRelation(trailRef, const [], TrailSource.overpass);
@@ -53,10 +56,17 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
       nearby = await ref
           .read(trailServiceProvider)
           .trailsNear(anchorPoint, thresholdMeters: 150);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] openByRef "$trailRef": trailsNear ha lanciato: $e');
       nearby = const [];
     }
-    if (!identical(state?.relation, placeholder)) return;
+    debugPrint('[trails] openByRef "$trailRef": trailsNear ha trovato '
+        '${nearby.length} relazioni vicine: '
+        '${nearby.map((r) => "${r.ref}(${r.source.name},id=${r.id})").join(", ")}');
+    if (!identical(state?.relation, placeholder)) {
+      debugPrint('[trails] openByRef "$trailRef": stato cambiato nel frattempo, scarto');
+      return;
+    }
     TrailRelation? match;
     for (final r in nearby) {
       if (r.ref == trailRef) {
@@ -65,6 +75,8 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
       }
     }
     if (match == null) {
+      debugPrint('[trails] openByRef "$trailRef": nessuna relazione vicina ha '
+          'questo ref esatto → non trovato');
       state = TrailDetailState(
         relation: placeholder,
         stage: TrailDetailStage.error,
@@ -72,20 +84,30 @@ class TrailDetailNotifier extends Notifier<TrailDetailState?> {
       );
       return;
     }
+    debugPrint('[trails] openByRef "$trailRef": match trovato '
+        '(${match.source.name}, id=${match.id})');
     await open(match);
   }
 
   Future<void> open(TrailRelation relation) async {
+    debugPrint('[trails] open "${relation.ref}" (${relation.source.name}, '
+        'id=${relation.id})');
     state = TrailDetailState(relation: relation, stage: TrailDetailStage.loading);
     TrailDetail? detail;
     try {
       detail = await ref.read(trailServiceProvider).fetchDetail(relation);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] open "${relation.ref}": fetchDetail ha lanciato: $e');
       detail = null;
     }
+    debugPrint('[trails] open "${relation.ref}": fetchDetail → '
+        '${detail == null ? "null (non trovato)" : "${detail.points.length} punti"}');
     // Nel frattempo l'utente potrebbe aver chiuso la card o averne aperta
     // un'altra: una risposta in ritardo non deve sovrascriverla.
-    if (!identical(state?.relation, relation)) return;
+    if (!identical(state?.relation, relation)) {
+      debugPrint('[trails] open "${relation.ref}": stato cambiato nel frattempo, scarto');
+      return;
+    }
     state = detail == null
         ? TrailDetailState(
             relation: relation,

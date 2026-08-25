@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:latlong2/latlong.dart';
 
 import '../../domain/models/elevation_profile.dart';
@@ -230,12 +231,17 @@ abstract class TrailService {
   /// eccezione verso il chiamante, lista vuota su qualunque errore.
   Future<List<TrailRelation>> trailsNear(LatLng point,
       {double thresholdMeters = 60}) async {
+    debugPrint('[trails] trailsNear (${point.latitude}, ${point.longitude}), '
+        'soglia ${thresholdMeters}m');
     final List<TrailRelation> relations;
     try {
       relations = await fetchRelations([point], radiusMeters: thresholdMeters);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[trails] trailsNear: fetchRelations ha lanciato: $e');
       return const [];
     }
+    debugPrint('[trails] trailsNear: fetchRelations → ${relations.length} '
+        'relazioni scaricate (${relations.map((r) => r.ref).toList()})');
     if (relations.isEmpty) return const [];
 
     const distance = Distance();
@@ -247,7 +253,12 @@ abstract class TrailService {
         if (dd < d) d = dd;
         if (d == 0) break;
       }
-      if (d <= thresholdMeters) withDist.add((r, d));
+      if (d <= thresholdMeters) {
+        withDist.add((r, d));
+      } else {
+        debugPrint('[trails] trailsNear: "${r.ref}" scartato, distanza '
+            '${d.round()}m > soglia ${thresholdMeters}m');
+      }
     }
     withDist.sort((a, b) => a.$2.compareTo(b.$2));
 
@@ -259,6 +270,8 @@ abstract class TrailService {
     for (final (r, _) in withDist) {
       if (seen.add(r.ref)) out.add(r);
     }
+    debugPrint('[trails] trailsNear: risultato finale entro soglia → '
+        '${out.map((r) => r.ref).toList()}');
     return out;
   }
 

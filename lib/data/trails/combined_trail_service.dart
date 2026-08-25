@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:latlong2/latlong.dart';
 
 import 'cai_varallo_search_service.dart';
@@ -51,11 +52,18 @@ class CombinedTrailService extends TrailService {
     // non trovato" (vuoto genuino) da "ricerca fallita" (da ritentare).
     try {
       final primary = await _osm2cai.fetchRelations(path);
+      debugPrint('[trails] combined: OSM2CAI → ${primary.length} relazioni '
+          '(${primary.map((r) => r.ref).toList()})');
       if (primary.isNotEmpty) return primary;
-    } on TrailLookupException {
+    } on TrailLookupException catch (e) {
       // primario ko → tenta il fallback
+      debugPrint('[trails] combined: OSM2CAI fallito ($e), provo Overpass');
     }
-    return _overpass.fetchRelations(path, radiusMeters: radiusMeters);
+    final fallback =
+        await _overpass.fetchRelations(path, radiusMeters: radiusMeters);
+    debugPrint('[trails] combined: Overpass → ${fallback.length} relazioni '
+        '(${fallback.map((r) => r.ref).toList()})');
+    return fallback;
   }
 
   /// Recupera la relazione **completa** di [relation] (§"Un segnavia per
@@ -73,14 +81,23 @@ class CombinedTrailService extends TrailService {
   @override
   Future<TrailDetail?> fetchDetail(TrailRelation relation) async {
     final id = relation.id;
-    if (id == null) return null;
+    if (id == null) {
+      debugPrint('[trails] combined.fetchDetail "${relation.ref}": nessun id '
+          '(fonte ${relation.source.name}) → null');
+      return null;
+    }
     final detail = await switch (relation.source) {
       TrailSource.osm2cai => _osm2cai.fetchDetailById(id),
       TrailSource.overpass => _overpass.fetchDetailById(id),
     };
+    debugPrint('[trails] combined.fetchDetail "${relation.ref}" '
+        '(${relation.source.name}, id=$id) → '
+        '${detail == null ? "null" : "${detail.points.length} punti"}');
     if (detail == null || !_isNearValsesia(detail.points)) return detail;
     final query = (detail.name?.isNotEmpty ?? false) ? detail.name! : detail.ref;
     final results = await _caiVarallo.search(query);
+    debugPrint('[trails] combined.fetchDetail "${relation.ref}": in Valsesia, '
+        'CAI Varallo → ${results.length} risultati per "$query"');
     return results.isEmpty ? detail : detail.copyWith(caiVaralloResults: results);
   }
 }

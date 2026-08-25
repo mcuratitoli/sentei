@@ -744,13 +744,20 @@ class _TrailInfo extends ConsumerWidget {
       for (final seg in segments) {
         if (seg.ref == trailRef) {
           final mid = (seg.fromMeters + seg.toMeters) / 2;
-          return const PathGeometry().pointAtFraction(path, mid / total);
+          final anchor = const PathGeometry().pointAtFraction(path, mid / total);
+          debugPrint('[trails] anchor per "$trailRef" su tratto '
+              '${seg.fromMeters.round()}-${seg.toMeters.round()} m: '
+              '(${anchor.latitude}, ${anchor.longitude})');
+          return anchor;
         }
       }
     }
     // Nessun tratto trovato (dato mancante/traccia molto vecchia): meglio un
     // punto qualsiasi della traccia che nessun punto — la risoluzione
     // potrebbe comunque trovare il segnavia se passa vicino.
+    debugPrint('[trails] anchor per "$trailRef": nessun TrailSegment con questo '
+        'ref in metrics.trailSegments (${segments.length} tratti, ref presenti: '
+        '${segments.map((s) => s.ref).toSet()}) — uso il primo punto della traccia');
     if (path.isNotEmpty) return path.first;
     return t.waypoints.isNotEmpty ? t.waypoints.first : const LatLng(0, 0);
   }
