@@ -96,24 +96,35 @@ class TrailDetailCard extends ConsumerWidget {
                   // cercando".
                   TrailDetailStage.loading => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        children: [
-                          const CupertinoActivityIndicator(),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Cerco il percorso completo…',
-                            textAlign: TextAlign.center,
-                            style: AppText.footnote
-                                .copyWith(color: palette.secondaryLabel),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Può richiedere qualche decina di secondi...',
-                            textAlign: TextAlign.center,
-                            style: AppText.footnote
-                                .copyWith(color: palette.secondaryLabel),
-                          ),
-                        ],
+                      // `SizedBox` a larghezza piena: senza, questa colonna si
+                      // stringe sulla riga di testo più lunga e viene poi
+                      // allineata a sinistra dalla colonna esterna (che usa
+                      // `crossAxisAlignment.start`) — la riga più corta
+                      // risultava centrata solo rispetto a quella più lunga,
+                      // non rispetto alla card intera (visibile a schermo,
+                      // 26 ago 2026).
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const CupertinoActivityIndicator(),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Cerco il percorso completo…',
+                              textAlign: TextAlign.center,
+                              style: AppText.footnote
+                                  .copyWith(color: palette.secondaryLabel),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Può richiedere qualche decina di secondi...',
+                              textAlign: TextAlign.center,
+                              style: AppText.footnote
+                                  .copyWith(color: palette.secondaryLabel),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   TrailDetailStage.error => Padding(
@@ -205,7 +216,7 @@ class _TrailDetailBody extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Percorso completo non disponibile ora — riprova più tardi.',
+                  'Percorso completo non trovato — riprova più tardi.',
                   style: AppText.footnote.copyWith(color: palette.secondaryLabel),
                 ),
               ),

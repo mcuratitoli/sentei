@@ -182,7 +182,7 @@ void main() {
 
     expect(find.text('Alta Via del Rifugio'), findsOneWidget);
     expect(find.text('OpenStreetMap'), findsOneWidget);
-    expect(find.textContaining('Percorso completo non disponibile'), findsOneWidget);
+    expect(find.textContaining('Percorso completo non trovato'), findsOneWidget);
   });
 
   testWidgets(
