@@ -13,6 +13,16 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
+## Non ancora rilasciato
+
+- 🗺️ **Quota e posizione sempre in vista.** Un riquadro in alto a sinistra
+  mostra di continuo la tua **quota**, letta dal GPS, mentre cammini.
+  Toccandolo si apre e aggiunge l'**accuratezza** del segnale e le
+  **coordinate**, con un tasto per copiarle. Se il GPS non è abbastanza
+  preciso sulla quota, al suo posto compare un trattino. La barra della
+  scala, il logo e l'icona informazioni sulla mappa si sono spostati per
+  fargli spazio.
+
 ## 1.0.0 (10) — 26 agosto 2026
 
 - ✏️ **Traccia "mista": tratti liberi fuori sentiero.** Disegnando o

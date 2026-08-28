@@ -374,11 +374,35 @@ class RoadmapGroup {
 /// **Tenere allineata**: quando cambiano le priorità in cima alla roadmap,
 /// riportare qui a mano le voci più rilevanti per chi usa l'app, nella stessa
 /// sessione di lavoro in cui si tocca `docs/ROADMAP.md` (stessa convenzione di
-/// [kReleaseNotes], vedi anche `CLAUDE.md` §9). Da 2 a 3 voci per gruppo: è
-/// un'anteprima, non il documento completo.
+/// [kReleaseNotes], vedi anche `CLAUDE.md` §9). "Prossime" = le 2-3 priorità in
+/// cima (P1); "Più avanti" = fino a 8 voci. È un'anteprima, non il documento
+/// completo.
 const List<RoadmapGroup> kRoadmapGroups = [
   RoadmapGroup(
     label: 'Prossime',
+    items: [
+      NoteItem(
+        icon: CupertinoIcons.location,
+        title: 'Quota e coordinate sempre in vista',
+        body: 'La quota e il punto in cui ti trovi, letti di continuo dal '
+            'GPS senza dover toccare la mappa.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.scribble,
+        title: 'Difficoltà del sentiero visibile sulla linea',
+        body: 'Tratto pieno o tratteggiato secondo il grado CAI (T, E, EE, '
+            'EEA), come su una cartina di montagna.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.clock,
+        title: 'Tempo di percorrenza anche per un tratto',
+        body: 'Non solo l\'intera traccia: la stima da qui a un punto, tra '
+            'due punti, o da un punto alla fine.',
+      ),
+    ],
+  ),
+  RoadmapGroup(
+    label: 'Più avanti',
     items: [
       NoteItem(
         icon: CupertinoIcons.exclamationmark_triangle,
@@ -388,8 +412,9 @@ const List<RoadmapGroup> kRoadmapGroups = [
       ),
       NoteItem(
         icon: CupertinoIcons.zoom_in,
-        title: 'Zoom e angolazione della mappa personalizzabili',
-        body: 'Prima di generare l\'immagine del percorso da condividere.',
+        title: 'Immagine del percorso: zoom e angolazione',
+        body: 'Poterli scegliere prima di generare l\'immagine da '
+            'condividere.',
       ),
       NoteItem(
         icon: CupertinoIcons.photo_on_rectangle,
@@ -397,11 +422,6 @@ const List<RoadmapGroup> kRoadmapGroups = [
         body: 'Selezione multipla e possibilità di scegliere quali foto '
             'mostrare, non solo aggiungerle tutte.',
       ),
-    ],
-  ),
-  RoadmapGroup(
-    label: 'Più avanti',
-    items: [
       NoteItem(
         icon: CupertinoIcons.xmark_circle,
         title: 'Uscire dalla ricerca più facilmente',

@@ -220,22 +220,28 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     await _runSetup();
   }
 
-  /// Disabilita la **bussola nativa** Mapbox: si sovrapponeva ai bottoni custom
-  /// in alto a destra (posizione / 3D). La **scale bar** (km in base allo zoom)
-  /// resta ai default Mapbox, in alto a sinistra.
+  /// Ornamenti Mapbox:
+  /// - **bussola nativa** disabilitata (sostituita dai bottoni custom in alto a
+  ///   destra: posizione / 3D / nord — vi si sovrapponeva);
+  /// - **scale bar** nativa (distanza in base allo zoom): in alto a sinistra,
+  ///   **sopra** l'HUD di quota/coordinate ([_PositionHud], che parte più in
+  ///   basso apposta — vedi il suo `Padding` nel `build`);
+  /// - **logo Mapbox** nell'angolo in basso a sinistra, il più in basso
+  ///   possibile (margine 0 = bordo della safe area); **icona attribuzione "i"**
+  ///   subito sopra. Entrambi obbligatori per i termini d'uso, non rimovibili.
   Future<void> _configureOrnaments(MapboxMap map) async {
     if (_ornamentsConfigured) return;
     _ornamentsConfigured = true;
     await map.compass.updateSettings(CompassSettings(enabled: false));
-    // Logo Mapbox e attribuzione (icona "i") NON possono essere rimossi (lo
-    // vietano i termini d'uso Mapbox), ma si possono **riposizionare**. Li
-    // impiliamo in alto a sinistra, appena sotto la scale bar: il logo sopra e
-    // l'icona "i" **subito sotto, tutta a sinistra** — più defilata, non "in
-    // mezzo" com'era prima (marginLeft 118, verso il centro).
-    await map.logo.updateSettings(LogoSettings(
+    await map.scaleBar.updateSettings(ScaleBarSettings(
       position: OrnamentPosition.TOP_LEFT,
+      marginLeft: 14,
+      marginTop: 6,
+    ));
+    await map.logo.updateSettings(LogoSettings(
+      position: OrnamentPosition.BOTTOM_LEFT,
       marginLeft: 6,
-      marginTop: 30,
+      marginBottom: 0,
     ));
     await _applyAttributionColor();
   }
@@ -245,16 +251,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   /// Ripassa **sempre anche posizione e margini** insieme al colore (verificato
   /// sul controller nativo: se `position`/margini non sono passati, l'SDK
   /// ricade sui default — bottom-right, margini 0 — anziché lasciarli invariati).
-  /// NB: la **dimensione** dell'icona "i" è fissata dall'SDK nativo Mapbox
+  /// L'icona sta **sopra** il logo, nell'angolo in basso a sinistra. NB: la
+  /// **dimensione** dell'icona "i" è fissata dall'SDK nativo Mapbox
   /// (AttributionSettings non espone size) → non riducibile via API.
   Future<void> _applyAttributionColor() async {
     final map = _map;
     if (map == null) return;
     final dark = _mapIsDark && _styleChoice == MapStyleChoice.outdoors;
     await map.attribution.updateSettings(AttributionSettings(
-      position: OrnamentPosition.TOP_LEFT,
+      position: OrnamentPosition.BOTTOM_LEFT,
       marginLeft: 6,
-      marginTop: 56,
+      marginBottom: 26,
       iconColor: dark ? 0xFFE5E5EA : 0xFF3A3A3C,
     ));
   }
@@ -1370,6 +1377,19 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
             onMapIdleListener: (_) => _onMapIdle(),
             onCameraChangeListener: _onCameraChange,
           ),
+          // HUD quota/coordinate (§ROADMAP P1.A): alto a sinistra, sotto la
+          // scale bar nativa (`_configureOrnaments`). Si nasconde da sé finché
+          // non c'è un fix GPS.
+          const Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(top: 30, left: 12),
+                child: _PositionHud(),
+              ),
+            ),
+          ),
           // Controlli in alto a destra: posizione e 2D/3D. La bussola nativa è
           // disabilitata (vi si sovrapponeva), quindi stanno in cima a destra.
           Positioned(
@@ -2077,6 +2097,170 @@ class _TrailPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TrailPainter old) => old.color != color;
+}
+
+/// HUD di **quota e coordinate correnti** nell'angolo in alto a sinistra
+/// (§ROADMAP P1.A). Collassato: solo la quota GPS. Toccandolo si espande e
+/// mostra l'accuratezza orizzontale del fix e le coordinate (con copia).
+///
+/// La **quota** viene mostrata solo se il fix la riporta come affidabile
+/// ([GpsFix.hasReliableAltitude], accuratezza verticale ≤ 25 m); altrimenti un
+/// trattino, e da espanso una riga spiega perché. Nessun ripiego sul DEM: qui
+/// interessa la quota *reale* dell'utente, non quella del terreno sotto di lui.
+///
+/// Finché non c'è un fix GPS ([gpsFixProvider] in `loading`/`error`) l'HUD non
+/// compare affatto.
+class _PositionHud extends ConsumerStatefulWidget {
+  const _PositionHud();
+
+  @override
+  ConsumerState<_PositionHud> createState() => _PositionHudState();
+}
+
+class _PositionHudState extends ConsumerState<_PositionHud> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fix = ref.watch(gpsFixProvider).asData?.value;
+    if (fix == null) return const SizedBox.shrink();
+
+    final palette = context.palette;
+    final altText = fix.hasReliableAltitude
+        ? Format.meters(fix.altitudeM)
+        : '—';
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        alignment: Alignment.topLeft,
+        // Stessa opacità/blur della chrome flottante (menubar, bottoni a
+        // destra): nessun override, prende i default della palette.
+        child: GlassSurface(
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 9, 12, _expanded ? 12 : 9),
+            child: SizedBox(
+              width: _expanded ? 212 : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Riga sempre visibile: icona terreno · quota · chevron.
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(CupertinoIcons.triangle,
+                          size: 15, color: palette.secondaryLabel),
+                      const SizedBox(width: 8),
+                      Text(altText,
+                          style: AppText.sectionValue
+                              .copyWith(color: palette.label)),
+                      if (fix.hasReliableAltitude) ...[
+                        const SizedBox(width: 2),
+                        Text('m',
+                            style: AppText.caption
+                                .copyWith(color: palette.secondaryLabel)),
+                      ],
+                      const SizedBox(width: 6),
+                      Icon(
+                        _expanded
+                            ? CupertinoIcons.chevron_up
+                            : CupertinoIcons.chevron_down,
+                        size: 13,
+                        color: palette.tertiaryIcon,
+                      ),
+                    ],
+                  ),
+                  if (_expanded) ...[
+                    const SizedBox(height: 10),
+                    Container(height: 0.6, color: palette.hairline.withValues(alpha: 0.25)),
+                    const SizedBox(height: 10),
+                    // Accuratezza orizzontale del fix (varia col segnale).
+                    Row(
+                      children: [
+                        Icon(CupertinoIcons.smallcircle_fill_circle,
+                            size: 15, color: palette.secondaryLabel),
+                        const SizedBox(width: 8),
+                        Text('Accuratezza',
+                            style: AppText.footnote
+                                .copyWith(color: palette.secondaryLabel)),
+                        const Spacer(),
+                        Text(
+                          fix.horizontalAccuracyM != null
+                              ? '± ${fix.horizontalAccuracyM!.round()} m'
+                              : '—',
+                          style: AppText.captionEmphasis
+                              .copyWith(color: palette.label),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Coordinate (gradi decimali, una riga) + copia negli appunti.
+                    Row(
+                      children: [
+                        Icon(CupertinoIcons.placemark,
+                            size: 15, color: palette.secondaryLabel),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${fix.position.latitude.toStringAsFixed(5)}'
+                              '   ${fix.position.longitude.toStringAsFixed(5)}',
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(fontSize: 12, color: palette.label),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(
+                              text: '${fix.position.latitude.toStringAsFixed(6)}'
+                                  ', '
+                                  '${fix.position.longitude.toStringAsFixed(6)}',
+                            ));
+                            showIosToast(context, 'Coordinate copiate');
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: palette.hairline.withValues(alpha: 0.12),
+                              borderRadius: AppRadii.rSm,
+                            ),
+                            child: Icon(CupertinoIcons.doc_on_doc,
+                                size: 15, color: palette.iconGreyLight),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!fix.hasReliableAltitude) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Quota GPS non mostrata: segnale troppo impreciso '
+                        '(oltre ± 25 m).',
+                        style: TextStyle(
+                            fontSize: 10.5,
+                            height: 1.3,
+                            color: palette.iconGreyLight),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Controlli in alto a destra, dall'alto verso il basso: bussola · 2D/3D ·

@@ -11,6 +11,73 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 28 agosto 2026 — P1.A: indicatore di quota e coordinate correnti (HUD)
+
+Prima fetta di P1 (§`docs/ROADMAP.md`). HUD sempre visibile nell'angolo in alto a sinistra
+della mappa; collassato mostra solo la quota, toccandolo si espande.
+
+- **Dato** — `LocationService.fixStream()`: nuovo stream che oltre a lat/lon porta
+  accuratezza orizzontale, quota e accuratezza verticale (`GpsFix`). Lo stream "semplice"
+  (`positionStream`, solo `LatLng`) resta per il centraggio mappa, che di quei metadati non
+  ha bisogno. Provider `gpsFixProvider` (`features/map/map_providers.dart`): **si aggancia a
+  `userLocationProvider`** invece di chiedere lui i permessi, così il prompt di sistema esce
+  una volta sola (lo attiva già `_locateSilently` all'apertura mappa).
+- **Quota** — mostrata solo se `GpsFix.hasReliableAltitude`: accuratezza verticale nota e
+  **≤ 25 m** (soglia decisa con l'utente). Altrimenti un trattino, e da espanso una riga lo
+  spiega. **Nessun ripiego sul DEM Terrarium**: qui interessa la quota reale dell'utente,
+  non quella del terreno sotto di lui — diversa scelta rispetto alla card "punto
+  ispezionato", che il DEM lo usa. Sul **simulatore iOS** la quota è sempre a trattino
+  (nessuna accuratezza verticale realistica) → da validare su device (P8).
+- **UI** — `_PositionHud` in `map_gl_screen.dart`. Collassato: icona terreno + quota +
+  chevron. Espanso: accuratezza orizzontale, coordinate in gradi decimali su una riga
+  (`FittedBox` scaleDown come rete di sicurezza) con copia negli appunti + toast. Stessa
+  `GlassSurface` (opacità/blur di default della palette) di menubar e bottoni a destra —
+  niente override, su richiesta dell'utente.
+- **Ornamenti Mapbox riposizionati** per liberare l'angolo in alto a sinistra:
+  - scale bar nativa → `TOP_LEFT`, sopra la card (che parte a `top: 30` apposta);
+  - logo Mapbox → `BOTTOM_LEFT`, `marginBottom: 0` (il più in basso possibile; dimensione
+    fissata dall'SDK, non riducibile);
+  - icona "i" → `BOTTOM_LEFT`, subito sopra il logo.
+  `OrnamentPosition` espone solo i 4 angoli (niente `BOTTOM_CENTER`): una scale bar davvero
+  centrata sotto il menu richiederebbe un widget custom — non fatta, in attesa di decisione.
+- `flutter analyze` pulito, 249 test verdi (nessun test di widget sull'HUD).
+
+**Resta da fare in P1.A**: nascondere l'HUD quando una bottom sheet lo copre e durante lo
+snapshot dell'export immagine; validazione su device.
+
+## 28 agosto 2026 — Roadmap: «P1» riassegnato a tre nuovi lavori; mappatura sigle storiche
+
+`docs/ROADMAP.md` §P1 conteneva tre lavori **tutti completati** (erano rimasti "per
+riferimento fino al prossimo giro di pulizia"). Il giro di pulizia è questo: l'intestazione
+P1 ora ospita tre nuovi lavori a massima priorità, decisi con l'utente. Le sigle storiche
+`P1.1`/`P1.2`/`P1.3` — citate in questo file e in `docs/validazione-device.md` — restano
+valide e si riferiscono a:
+
+- **P1.1** — Immagini: dimensione e fluidità di caricamento/scroll. Deciso 12 ago 2026,
+  chiuso 12 ago. Dettaglio: voce **12 agosto 2026** più sotto ("Causa-radice della
+  lentezza…"). Utente: build `1.0.0+6`/`+9`.
+- **P1.2** — Tempo di percorrenza stimato (metodo CAI/SAC). Deciso 12 ago, chiuso 15 ago
+  (correttivo `min/4` tarato lo stesso giorno). Dettaglio: voce **15 agosto 2026**. Utente:
+  build `1.0.0+9`.
+- **P1.3** — Epica "capire un segnavia dalla mappa: percorso intero + scheda CAI".
+  Chiusa 24 ago in 4 fette + estensione 3b, con resilienza di rete 25-26 ago. Dettaglio:
+  voci **24 agosto 2026** (fette 1→4) e seguenti. Utente: build `1.0.0+10`.
+
+I tre nuovi lavori P1 (solo pianificati al 28 ago, nessun codice ancora):
+
+- **A** — indicatore di quota e coordinate correnti sempre visibile sulla mappa (HUD
+  posizione GPS, quota con fallback DEM Terrarium). *SP 3.*
+- **B** — difficoltà CAI resa sullo **stile della linea** del tracciato (piena=T,
+  tratteggio largo=E, stretto=EE, punteggiato=EEA; colore invariato; convenzione Sentèi
+  ispirata a SAC/Tabacco, non uno standard CAI). *SP 8.*
+- **C** — tempi di percorrenza per un **intervallo scelto**: si **rimuove** lo split
+  automatico salita/discesa sui percorsi chiusi (`HikingTimeCalculator.estimateForTrack` →
+  `estimateRange`, campi `ascent`/`descent` e frecce ↗/↘ eliminati), default = una sola
+  stima start→end, più una modalità manuale start→punto / punto→punto / punto→fine sul
+  profilo altimetrico. La formula CAI/SAC resta invariata. *SP 5.* **Nota:** lo split era
+  stato aggiunto il 15 ago su richiesta esplicita — la rimozione è deliberata, non una
+  regressione.
+
 ## 26 agosto 2026 — Chiusura sessione: fix testo non centrato, bug aperti loggati per dopo
 
 Ultimo giro della maratona di test su "Un segnavia per intero", prima di preparare il

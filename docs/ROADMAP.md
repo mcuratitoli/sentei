@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 26 agosto 2026 · **Stato:** beta `1.0.0+10` in preparazione per la
+**Aggiornato:** 28 agosto 2026 · **Stato:** beta `1.0.0+10` in preparazione per la
 distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità della build.
 
 ## Come leggere questo documento
@@ -17,141 +17,149 @@ distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità del
   spezzare in sotto-task prima di iniziare.
 - `[ ]` = da fare, `[~]` = iniziato/parziale.
 - **Dentro ogni sezione P, i punti sono ordinati per SP crescente** (i più rapidi prima),
-  eccetto dove un punto è citato per posizione altrove nel repo (es. `P1.1`/`P1.2` in
-  `docs/CHANGELOG-DEV.md`) — in quel caso resta fisso, segnalato nella sezione.
+  eccetto **P1**, il cui ordine A→B→C è dato dall'utente (segnalato nella sezione), e i
+  punti citati per posizione altrove nel repo. Le sigle **storiche** `P1.1`/`P1.2`/`P1.3`
+  si riferiscono ai tre lavori chiusi 12–24 ago 2026: mappatura sigla → lavoro nella voce
+  del 28 ago 2026 di `docs/CHANGELOG-DEV.md`.
 
 ---
 
-## P1 — Priorità massima (12 agosto 2026, integrata 18 agosto 2026)
+## P1 — Priorità massima (28 agosto 2026)
 
-> I primi tre temi decisi il 12 agosto come **prime cose da fare**: la fluidità delle foto, la
-> stima del tempo di percorrenza e la comprensione dei segnavia sulla mappa. I primi due sono
-> lavori chiusi e stimabili (validazione su device in P8), il terzo è un'epica da spezzare.
-> **Il 18 agosto** si erano aggiunti due fix rapidi promossi da P2 (tasto elimina nella card,
-> evidenziazione della traccia selezionata); **il 23 agosto** sono stati completati e tolti da
-> qui — voce ora in `CHANGELOG.md`/`docs/CHANGELOG-DEV.md`. **Il 24 agosto** anche il punto 3
-> (l'epica) è stato completato: tutti e tre i punti di questa sezione sono ora chiusi, restano
-> visibili qui per riferimento fino al prossimo giro di pulizia della roadmap.
+> **Intestazione riassegnata.** I tre lavori storici di P1 — **P1.1** fluidità foto
+> (12 ago), **P1.2** tempo di percorrenza CAI (15 ago), **P1.3** epica "capire un segnavia
+> dalla mappa" (24 ago) — sono **completati** e documentati per esteso in
+> `docs/CHANGELOG-DEV.md` (voci di quelle date) e in `CHANGELOG.md` (build `1.0.0+6` →
+> `+10`). Le sigle `P1.1`/`P1.2`/`P1.3` usate lì, in `docs/validazione-device.md` e più
+> sotto in P2/P3 continuano a riferirsi a quei lavori — mappatura sigla → lavoro nella voce
+> del **28 ago 2026** di `docs/CHANGELOG-DEV.md`.
 >
-> *Numerazione 1-3 fissa* (citata per posizione altrove: `P1.1`/`P1.2` in
-> `docs/CHANGELOG-DEV.md`/`docs/validazione-device.md`, "P1, punto 3" in P3) — non riordinata
-> per SP come il resto del documento, per non rompere quei rimandi.
+> Dal 28 agosto P1 ospita **tre nuovi lavori** a massima priorità, decisi con l'utente.
+> **Ordine A→B→C dato dall'utente, non riordinato per SP** (come già la vecchia P1): A e C
+> sono lavori chiusi e stimabili, B è al confine con l'epica.
+>
+> *Totale indicativo: ~16 story point (A 3 · C 5 · B 8).*
 
-### 1. [FIX] Immagini: dimensione e fluidità di caricamento/scroll — *SP 8* — ✅ fatto (12 ago 2026)
+### A. [FEATURE] Indicatore di quota e coordinate correnti (HUD posizione) — *SP 3* — [~] in corso (28 ago 2026)
 
-Causa-radice confermata: il visualizzatore caricava **l'originale a piena risoluzione**
-(~48 MB di bitmap per uno scatto da 12 MP) per riempire un riquadro che ne usa ~4 MB.
-Dettagli implementativi e misure in `docs/CHANGELOG-DEV.md`.
+Lettore **sempre visibile** sulla schermata mappa con **quota** e **coordinate** della
+posizione GPS dell'utente — il dato che si consulta di continuo in escursione ("a che quota
+sono?", "che punto do al soccorso?") e che oggi si ottiene solo toccando un punto a caso
+sulla mappa (card "punto ispezionato"). Dettaglio implementativo: voce **28 ago 2026** in
+`docs/CHANGELOG-DEV.md`.
 
-- [x] **Decodifica alla dimensione dello schermo** — `PhotoLibraryService.preview()`: è la
-  libreria di sistema a ridimensionare. L'originale si carica solo **oltre 1,6× di zoom**.
-- [x] **Precarico delle pagine adiacenti** — `PhotoPreviewCache` (LRU 5 voci, richieste in
-  volo deduplicate, precarico ±1), svuotata all'uscita dal visualizzatore. Il precarico
-  **decodifica** in anticipo (`precacheImage`), non si limita a scaricare i byte:
-  altrimenti il lavoro si sposta soltanto al momento dello swipe, che è dove lo scatto si
-  vede.
-- [x] **Indicatore di caricamento** al centro mentre l'anteprima arriva, invece della
-  miniatura stirata a schermo intero. Serve soprattutto alle foto ancora **solo in iCloud**,
-  dove PhotoKit deve prima scaricarle.
-- [x] **Zoom senza blocchi** — l'originale si decodifica a 2,5× la larghezza dello schermo,
-  non a piena risoluzione (48 MP = ~195 MB di bitmap).
-- [x] **Miniature: qualità giusta per l'uso** — JPEG q80 invece del default q100, e
-  `cacheWidth` sui riquadri piccoli. *Il sospetto della "cover sgranata" era infondato: i
-  riquadri più grandi sono 64 pt = 192 px a 3×, sotto i 200 px salvati — un secondo taglio
-  di miniatura non serve.*
-- [x] **Peso dei metadati sincronizzati** — misurato su 8 foto collegate: JSON della traccia
-  da **843,6 KB a 255,0 KB** (105,5 → 31,9 KB per foto), 3,3× in meno su ogni sync.
+- [x] **Widget overlay** (`_PositionHud` in `map_gl_screen.dart`, Stack): collassato =
+  icona terreno + quota + chevron; espanso = accuratezza orizzontale + coordinate (gradi
+  decimali, una riga) con copia. Stessa `GlassSurface` di menubar/bottoni a destra.
+  *Mockup ricevuto dall'utente in sessione, non ancora versionato in `design/`.*
+- [x] **Sorgente dati** — `LocationService.fixStream()` → `GpsFix` (lat/lon + accuratezza
+  orizzontale + quota + accuratezza verticale); provider `gpsFixProvider` agganciato a
+  `userLocationProvider` per non chiedere i permessi due volte.
+- [x] **Quota: solo GPS, niente DEM** — mostrata solo se l'accuratezza verticale è nota e
+  **≤ 25 m** (soglia decisa con l'utente); altrimenti trattino + riga esplicativa da
+  espanso. Scelta: qui interessa la quota **reale dell'utente**, non quella del terreno
+  (diverso dalla card "punto ispezionato", che usa il DEM).
+- [x] **Stati degeneri** — nessun fix / permesso negato → l'HUD non compare; quota non
+  affidabile → trattino.
+- [x] **Formato coordinate** — gradi decimali inline; copia negli appunti come
+  `lat, lon` (6 decimali) + toast, come la card punto ispezionato.
+- [ ] **Nascondere l'HUD** quando una bottom sheet lo copre e durante lo snapshot per
+  l'export immagine — da fare.
+- [ ] **Validazione su device** (P8): sul simulatore iOS la quota è sempre a trattino
+  (nessuna accuratezza verticale realistica) — il valore va verificato su telefono fisico.
+- [ ] **Ornamenti Mapbox** già riposizionati insieme a questa fetta (scale bar in alto a
+  sinistra sopra la card; logo + "i" in basso a sinistra). Barra scala *centrata* sotto il
+  menu non fattibile col nativo (`OrnamentPosition` = solo 4 angoli) — servirebbe un widget
+  custom, da decidere se vale.
 
-### 2. [FEATURE] Tempo di percorrenza stimato (metodo CAI) — *SP 8* — ✅ fatto (15 ago 2026)
+### B. [FEATURE] Difficoltà CAI resa sullo stile della linea del tracciato — *SP 8*
 
-Manca del tutto: una traccia mostra distanza, D+/D- e difficoltà, ma non "quanto ci metto".
-È il dato che ogni cartello CAI riporta, quindi va calcolato **con lo stesso metodo dei
-cartelli**, non con una media inventata.
+> *Al confine con l'epica: se in implementazione supera la giornata, spezzare in
+> **B1** (helper di segmentazione + resa in disegno) e **B2** (tracce salvate + legenda).*
 
-- [x] **Formula scelta: CAI / "ora di marcia"** — velocità di riferimento **4 km/h in
-  piano**, **300 m/h in salita**, **500 m/h in discesa** (estremo prudente delle forbici
-  indicate in analisi, coerente con la segnaletica italiana), combinate con la formula
-  svizzera (SAC): `t = max(t_oriz, t_vert) + min(t_oriz, t_vert) / 2`. Scartate Naismith
-  (sottostima sui sentieri alpini) e Tobler per-segmento (avrebbe richiesto una taratura sul
-  tipo di terreno che oggi non abbiamo).
-- [x] **Servizio di dominio puro** — `lib/domain/services/hiking_time.dart`
-  (`HikingTimeCalculator.estimate`), input = distanza + D+/D- **già calcolati** da
-  `TrackMetricsCalculator` (quindi D+ con deadband, non il grezzo), nessuna dipendenza dalla
-  UI. Coperto da test (`test/domain/hiking_time_test.dart`): piano/salita/discesa isolati,
-  combinato, verticale dominante, passo lento/veloce, input a zero.
-- [x] **Salita/discesa distinte sui percorsi chiusi** (aggiunta 15 ago 2026, su richiesta
-  esplicita) — `HikingTimeCalculator.estimateForTrack`: se partenza e arrivo del percorso
-  sono a meno di 150 m (andata e ritorno, o anello — tipico "su al rifugio e giù"), il
-  profilo altimetrico viene diviso nel punto di **quota massima** e ogni metà ha il proprio
-  tempo (D+/D- ricalcolati con deadband sulla sola tratta, non l'aggregato). Un sentiero
-  punto-a-punto resta **una previsione sola**. Mostrato in `draw_route_controls.dart`
-  (`_HikingTimeRow`, frecce ↗/↘ come D+/D-); la lista tracciati mostra solo il totale
-  (compatta), il dettaglio si apre dalla card.
-- [x] **Applicato ovunque c'è un percorso** — la stima legge `DrawnTrack.metrics`, quindi
-  vale per traccia in disegno/selezionata (`draw_route_controls.dart`), traccia salvata
-  nella lista (`tracks_list_screen.dart`) e GPX importato: nessun percorso diverso, stesso
-  `TrackMetrics` per tutti e tre.
-- [x] **Passo dell'escursionista** — impostazione Lento/Medio/Veloce persistita
-  (`features/settings/hiking_pace_provider.dart`, stesso pattern del tema), "Medio" = il
-  riferimento CAI (fattore ×1). Riga "Passo" in Impostazioni → Escursionismo. Il tempo
-  mostrato **non include le soste** (convenzione CAI), dichiarato in UI ("di cammino").
-- [x] **Difficoltà CAI per tratto tenuta fuori dalla formula** — decisione presa per questa
-  iterazione: `TrailSegment.caiScale` già esiste ma pesarlo (EE/EEA più lenti) richiede una
-  taratura che oggi non abbiamo dati per fare bene; il passo lento/veloce copre già in parte
-  lo stesso bisogno lasciandolo alla scelta dell'utente. Da riconsiderare se il feedback dei
-  tester segnala stime sistematicamente ottimiste sui tratti EE/EEA.
+Sul tracciato disegnato ogni tratto assume uno **stile di linea diverso in base al grado
+CAI**, sul modello della cartografia escursionistica (SAC / carte CAI): **linea piena =
+turistico (T)**, **tratteggio largo = escursionistico (E)**, **tratteggio stretto = per
+escursionisti esperti (EE)**, **punteggiato fitto = attrezzato (EEA)**.
 
-### 3. [FEATURE] Capire un segnavia dalla mappa: percorso intero + scheda CAI — ✅ Completa (24 agosto 2026)
+- [ ] **Convenzione, non standard** — non esiste una sintassi unica CAI per la resa *su
+  mappa* (la segnaletica CAI riguarda i segnavia dipinti, non il tratto cartografico): la
+  scala piena→punteggiato è una **convenzione Sentèi** ispirata a SAC/Tabacco, da fissare e
+  documentare (valori `line-dasharray` da tarare a occhio).
+- [ ] **Colore invariato** (scelta dell'utente) — cambia **solo** il pattern di tratteggio,
+  la linea resta del colore assegnato al tracciato. I colori difficoltà (verde/teal/
+  arancio/rosso) restano riservati a badge e banda per-tratto, come da linee guida.
+- [ ] **Tratti senza dato CAI = linea piena** (come T). Accettato che T e "sconosciuto"
+  risultino visivamente uguali sulla linea: il chip/badge e la banda per-tratto già
+  distinguono, e una voce di legenda lo chiarisce.
+- [ ] **Resa tecnica** — su Mapbox GL il `line-dasharray` **non è data-driven**: la linea
+  va spezzata in run contigui per classe di difficoltà, ognuno su un manager/layer col suo
+  dash (T/E/EE/EEA/sconosciuto), stesso colore e spessore. Estende il pattern già in uso
+  per i tratti liberi vs agganciati (`map_gl_screen.dart`, `_savedFreeLines`).
+- [ ] **Interazione coi tratti "liberi"** — i tratti liberi (già tratteggiati, senza dato
+  sentiero per definizione) restano come sono: lo stile-difficoltà vale solo per i tratti
+  agganciati. La segmentazione per difficoltà si compone con lo split libero/agganciato
+  esistente (libero prevale).
+- [ ] **Sorgente del grado per-tratto** — `TrailSegment.caiScale` già calcolato
+  (`combined_trail_service.dart`) e già mappato sul percorso per la "banda per-tratto":
+  riusare quella struttura.
+- [ ] **Ambito** — vale sia per la traccia in disegno/modifica sia per le tracce salvate
+  mostrate sulla mappa (scelta dell'utente). **Profilo altimetrico invariato.**
+- [ ] **Legenda** — nuova voce "stile linea = difficoltà" nelle legende in-app
+  (`features/settings`).
+- [ ] **Test** — helper puro `percorso + caiScale per indice → lista di (classe,
+  sotto-percorso)`, con test unitario.
+- [ ] **Attenzione perf** — 4-5 manager in più per traccia visibile; con più tracce salvate
+  sulla mappa, tenere d'occhio il numero di annotation.
 
-Caso d'uso: vedo un rifugio, tocco intorno, trovo un sentiero con un numero — voglio sapere
-**dove quel segnavia parte e dove arriva**, vederlo tutto sulla mappa e aprire la scheda
-ufficiale. Implementata in 4 fette + un'estensione (fetta 3b), con una UX più semplice di
-quella pianificata inizialmente: invece di un tap generico sulla mappa con
-`queryRenderedFeatures` e un menu di disambiguazione, si parte da una label segnavia **già
-visibile** — sulla card del punto ispezionato (se il tap è vicino a un sentiero) o sulla
-card di una propria traccia — e un tap sulla label apre direttamente il flusso; niente
-disambiguazione perché la label è già associata a un tratto preciso.
+### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5*
 
-- [x] **Identità della relazione** — `TrailRelation` porta `id`/`source`/`name`/`from`/`to`/
-  `osmc:symbol` (fetta 2).
-- [x] **Fetch della relazione completa** (non ritagliata) — `TrailService.fetchDetail`,
-  OSM2CAI `GET /api/v2/hiking-route/{id}` e Overpass `rel(<id>); out geom;` (fetta 2-3).
-- [x] **Mostrarlo** — card di dettaglio (nome, capi-percorso, distanza/dislivelli, difficoltà
-  CAI) con dialog di conferma prima del fetch, dalla card del punto ispezionato (fetta 3) e
-  dalla card di una traccia propria (fetta 3b, via risoluzione `trailsNear` da un `ref` bare);
-  traccia temporanea del segnavia disegnata sulla mappa (tratteggiata, magenta, sopra a
-  tutto) con fit-bounds automatico, sparisce alla chiusura della card (fetta 4).
-- [x] **Link alla scheda ufficiale** — confermato per Overpass (permalink
-  `openstreetmap.org/relation/{id}`, sempre valido); **non implementato per OSM2CAI**
-  (`officialUrl` resta `null` per quella fonte — nessun permalink pubblico verificato,
-  principio "mai inventare un URL" ancora valido, e l'endpoint OSM2CAI si è rivelato
-  comunque sempre rotto in produzione — vedi `docs/osm2cai-investigation.md`).
-  Arricchimento ulteriore per la Valsesia: match esatto sull'elenco ufficiale di
-  `www.caivarallo.it` (non più `caivarallo.com`, scartato il 25 ago per risultati non
-  pertinenti), in parallelo alla ricerca OpenStreetMap, non come ripiego a valle.
-- [x] **Resilienza di rete** (25-26 ago 2026, testata dal vivo per un'intera serata) —
-  interruttore su OSM2CAI (sempre rotto, salta il giro di rete inutile) e su Overpass (dopo
-  un fallimento totale); corsa a staffetta fra le istanze Overpass invece di un giro
-  sequenziale; dettaglio **parziale** (nome/capi-percorso/link, niente traccia sulla mappa)
-  quando il fetch della geometria fallisce ma la relazione era già stata risolta.
-- [ ] **Non incluso, estensione naturale per una prossima epica**: "usa questo segnavia come
-  traccia" — import diretto del GPX della relazione nell'editor.
-- **2 bug aperti dal test dal vivo del 26 agosto**, non approfonditi per ora — vedi P2,
-  punti 5 e 6.
+> *Spezzabile: **C1** rifattorizzazione dominio + rimozione split automatico (~SP 2),
+> **C2** selezione manuale dell'intervallo sul profilo (~SP 5).*
 
-*13 story point.*
+Oggi il tempo stimato è sempre sull'intera traccia e, per i percorsi "chiusi" (anello /
+andata-e-ritorno), viene **diviso automaticamente** salita/discesa nel punto di quota
+massima. Si **toglie lo split automatico** — default: **una sola stima start → end** — e si
+aggiunge una **modalità manuale** per stimare il tempo su un tratto scelto: start → un
+punto, tra due punti, o un punto → fine (i tre casi sono lo stesso meccanismo "scegli
+indice A e indice B", con A=0 o B=ultimo come casi particolari).
+
+- [ ] **C1 — dominio** — la formula CAI/SAC (`HikingTimeCalculator.estimate`, col correttivo
+  `min/4` tarato il 15 ago) **resta invariata**. Si sostituisce `estimateForTrack` con
+  `estimateRange(profile, {startIndex = 0, endIndex, pace})`: distanza + D+/D- **con
+  deadband** ricalcolati sulla sotto-tratta (la stessa logica `sublist` + `ElevationCalculator`
+  che oggi è in `_splitAtPeak`), poi `estimate`. Coi default → intera traccia, identico a
+  oggi.
+- [ ] **C1 — rimozione** — via il ramo anello/`_splitAtPeak` e i campi `ascent`/`descent` di
+  `HikingTimeEstimate`; via le frecce ↗/↘ dalla riga tempo in `draw_route_controls.dart`
+  (`_HikingTimeRow`). È una semplificazione netta. *Nota:* lo split era stato **aggiunto su
+  richiesta esplicita** il 15 ago — la rimozione è una scelta deliberata, va annotata in
+  `docs/CHANGELOG-DEV.md`. Non c'entra con la sovrastima segnalata in
+  `docs/validazione-device.md` (storico P1.2): quella dipende dai coefficienti, non dallo
+  split.
+- [ ] **C2 — UI selezione intervallo** — due maniglie / due tap sul **profilo altimetrico**
+  nella card di dettaglio (funziona anche per un GPX importato con molti punti, non solo per
+  i waypoint disegnati). Il profilo ha già un cursore di scrubbing: estenderlo a una
+  selezione a due estremi.
+- [ ] **C2 — risultato** — quando un intervallo è selezionato, una riga mostra tempo (e
+  distanza / D+/D- del tratto); un "azzera" torna all'intera traccia. Query transitoria,
+  **non** persistita con la traccia (da confermare).
+- [ ] **Test** — `estimateRange` puro: intera traccia == valore attuale; sotto-tratta
+  monotòna; A==B → zero; deadband applicato per sotto-tratta. Aggiornare i test in
+  `test/domain/hiking_time_test.dart` che verificano `ascent`/`descent`.
 
 ---
 
 ## P2 — Feedback test su device (24 luglio 2026, ridotta 18 agosto 2026)
 
-> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Restano il
-> primo lavoro dopo P1. **Il 18 agosto** due punti sono stati promossi a P1 (tasto elimina,
-> evidenziazione traccia selezionata) e uno tolto perché già rilasciato in `1.0.0+8`
-> (focus mappa dopo l'import — 29 luglio 2026, vedi `docs/CHANGELOG-DEV.md`), risultava
-> ancora aperto qui per una svista. Ordine aggiornato per SP crescente. **Il 26 agosto** si
-> sono aggiunti i punti 5-6 (bug emersi dal test dal vivo su P1.3), in coda invece che
-> riordinati per SP — nati a fine sessione, mantenerne l'ordine di scoperta per ora.
+> Osservazioni raccolte testando la beta `1.0.0+4` direttamente sul telefono. Restano
+> prioritarie, subito dopo i tre lavori di P1. **Il 18 agosto** due punti sono stati
+> promossi a P1 (tasto elimina, evidenziazione traccia selezionata) e uno tolto perché già
+> rilasciato in `1.0.0+8` (focus mappa dopo l'import — 29 luglio 2026, vedi
+> `docs/CHANGELOG-DEV.md`), risultava ancora aperto qui per una svista. Ordine aggiornato
+> per SP crescente. **Il 26 agosto** si sono aggiunti i punti 5-6 (bug emersi dal test dal
+> vivo sull'epica segnavia, storico P1.3), in coda invece che riordinati per SP — nati a
+> fine sessione, mantenerne l'ordine di scoperta per ora.
 
 1. [ ] **[TASK] Passata di pulizia del codice** — *SP 1*. A fine implementazione dei punti
     sotto, eseguire una verifica di pulizia/coerenza (skill `simplify`) sulle modifiche.
@@ -225,8 +233,9 @@ disambiguazione perché la label è già associata a un tratto preciso.
 
 - [ ] **Linee sentieri visibili sul layer mappa** — *SP 2*. Costo quasi zero: la geometria
   dei sentieri (`sentei-trails`) è già scaricata per posizionare le etichette, manca solo una
-  `LineLayer` che la disegni. *Naturale da fare insieme a **P1, punto 3**: serve comunque un
-  layer selezionabile su cui fare `queryRenderedFeatures`.*
+  `LineLayer` che la disegni. *Naturale da fare insieme all'epica segnavia (storico
+  **P1.3**, `docs/CHANGELOG-DEV.md`): serve comunque un layer selezionabile su cui fare
+  `queryRenderedFeatures`.*
 - [ ] **Separazione strade/sentieri su Mapbox** — *SP 3*. Nascondere i layer strada-sterrata
   dello stile Outdoors mostrando solo i sentieri OSM/CAI; da rivalutare quando la qualità dei
   sentieri in mappa diventa priorità (analisi delle opzioni già fatta).
@@ -236,8 +245,8 @@ disambiguazione perché la label è già associata a un tratto preciso.
   cosa è personalizzabile via stile Mapbox custom vs cosa richiederebbe layer aggiuntivi.
 - [ ] **Migrazione layer sentieri a OSM2CAI** — *SP 5*. Stessa idea sopra ma con `ref`/
   `osmc_symbol`/`cai_scale` da OSM2CAI invece di Overpass (più ricco, limite bbox da
-  gestire con zoom minimo/fallback). *Anche questo confluisce in **P1, punto 3**, che
-  richiede id e tag della relazione.*
+  gestire con zoom minimo/fallback). *Anche questo confluisce nell'epica segnavia (storico
+  **P1.3**), che richiede id e tag della relazione.*
 - [~] **Sync foto lungo il percorso** — *SP 8, vedi P2 punto 3*. Analisi e decisione
   architetturale fatte (`docs/eval-photo-sync.md`), implementazione UI in corso su branch
   dedicato: vedi i requisiti dettagliati in **P2, punto 3**.

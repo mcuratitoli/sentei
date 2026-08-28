@@ -89,3 +89,14 @@ class UserLocation extends Notifier<LatLng?> {
 
 final userLocationProvider =
     NotifierProvider<UserLocation, LatLng?>(UserLocation.new);
+
+/// Posizione GPS arricchita ([GpsFix]: accuratezza, quota) per l'HUD di
+/// quota/coordinate sulla mappa (§ROADMAP P1.A). **Non chiede lui i permessi**:
+/// si aggancia a [userLocationProvider] — attivato da `_locateSilently`/`_locate`
+/// nella schermata mappa — così il prompt di sistema esce una volta sola.
+/// Finché la localizzazione non è attiva resta in `loading` e l'HUD non compare.
+final gpsFixProvider = StreamProvider.autoDispose<GpsFix>((ref) {
+  final active = ref.watch(userLocationProvider);
+  if (active == null) return const Stream<GpsFix>.empty();
+  return ref.watch(locationServiceProvider).fixStream();
+});
