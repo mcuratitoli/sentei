@@ -2220,6 +2220,7 @@ class _PositionHudState extends ConsumerState<_PositionHud> {
                         ),
                         const SizedBox(width: 8),
                         GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () {
                             Clipboard.setData(ClipboardData(
                               text: '${fix.position.latitude.toStringAsFixed(6)}'

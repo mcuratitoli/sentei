@@ -114,122 +114,91 @@ void main() {
     });
   });
 
-  group('estimateForTrack: salita/discesa su percorso chiuso', () {
+  group('estimateRange: tempo su una sotto-tratta del profilo', () {
     const calc = HikingTimeCalculator();
 
-    test('andata e ritorno (stesso punto): salita e discesa distinte', () {
-      // Salita: 3000 m, D+ 300 → oriz 0.75h, vert 300/400=0.75h.
-      // max(0.75,0.75) + min/4 = 0.9375h = 56.25min → 56min.
-      // Discesa: 3000 m, D- 300 → oriz 0.75h, vert 300/500=0.6h.
-      // max(0.75,0.6) + min/4 = 0.9h = 54min.
-      // Totale = somma delle due tratte (non l'aggregato sull'intero
-      // percorso: lo sconto min/4 si applicherebbe una sola volta invece
-      // che una per tratta, disallineandosi dalla card).
-      final r = calc.estimateForTrack(
-        _rifugioProfile(),
-        distanceMeters: 6000,
-        gainMeters: 300,
-        lossMeters: 300,
-      );
-      expect(r.isSplit, isTrue);
-      expect(r.ascent, const Duration(minutes: 56));
-      expect(r.descent, const Duration(minutes: 54));
-      expect(r.total, const Duration(minutes: 110));
-    });
-
-    test('anello: arrivo vicino alla partenza ma non identico → comunque split',
-        () {
-      // ~100 m a nord della partenza (0.0009° di latitudine): sotto la
-      // soglia di 150 m, quindi trattato come "chiuso" anche se non è un
-      // ritorno esatto sullo stesso punto (es. un anello).
-      final profile = ElevationProfile(
-        samples: [
-          const ProfileSample(
-              distanceMeters: 0, elevation: 0, position: LatLng(45, 7)),
-          const ProfileSample(
-              distanceMeters: 1000, elevation: 100, position: _mid),
-          const ProfileSample(
-              distanceMeters: 2000, elevation: 200, position: _mid),
-          const ProfileSample(
-              distanceMeters: 3000, elevation: 300, position: _mid),
-          const ProfileSample(
-              distanceMeters: 4000, elevation: 200, position: _mid),
-          const ProfileSample(
-              distanceMeters: 5000, elevation: 100, position: _mid),
-          const ProfileSample(
-              distanceMeters: 6000, elevation: 0, position: LatLng(45.0009, 7)),
-        ],
-        minElevation: 0,
-        maxElevation: 300,
-        totalDistance: 6000,
-      );
-      final r = calc.estimateForTrack(
-        profile,
-        distanceMeters: 6000,
-        gainMeters: 300,
-        lossMeters: 300,
-      );
-      expect(r.isSplit, isTrue);
-    });
-
-    test('percorso punto-a-punto: nessuno split, solo il totale', () {
-      final profile = ElevationProfile(
-        samples: [
-          const ProfileSample(
-              distanceMeters: 0, elevation: 0, position: LatLng(45, 7)),
-          const ProfileSample(
-              distanceMeters: 1000, elevation: 100, position: _mid),
-          const ProfileSample(
-              distanceMeters: 2000, elevation: 200, position: _mid),
-          const ProfileSample(
-              distanceMeters: 3000, elevation: 300, position: LatLng(45.2, 7.2)),
-        ],
-        minElevation: 0,
-        maxElevation: 300,
-        totalDistance: 3000,
-      );
-      final r = calc.estimateForTrack(
-        profile,
-        distanceMeters: 3000,
-        gainMeters: 300,
-        lossMeters: 0,
-      );
-      expect(r.isSplit, isFalse);
-      expect(r.ascent, isNull);
-      expect(r.descent, isNull);
+    test('default (nessun indice) = tempo start → end dell\'intero percorso', () {
+      // _rifugioProfile: 0→300→0 m in 6000 m, gradini da 100 m (tutti sopra
+      // il deadband di 8 m) → D+ 300, D- 300 ricalcolati sul profilo.
+      final r = calc.estimateRange(_rifugioProfile());
+      expect(r.distanceMeters, 6000);
+      expect(r.gainMeters, 300);
+      expect(r.lossMeters, 300);
       expect(
-        r.total,
-        calc.estimate(distanceMeters: 3000, gainMeters: 300, lossMeters: 0),
+        r.time,
+        calc.estimate(distanceMeters: 6000, gainMeters: 300, lossMeters: 300),
       );
     });
 
-    test('picco troppo vicino a un capo: niente split (sale per tutto)', () {
-      // Percorso chiuso ma con la quota massima proprio all'ultimo campione
-      // prima del rientro immediato: non è un vero punto di svolta.
+    test('solo la salita (indici 0..3): D- nullo', () {
+      final r = calc.estimateRange(_rifugioProfile(),
+          startIndex: 0, endIndex: 3);
+      expect(r.distanceMeters, 3000);
+      expect(r.gainMeters, 300);
+      expect(r.lossMeters, 0);
+      expect(r.time,
+          calc.estimate(distanceMeters: 3000, gainMeters: 300, lossMeters: 0));
+    });
+
+    test('solo la discesa (indici 3..6): D+ nullo', () {
+      final r = calc.estimateRange(_rifugioProfile(),
+          startIndex: 3, endIndex: 6);
+      expect(r.distanceMeters, 3000);
+      expect(r.gainMeters, 0);
+      expect(r.lossMeters, 300);
+    });
+
+    test('tratta centrale punto → punto (indici 1..5)', () {
+      // Quote [100,200,300,200,100] su 1000→5000 m → D+ 200, D- 200.
+      final r = calc.estimateRange(_rifugioProfile(),
+          startIndex: 1, endIndex: 5);
+      expect(r.distanceMeters, 4000);
+      expect(r.gainMeters, 200);
+      expect(r.lossMeters, 200);
+    });
+
+    test('indici invertiti danno lo stesso risultato', () {
+      final a = calc.estimateRange(_rifugioProfile(),
+          startIndex: 1, endIndex: 5);
+      final b = calc.estimateRange(_rifugioProfile(),
+          startIndex: 5, endIndex: 1);
+      expect(b.time, a.time);
+      expect(b.distanceMeters, a.distanceMeters);
+      expect(b.gainMeters, a.gainMeters);
+    });
+
+    test('indici coincidenti → intervallo nullo', () {
+      final r = calc.estimateRange(_rifugioProfile(),
+          startIndex: 2, endIndex: 2);
+      expect(r.time, Duration.zero);
+      expect(r.distanceMeters, 0);
+    });
+
+    test('indici fuori range → clampati agli estremi', () {
+      final full = calc.estimateRange(_rifugioProfile());
+      final clamped = calc.estimateRange(_rifugioProfile(),
+          startIndex: -5, endIndex: 999);
+      expect(clamped.time, full.time);
+      expect(clamped.distanceMeters, full.distanceMeters);
+    });
+
+    test('profilo con meno di due campioni → intervallo nullo', () {
       final profile = ElevationProfile(
-        samples: [
-          const ProfileSample(
-              distanceMeters: 0, elevation: 0, position: LatLng(45, 7)),
-          const ProfileSample(
-              distanceMeters: 1000, elevation: 100, position: _mid),
-          const ProfileSample(
-              distanceMeters: 2000, elevation: 200, position: _mid),
-          const ProfileSample(
-              distanceMeters: 2950, elevation: 300, position: _mid),
-          const ProfileSample(
-              distanceMeters: 3000, elevation: 295, position: LatLng(45, 7)),
+        samples: const [
+          ProfileSample(distanceMeters: 0, elevation: 100, position: _mid),
         ],
-        minElevation: 0,
-        maxElevation: 300,
-        totalDistance: 3000,
+        minElevation: 100,
+        maxElevation: 100,
+        totalDistance: 0,
       );
-      final r = calc.estimateForTrack(
-        profile,
-        distanceMeters: 3000,
-        gainMeters: 300,
-        lossMeters: 5,
-      );
-      expect(r.isSplit, isFalse);
+      final r = calc.estimateRange(profile);
+      expect(r.time, Duration.zero);
+    });
+
+    test('passo veloce accorcia anche la stima su intervallo', () {
+      final medium = calc.estimateRange(_rifugioProfile());
+      final fast = calc.estimateRange(_rifugioProfile(), pace: HikingPace.fast);
+      expect(fast.time.inMinutes, lessThan(medium.time.inMinutes));
     });
   });
 }

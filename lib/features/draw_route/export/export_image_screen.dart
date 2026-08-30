@@ -228,8 +228,7 @@ class _ExportImageScreenState extends ConsumerState<ExportImageScreen> {
         final metrics = track.metrics;
         final hikingTime = metrics == null
             ? null
-            : _hikingTimeCalculator.estimateForTrack(
-                metrics.profile,
+            : _hikingTimeCalculator.estimate(
                 distanceMeters: metrics.distanceMeters,
                 gainMeters: metrics.elevation.gain,
                 lossMeters: metrics.elevation.loss,
@@ -413,7 +412,7 @@ class _ReadyBody extends StatelessWidget {
 
   final GlobalKey previewKey;
   final DrawnTrack track;
-  final HikingTimeEstimate? hikingTime;
+  final Duration? hikingTime;
   final RouteSnapshotResult snapshot;
   final List<PoiCandidate> pois;
   final Set<String> selectedPoiIds;
@@ -747,7 +746,7 @@ class _ExportComposite extends StatelessWidget {
   });
 
   final DrawnTrack track;
-  final HikingTimeEstimate? hikingTime;
+  final Duration? hikingTime;
   final RouteSnapshotResult snapshot;
   final List<PoiCandidate> pois;
   final Set<String> selectedPoiIds;
@@ -881,7 +880,7 @@ class _StatsOverlay extends StatelessWidget {
 
   final String name;
   final TrackMetrics? metrics;
-  final HikingTimeEstimate? hikingTime;
+  final Duration? hikingTime;
 
   @override
   Widget build(BuildContext context) {
@@ -912,7 +911,7 @@ class _StatsOverlay extends StatelessWidget {
                   metrics != null ? Format.distance(metrics!.distanceMeters) : '—'),
               const SizedBox(width: 24),
               _StatCell('TEMPO',
-                  hikingTime != null ? Format.duration(hikingTime!.total) : '—'),
+                  hikingTime != null ? Format.duration(hikingTime!) : '—'),
             ],
           ),
           const SizedBox(height: 6),

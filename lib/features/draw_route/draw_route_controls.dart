@@ -257,8 +257,7 @@ class _SelectedBody extends ConsumerWidget {
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
     final pace = ref.watch(hikingPaceProvider);
     final hikingTime = hasMetrics
-        ? _hikingTimeCalculator.estimateForTrack(
-            metrics.profile,
+        ? _hikingTimeCalculator.estimate(
             distanceMeters: metrics.distanceMeters,
             gainMeters: metrics.elevation.gain,
             lossMeters: metrics.elevation.loss,
@@ -321,10 +320,10 @@ class _SelectedBody extends ConsumerWidget {
                 ],
               ],
             ),
-            if (hikingTime != null && hikingTime.total > Duration.zero)
+            if (hikingTime != null && hikingTime > Duration.zero)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: _HikingTimeRow(estimate: hikingTime),
+                child: _HikingTimeRow(time: hikingTime),
               ),
             if (resolvingTrails)
               const Padding(
@@ -1237,47 +1236,24 @@ class _GainLoss extends StatelessWidget {
   }
 }
 
-/// Tempo di percorrenza stimato (§ROADMAP P1.2). Un percorso **chiuso**
-/// (andata e ritorno, o anello con partenza/arrivo nello stesso punto — es.
-/// la salita a un rifugio) mostra salita e discesa separate, con gli stessi
-/// colori/icone di [_GainLoss] così il legame con D+/D- resta leggibile a
-/// colpo d'occhio; un sentiero punto-a-punto mostra solo la stima totale.
+/// Tempo di percorrenza stimato start → end (§ROADMAP P1.2, poi P1.C). Stima
+/// col metodo CAI, soste escluse: prefisso "Circa". Lo split salita/discesa
+/// automatico per i percorsi ad anello è stato rimosso (P1.C, 30 ago 2026) —
+/// il tempo su un tratto scelto arriverà con la selezione manuale (C2).
 class _HikingTimeRow extends StatelessWidget {
-  const _HikingTimeRow({required this.estimate});
+  const _HikingTimeRow({required this.time});
 
-  final HikingTimeEstimate estimate;
+  final Duration time;
 
   @override
   Widget build(BuildContext context) {
-    final style = AppText.captionSmall;
-    final icon =
-        Icon(CupertinoIcons.clock, size: 14, color: context.palette.secondaryLabel);
-
-    if (!estimate.isSplit) {
-      // "Circa": è una stima col metodo CAI, non un cronometro — non
-      // include le soste.
-      return Row(mainAxisSize: MainAxisSize.min, children: [
-        icon,
-        const SizedBox(width: 4),
-        Text('Circa ${Format.duration(estimate.total)} di cammino',
-            style: style),
-      ]);
-    }
-
-    const up = AppDifficultyColors.t;
-    const down = AppDifficultyColors.eea;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(CupertinoIcons.arrow_up_right, size: 14, color: up),
-        const SizedBox(width: 3),
-        Text('Salita ${Format.duration(estimate.ascent!)}', style: style),
-        const SizedBox(width: 10),
-        Icon(CupertinoIcons.arrow_down_right, size: 14, color: down),
-        const SizedBox(width: 3),
-        Text('Discesa ${Format.duration(estimate.descent!)}', style: style),
-      ],
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(CupertinoIcons.clock,
+          size: 14, color: context.palette.secondaryLabel),
+      const SizedBox(width: 4),
+      Text('Circa ${Format.duration(time)} di cammino',
+          style: AppText.captionSmall),
+    ]);
   }
 }
 

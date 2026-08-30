@@ -131,10 +131,10 @@ foto della legenda reale allegata alla sessione del 30 ago 2026):
 - [ ] **Attenzione perf** — 4-5 manager in più per traccia visibile; con più tracce salvate
   sulla mappa, tenere d'occhio il numero di annotation.
 
-### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5*
+### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — [~] C1 fatto (30 ago 2026), C2 da fare
 
-> *Spezzabile: **C1** rifattorizzazione dominio + rimozione split automatico (~SP 2),
-> **C2** selezione manuale dell'intervallo sul profilo (~SP 5).*
+> *Spezzato: **C1** dominio + rimozione split automatico (~SP 2) — **fatto**;
+> **C2** selezione manuale dell'intervallo sul profilo (~SP 5) — da fare.*
 
 Oggi il tempo stimato è sempre sull'intera traccia e, per i percorsi "chiusi" (anello /
 andata-e-ritorno), viene **diviso automaticamente** salita/discesa nel punto di quota
@@ -143,19 +143,17 @@ aggiunge una **modalità manuale** per stimare il tempo su un tratto scelto: sta
 punto, tra due punti, o un punto → fine (i tre casi sono lo stesso meccanismo "scegli
 indice A e indice B", con A=0 o B=ultimo come casi particolari).
 
-- [ ] **C1 — dominio** — la formula CAI/SAC (`HikingTimeCalculator.estimate`, col correttivo
-  `min/4` tarato il 15 ago) **resta invariata**. Si sostituisce `estimateForTrack` con
-  `estimateRange(profile, {startIndex = 0, endIndex, pace})`: distanza + D+/D- **con
-  deadband** ricalcolati sulla sotto-tratta (la stessa logica `sublist` + `ElevationCalculator`
-  che oggi è in `_splitAtPeak`), poi `estimate`. Coi default → intera traccia, identico a
-  oggi.
-- [ ] **C1 — rimozione** — via il ramo anello/`_splitAtPeak` e i campi `ascent`/`descent` di
-  `HikingTimeEstimate`; via le frecce ↗/↘ dalla riga tempo in `draw_route_controls.dart`
-  (`_HikingTimeRow`). È una semplificazione netta. *Nota:* lo split era stato **aggiunto su
-  richiesta esplicita** il 15 ago — la rimozione è una scelta deliberata, va annotata in
-  `docs/CHANGELOG-DEV.md`. Non c'entra con la sovrastima segnalata in
-  `docs/validazione-device.md` (storico P1.2): quella dipende dai coefficienti, non dallo
-  split.
+- [x] **C1 — dominio** — `estimateForTrack` sostituito da
+  `estimateRange(profile, {startIndex = 0, endIndex, pace})` → `HikingRangeEstimate` (tempo
+  + distanza + D+/D- della sotto-tratta, deadband ricalcolato sulla sola tratta). Coi
+  default = intera traccia, identico a prima. La formula CAI/SAC (`estimate`, `min/4`)
+  invariata. Indici in qualsiasi ordine, clampati; intervallo degenere → `.zero`.
+- [x] **C1 — rimozione** — via `_splitAtPeak`, `_Legs`, `HikingTimeEstimate`
+  (`ascent`/`descent`/`isSplit`), `closedLoopThresholdMeters` e le frecce ↗/↘ da
+  `_HikingTimeRow` (ora prende un `Duration`). Callers (`draw_route_controls`,
+  `tracks_list_screen`, `export_image_screen`) passati a `estimate(...)` diretto. Test
+  `estimateForTrack` → `estimateRange` (254 verdi). Dettaglio: voce **30 ago 2026** in
+  `docs/CHANGELOG-DEV.md`.
 - [ ] **C2 — UI selezione intervallo** — due maniglie / due tap sul **profilo altimetrico**
   nella card di dettaglio (funziona anche per un GPX importato con molti punti, non solo per
   i waypoint disegnati). Il profilo ha già un cursore di scrubbing: estenderlo a una

@@ -11,6 +11,33 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 30 agosto 2026 — P1.C1: tempi di percorrenza, rimosso lo split automatico anello
+
+Prima metà di P1.C (§`docs/ROADMAP.md`).
+
+- `HikingTimeCalculator.estimateForTrack` **rimosso**, con `_splitAtPeak`, `_Legs`,
+  `HikingTimeEstimate` (campi `ascent`/`descent`/`isSplit`) e la soglia
+  `closedLoopThresholdMeters`. Lo split "salita/discesa" per i percorsi chiusi era stato
+  aggiunto il 15 ago **su richiesta esplicita**; ora l'utente sceglierà l'intervallo a mano
+  (C2), niente più euristica sul punto di quota massima. Non c'entra con la sovrastima
+  segnalata in `docs/validazione-device.md` (storico P1.2): quella dipende dai coefficienti.
+- La formula CAI/SAC (`estimate`, correttivo `min/4`) è **invariata**.
+- Nuovo `estimateRange(profile, {startIndex = 0, endIndex, pace})` → `HikingRangeEstimate`
+  (tempo + distanza + D+/D- della sotto-tratta). Coi default = intero percorso, identico a
+  prima. D+/D- ricalcolati **sulla sola sotto-tratta** con lo stesso deadband
+  (`ElevationCalculator`, 8 m) delle metriche di traccia. Indici in qualsiasi ordine e
+  clampati; intervallo degenere → `HikingRangeEstimate.zero`. È la base per C2.
+- Callers passati a `estimate(...)` diretto (ritorna `Duration`): `draw_route_controls.dart`
+  (`_HikingTimeRow` ora prende un `Duration`, via le frecce ↗/↘ e il ramo split),
+  `tracks_list_screen.dart`, `export/export_image_screen.dart` (`hikingTime` ora `Duration?`).
+- Test `test/domain/hiking_time_test.dart`: rimosso il gruppo `estimateForTrack`, aggiunto
+  `estimateRange` (default = totale, solo-salita, solo-discesa, tratta centrale, indici
+  invertiti/coincidenti/fuori-range, profilo < 2 campioni, passo). **254 test verdi**,
+  `flutter analyze` pulito.
+- **Nota di sessione**: il pulsante "copia coordinate" dell'HUD (P1.A) era stato commentato
+  su disco lasciando la card non compilabile (un `)` orfano) — ripristinato alla versione
+  approvata, con in più `HitTestBehavior.opaque` sul target da 32 px.
+
 ## 28 agosto 2026 — P1.A: indicatore di quota e coordinate correnti (HUD)
 
 Prima fetta di P1 (§`docs/ROADMAP.md`). HUD sempre visibile nell'angolo in alto a sinistra
