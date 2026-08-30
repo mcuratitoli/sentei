@@ -67,10 +67,17 @@ sulla mappa (card "punto ispezionato"). Dettaglio implementativo: voce **28 ago 
   l'export immagine — da fare.
 - [ ] **Validazione su device** (P8): sul simulatore iOS la quota è sempre a trattino
   (nessuna accuratezza verticale realistica) — il valore va verificato su telefono fisico.
-- [ ] **Ornamenti Mapbox** già riposizionati insieme a questa fetta (scale bar in alto a
+- [x] **Ornamenti Mapbox** riposizionati insieme a questa fetta (scale bar in alto a
   sinistra sopra la card; logo + "i" in basso a sinistra). Barra scala *centrata* sotto il
   menu non fattibile col nativo (`OrnamentPosition` = solo 4 angoli) — servirebbe un widget
   custom, da decidere se vale.
+- **Logo Mapbox: obbligatorio.** I termini d'uso Mapbox vietano di rimuovere/nascondere sia
+  il logo sia l'attribuzione ("i") con un account standard (serve un accordo Enterprise).
+  Si può solo **riposizionare** (4 angoli + margini) e tenere l'attribuzione compatta come
+  icona "i" — già così. La **dimensione** del logo non è esposta dall'API Flutter.
+  Conclusione: resta dov'è, in basso a sinistra il più defilato possibile.
+- [ ] **Da testare su device fisico** (utente, 30 ago) — poi rifinitura in base al
+  feedback.
 
 ### B. [FEATURE] Difficoltà CAI resa sullo stile della linea del tracciato — *SP 8*
 
@@ -78,14 +85,21 @@ sulla mappa (card "punto ispezionato"). Dettaglio implementativo: voce **28 ago 
 > **B1** (helper di segmentazione + resa in disegno) e **B2** (tracce salvate + legenda).*
 
 Sul tracciato disegnato ogni tratto assume uno **stile di linea diverso in base al grado
-CAI**, sul modello della cartografia escursionistica (SAC / carte CAI): **linea piena =
-turistico (T)**, **tratteggio largo = escursionistico (E)**, **tratteggio stretto = per
-escursionisti esperti (EE)**, **punteggiato fitto = attrezzato (EEA)**.
+CAI**, **replicando la legenda delle carte escursionistiche ufficiali** (Tabacco/CAI —
+foto della legenda reale allegata alla sessione del 30 ago 2026):
 
-- [ ] **Convenzione, non standard** — non esiste una sintassi unica CAI per la resa *su
-  mappa* (la segnaletica CAI riguarda i segnavia dipinti, non il tratto cartografico): la
-  scala piena→punteggiato è una **convenzione Sentèi** ispirata a SAC/Tabacco, da fissare e
-  documentare (valori `line-dasharray` da tarare a occhio).
+| Grado | Legenda carta | Reso in-app (`line-dasharray`) |
+|---|---|---|
+| **T** (e "T/E" turistico) | linea continua | nessun dash |
+| **E** (media difficoltà) | trattini lunghi `— — — —` | `[3, 2]` circa |
+| **EE** (per esperti) | punteggiato `• • • • •` | `[0.3, 1.6]` circa + `line-cap: round` |
+| **EEA** (via ferrata, per esperti con attrezzatura) | linea a crocette `+‑+‑+‑+` | *vedi nota resa tecnica* |
+| sconosciuto | — | come T (continua) |
+
+- [ ] **Fedele alla legenda ufficiale** — non è più una "convenzione Sentèi" libera: la
+  scala continua → trattini → punti → crocette è quella stampata sulle carte. Da fissare in
+  una costante unica e documentare. Nota: la legenda usa il **rosso** per tutti; noi
+  teniamo il colore assegnato al tracciato (è lo *stile* a portare il significato).
 - [ ] **Colore invariato** (scelta dell'utente) — cambia **solo** il pattern di tratteggio,
   la linea resta del colore assegnato al tracciato. I colori difficoltà (verde/teal/
   arancio/rosso) restano riservati a badge e banda per-tratto, come da linee guida.
@@ -96,6 +110,11 @@ escursionisti esperti (EE)**, **punteggiato fitto = attrezzato (EEA)**.
   va spezzata in run contigui per classe di difficoltà, ognuno su un manager/layer col suo
   dash (T/E/EE/EEA/sconosciuto), stesso colore e spessore. Estende il pattern già in uso
   per i tratti liberi vs agganciati (`map_gl_screen.dart`, `_savedFreeLines`).
+- [ ] **EEA (crocette) — resa fedele vs ripiego** — le crocette `+‑+‑+` **non** si ottengono
+  col solo `line-dasharray` (fa solo segmenti on/off, non simboli): serve un `line-pattern`
+  (sprite "+") o un `SymbolLayer` con `symbol-placement: line` e un glifo "+". Ripiego v1
+  accettabile: un pattern **dash-punto** (`[2, 1.4, 0.3, 1.4]`) ben distinto da EE, con la
+  resa a crocette come rifinitura successiva se serve.
 - [ ] **Interazione coi tratti "liberi"** — i tratti liberi (già tratteggiati, senza dato
   sentiero per definizione) restano come sono: lo stile-difficoltà vale solo per i tratti
   agganciati. La segmentazione per difficoltà si compone con lo split libero/agganciato
