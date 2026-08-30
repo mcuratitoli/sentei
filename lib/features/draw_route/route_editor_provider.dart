@@ -1288,6 +1288,52 @@ class ProfileCursor extends Notifier<ProfileSample?> {
 final profileCursorProvider =
     NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);
 
+/// Selezione di un **intervallo** sul profilo altimetrico per stimare il tempo
+/// di percorrenza su un tratto (§ROADMAP P1.C2). [a]/[b] sono indici nei
+/// campioni di `ElevationProfile`, `null` finché non toccati.
+class ProfileRangeSel {
+  const ProfileRangeSel({this.a, this.b});
+
+  final int? a;
+  final int? b;
+
+  bool get complete => a != null && b != null;
+
+  /// Estremi ordinati (l'utente può toccare fine prima di inizio).
+  int? get lo => complete ? (a! <= b! ? a : b) : a;
+  int? get hi => complete ? (a! <= b! ? b : a) : null;
+}
+
+/// `null` = nessuna selezione (scrubbing normale del grafico). Non-null ma
+/// non [ProfileRangeSel.complete] = modalità selezione, in attesa dei tocchi.
+/// Transitoria: si azzera al cambio di traccia attiva.
+class ProfileRange extends Notifier<ProfileRangeSel?> {
+  @override
+  ProfileRangeSel? build() {
+    ref.watch(activeTrackIdProvider);
+    return null;
+  }
+
+  /// Entra in modalità selezione (in attesa del primo tocco).
+  void begin() => state = const ProfileRangeSel();
+
+  /// Registra un estremo: primo tocco → [ProfileRangeSel.a]; secondo →
+  /// [ProfileRangeSel.b]; un ulteriore tocco a selezione completa ricomincia.
+  void pick(int index) {
+    final s = state;
+    if (s == null || s.complete || s.a == null) {
+      state = ProfileRangeSel(a: index);
+    } else {
+      state = ProfileRangeSel(a: s.a, b: index);
+    }
+  }
+
+  void clear() => state = null;
+}
+
+final profileRangeProvider =
+    NotifierProvider<ProfileRange, ProfileRangeSel?>(ProfileRange.new);
+
 /// Foto selezionata (tap su un pin mappa/profilo, §"Sync album fotografico"),
 /// da mostrare in anteprima. Si azzera al cambio di traccia attiva.
 class SelectedPhoto extends Notifier<TrackPhoto?> {

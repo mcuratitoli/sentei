@@ -131,10 +131,10 @@ foto della legenda reale allegata alla sessione del 30 ago 2026):
 - [ ] **Attenzione perf** — 4-5 manager in più per traccia visibile; con più tracce salvate
   sulla mappa, tenere d'occhio il numero di annotation.
 
-### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — [~] C1 fatto (30 ago 2026), C2 da fare
+### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 
-> *Spezzato: **C1** dominio + rimozione split automatico (~SP 2) — **fatto**;
-> **C2** selezione manuale dell'intervallo sul profilo (~SP 5) — da fare.*
+> *Spezzato: **C1** dominio + rimozione split automatico — **fatto**;
+> **C2** selezione manuale dell'intervallo sul profilo — **fatto**.*
 
 Oggi il tempo stimato è sempre sull'intera traccia e, per i percorsi "chiusi" (anello /
 andata-e-ritorno), viene **diviso automaticamente** salita/discesa nel punto di quota
@@ -154,16 +154,21 @@ indice A e indice B", con A=0 o B=ultimo come casi particolari).
   `tracks_list_screen`, `export_image_screen`) passati a `estimate(...)` diretto. Test
   `estimateForTrack` → `estimateRange` (254 verdi). Dettaglio: voce **30 ago 2026** in
   `docs/CHANGELOG-DEV.md`.
-- [ ] **C2 — UI selezione intervallo** — due maniglie / due tap sul **profilo altimetrico**
-  nella card di dettaglio (funziona anche per un GPX importato con molti punti, non solo per
-  i waypoint disegnati). Il profilo ha già un cursore di scrubbing: estenderlo a una
-  selezione a due estremi.
-- [ ] **C2 — risultato** — quando un intervallo è selezionato, una riga mostra tempo (e
-  distanza / D+/D- del tratto); un "azzera" torna all'intera traccia. Query transitoria,
-  **non** persistita con la traccia (da confermare).
-- [ ] **Test** — `estimateRange` puro: intera traccia == valore attuale; sotto-tratta
-  monotòna; A==B → zero; deadband applicato per sotto-tratta. Aggiornare i test in
-  `test/domain/hiking_time_test.dart` che verificano `ascent`/`descent`.
+- [x] **C2 — UI selezione intervallo** — `ElevationProfileChart` ha ora `selecting` +
+  `onPickIndex`: nella card, il tasto testuale "Tempo di un tratto" entra in modalità
+  selezione (i tap scelgono gli estremi invece di fare scrubbing), il testo di supporto
+  guida ("Tocca l'inizio/la fine del tratto"). Provider `profileRangeProvider`
+  (`ProfileRangeSel {a, b}`, transitorio, azzerato al cambio traccia e alla chiusura del
+  grafico). Il painter disegna maniglia + linea sui due estremi e scurisce fuori
+  dall'intervallo. Funziona anche per un GPX importato (è index-based sul profilo).
+- [x] **C2 — risultato** — `_HikingRangeRow`: "Tratto: circa <tempo> · <dist> · ↗X ↘Y m"
+  con la × per tornare al totale. Query transitoria, **non** persistita. La riga del tempo
+  totale (`_HikingTimeRow`) resta il default quando non c'è selezione.
+- [x] **Test** — `estimateRange` puro (default = totale, solo-salita, solo-discesa, tratta
+  centrale, indici invertiti/coincidenti/fuori-range, profilo < 2 campioni). 254 verdi.
+- Nota: i tap sintetici sul simulatore (`osascript`) cadono sempre al centro del grafico
+  (press di accessibilità, non a coordinate) → intervallo di lunghezza 0. La logica di
+  `pick` è verificata via log; l'intervallo reale va provato su device.
 
 ---
 

@@ -22,11 +22,13 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
   preciso sulla quota, al suo posto compare un trattino. La barra della
   scala, il logo e l'icona informazioni sulla mappa si sono spostati per
   fargli spazio.
-- ⏱️ **Tempo di percorrenza più semplice.** La card della traccia mostra ora
-  un unico tempo stimato per l'intero percorso (partenza → arrivo). È stato
-  tolto lo spezzone automatico "salita / discesa" che compariva sui percorsi
-  ad anello: al suo posto arriverà la scelta manuale di un tratto — da un
-  punto a un altro — su cui calcolare il tempo.
+- ⏱️ **Tempo di percorrenza di un tratto scelto.** La card della traccia
+  mostra un unico tempo stimato per l'intero percorso (partenza → arrivo);
+  tolto lo spezzone automatico "salita / discesa" sui percorsi ad anello. In
+  più, con il profilo altimetrico aperto, il tasto **"Tempo di un tratto"**
+  fa scegliere due punti sul grafico e stima tempo, distanza e dislivelli di
+  quel solo tratto — utile per sapere "da qui a lì quanto manca". Una × torna
+  al totale.
 
 ## 1.0.0 (10) — 26 agosto 2026
 

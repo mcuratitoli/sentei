@@ -23,6 +23,10 @@ class ElevationProfileChart extends StatefulWidget {
     this.trailSegments = const [],
     this.cursor,
     this.onCursor,
+    this.selStartIndex,
+    this.selEndIndex,
+    this.selecting = false,
+    this.onPickIndex,
     this.height = 150,
     this.steepness = false,
   });
@@ -40,6 +44,18 @@ class ElevationProfileChart extends StatefulWidget {
 
   /// Notifica il campione sotto il dito durante lo scrubbing (`null` a fine).
   final ValueChanged<ProfileSample?>? onCursor;
+
+  /// Estremi dell'**intervallo selezionato** (§P1.C2), indici nei campioni;
+  /// `null` se non ancora scelti. Disegnati come maniglie + fascia ombreggiata.
+  final int? selStartIndex;
+  final int? selEndIndex;
+
+  /// Se vero, un tap sceglie un estremo dell'intervallo (via [onPickIndex])
+  /// invece di fare scrubbing.
+  final bool selecting;
+
+  /// Indice del campione toccato in modalità [selecting].
+  final ValueChanged<int>? onPickIndex;
 
   final double height;
 
@@ -141,6 +157,23 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             widget.onCursor!(_nearestByDistance(widget.profile.samples, target));
           }
 
+          void pick(double dx) {
+            if (widget.onPickIndex == null ||
+                widget.profile.totalDistance <= 0) {
+              return;
+            }
+            final frac = (dx / width).clamp(0.0, 1.0);
+            final target = frac * widget.profile.totalDistance;
+            final i =
+                _nearestIndexByDistance(widget.profile.samples, target);
+            debugPrint('[profile] pick dx=${dx.toStringAsFixed(1)} '
+                'width=${width.toStringAsFixed(1)} frac=${frac.toStringAsFixed(3)} '
+                'target=${target.toStringAsFixed(0)}m → indice $i/'
+                '${widget.profile.samples.length - 1}');
+            widget.onPickIndex!(i);
+          }
+
+          final selecting = widget.selecting;
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (d) {
@@ -148,14 +181,21 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                   _difficultyAt(d.localPosition, width, totalHeight);
               if (scale != null) {
                 _showTip(d.globalPosition, scale);
-                return; // tap sulla banda difficoltà → tooltip, non scrubbing
+                return; // tap sulla banda difficoltà → tooltip, non altro
+              }
+              if (selecting) {
+                pick(d.localPosition.dx);
+                return; // modalità selezione: il tap sceglie un estremo
               }
               report(d.localPosition.dx);
             },
-            onHorizontalDragStart: (d) => report(d.localPosition.dx),
-            onHorizontalDragUpdate: (d) => report(d.localPosition.dx),
-            onHorizontalDragEnd: (_) => widget.onCursor?.call(null),
-            onTapUp: (_) => widget.onCursor?.call(null),
+            onHorizontalDragStart:
+                selecting ? null : (d) => report(d.localPosition.dx),
+            onHorizontalDragUpdate:
+                selecting ? null : (d) => report(d.localPosition.dx),
+            onHorizontalDragEnd:
+                selecting ? null : (_) => widget.onCursor?.call(null),
+            onTapUp: selecting ? null : (_) => widget.onCursor?.call(null),
             child: CustomPaint(
               painter: _ProfilePainter(
                 profile: widget.profile,
@@ -165,6 +205,9 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 bandColor: scheme.secondaryContainer,
                 bandTextColor: scheme.onSecondaryContainer,
                 cursor: widget.cursor,
+                selStartIndex: widget.selStartIndex,
+                selEndIndex: widget.selEndIndex,
+                selectionColor: scheme.primary,
                 steepness: widget.steepness,
               ),
               size: Size.infinite,
@@ -187,6 +230,20 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       }
     }
     return best;
+  }
+
+  static int _nearestIndexByDistance(
+      List<ProfileSample> samples, double target) {
+    var bestI = 0;
+    var bestDiff = (samples.first.distanceMeters - target).abs();
+    for (var i = 1; i < samples.length; i++) {
+      final diff = (samples[i].distanceMeters - target).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestI = i;
+      }
+    }
+    return bestI;
   }
 }
 
@@ -232,6 +289,9 @@ class _ProfilePainter extends CustomPainter {
     required this.bandColor,
     required this.bandTextColor,
     this.cursor,
+    this.selStartIndex,
+    this.selEndIndex,
+    this.selectionColor = const Color(0xFF0071E0),
     this.steepness = false,
   });
 
@@ -242,6 +302,9 @@ class _ProfilePainter extends CustomPainter {
   final Color bandColor;
   final Color bandTextColor;
   final ProfileSample? cursor;
+  final int? selStartIndex;
+  final int? selEndIndex;
+  final Color selectionColor;
   final bool steepness;
 
   static const double _bandHeight = 18;
@@ -350,6 +413,42 @@ class _ProfilePainter extends CustomPainter {
       }
     }
 
+    // Intervallo selezionato (§P1.C2): fascia ombreggiata fra i due estremi +
+    // una "maniglia" (cerchio con centro bianco) su ciascun estremo scelto.
+    void handleAt(int i) {
+      if (i < 0 || i >= samples.length) return;
+      final s = samples[i];
+      final x = dxFor(s.distanceMeters);
+      final y = dyFor(s.elevation);
+      canvas.drawLine(Offset(x, 0), Offset(x, chartH),
+          Paint()..color = selectionColor..strokeWidth = 1.5);
+      canvas.drawCircle(Offset(x, y), 5.5, Paint()..color = selectionColor);
+      canvas.drawCircle(
+          Offset(x, y), 2.2, Paint()..color = const Color(0xFFFFFFFF));
+    }
+
+    final si = selStartIndex, ei = selEndIndex;
+    if (si != null && ei != null) {
+      final lo = si <= ei ? si : ei;
+      final hi = si <= ei ? ei : si;
+      if (lo >= 0 && hi < samples.length) {
+        final xa = dxFor(samples[lo].distanceMeters);
+        final xb = dxFor(samples[hi].distanceMeters);
+        // Scurisce ciò che è **fuori** dall'intervallo (pattern "focus"): più
+        // leggibile che schiarire dentro, dove c'è già il riempimento del
+        // profilo.
+        final dim = Paint()..color = const Color(0xFF000000).withValues(alpha: 0.10);
+        if (xa > 0) canvas.drawRect(Rect.fromLTRB(0, 0, xa, chartH), dim);
+        if (xb < size.width) {
+          canvas.drawRect(Rect.fromLTRB(xb, 0, size.width, chartH), dim);
+        }
+        canvas.drawRect(Rect.fromLTRB(xa, 0, xb, chartH),
+            Paint()..color = selectionColor.withValues(alpha: 0.14));
+      }
+    }
+    if (si != null) handleAt(si);
+    if (ei != null) handleAt(ei);
+
     final c = cursor;
     if (c != null) {
       final x = dxFor(c.distanceMeters);
@@ -388,6 +487,8 @@ class _ProfilePainter extends CustomPainter {
       old.profile != profile ||
       old.color != color ||
       old.cursor != cursor ||
+      old.selStartIndex != selStartIndex ||
+      old.selEndIndex != selEndIndex ||
       old.steepness != steepness ||
       old.trailSegments != trailSegments;
 }

@@ -11,6 +11,36 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 30 agosto 2026 — P1.C2: selezione di un tratto sul profilo per il tempo di percorrenza
+
+Seconda metà di P1.C. Chiude P1.C (§`docs/ROADMAP.md`).
+
+- **Provider** `profileRangeProvider` (`route_editor_provider.dart`): `ProfileRangeSel {a, b}`
+  = indici nei campioni del profilo, `null` finché non toccati. `begin()` entra in
+  modalità selezione, `pick(i)` registra un estremo (a → b → ricomincia), `clear()`.
+  Transitorio: `build()` osserva `activeTrackIdProvider` (azzerato al cambio traccia); la
+  card lo azzera anche a ogni toggle del grafico.
+- **`ElevationProfileChart`** — nuovi prop `selStartIndex`/`selEndIndex`/`selecting` +
+  `onPickIndex`. In modalità `selecting` i tap chiamano `onPickIndex(indice)` invece dello
+  scrubbing (drag e `onTapUp` disattivati). `_ProfilePainter`: maniglia (cerchio con centro
+  bianco) + linea verticale su ciascun estremo, e scurimento di ciò che è **fuori**
+  dall'intervallo (pattern "focus" — più leggibile che schiarire dentro, dove c'è già il
+  riempimento del profilo). Nuovo `_nearestIndexByDistance`.
+- **`draw_route_controls.dart`** — testo di supporto sotto le icone del grafico ora è una
+  riga: a sinistra la quota al cursore **o** le istruzioni ("Tocca l'inizio / la fine del
+  tratto" / "Tratto scelto sul profilo"), a destra `_RangeAction` ("Tempo di un tratto" →
+  `begin()` / "Annulla" / "Cambia"). Quando l'intervallo è completo, `_HikingRangeRow`
+  sostituisce `_HikingTimeRow`: "Tratto: circa <tempo> · <dist> · ↗X ↘Y m" + × per tornare
+  al totale. `estimateRange` chiamato solo con grafico visibile e selezione completa.
+- **Logging** (`sentei-logging-practice`): `debugPrint('[profile] pick dx=… width=… frac=…
+  target=…m → indice i/N')` in `pick`.
+- `flutter analyze` pulito, **254 test verdi**.
+- **Limite di verifica**: i tap sintetici `osascript` sul simulatore fanno una *press di
+  accessibilità* (posizione = centro del widget), non un tocco a coordinate → sul grafico
+  cadono sempre a metà (`dx=181, width=362, frac=0.500` nei log) e l'intervallo risulta di
+  lunghezza 0. La logica di `pick` è corretta (confermata dai log); l'intervallo reale va
+  provato su device.
+
 ## 30 agosto 2026 — P1.C1: tempi di percorrenza, rimosso lo split automatico anello
 
 Prima metà di P1.C (§`docs/ROADMAP.md`).

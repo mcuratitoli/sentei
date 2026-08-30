@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/util/format.dart';
+import '../../domain/models/elevation_profile.dart';
 import '../../domain/models/photo_session.dart';
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/hiking_time.dart';
@@ -253,6 +254,7 @@ class _SelectedBody extends ConsumerWidget {
         profileVisible && hasMetrics && !metrics.profile.isEmpty;
     final steepnessOn = ref.watch(steepnessVisibleProvider);
     final cursor = ref.watch(profileCursorProvider);
+    final rangeSel = ref.watch(profileRangeProvider);
     final difficulty =
         hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
     final pace = ref.watch(hikingPaceProvider);
@@ -261,6 +263,16 @@ class _SelectedBody extends ConsumerWidget {
             distanceMeters: metrics.distanceMeters,
             gainMeters: metrics.elevation.gain,
             lossMeters: metrics.elevation.loss,
+            pace: pace,
+          )
+        : null;
+    // Tempo su un tratto scelto (§P1.C2): valorizzato solo con selezione
+    // completa e grafico visibile (dove la si sceglie/vede).
+    final rangeEst = (showingChart && rangeSel != null && rangeSel.complete)
+        ? _hikingTimeCalculator.estimateRange(
+            metrics.profile,
+            startIndex: rangeSel.lo!,
+            endIndex: rangeSel.hi!,
             pace: pace,
           )
         : null;
@@ -320,7 +332,16 @@ class _SelectedBody extends ConsumerWidget {
                 ],
               ],
             ),
-            if (hikingTime != null && hikingTime > Duration.zero)
+            if (rangeEst != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: _HikingRangeRow(
+                  est: rangeEst,
+                  onClear: () =>
+                      ref.read(profileRangeProvider.notifier).clear(),
+                ),
+              )
+            else if (hikingTime != null && hikingTime > Duration.zero)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: _HikingTimeRow(time: hikingTime),
@@ -351,7 +372,12 @@ class _SelectedBody extends ConsumerWidget {
                 active: showingChart,
                 onPressed: (!hasMetrics || saving)
                     ? null
-                    : () => ref.read(profileVisibleProvider.notifier).toggle(),
+                    : () {
+                        ref.read(profileVisibleProvider.notifier).toggle();
+                        // Un giro di apertura/chiusura riparte pulito: niente
+                        // selezione di tratto ereditata (§P1.C2).
+                        ref.read(profileRangeProvider.notifier).clear();
+                      },
                 // Grafico a linee (non più `waveform_path`, che leggeva
                 // troppo come forma d'onda audio).
                 icon: CupertinoIcons.graph_square,
@@ -380,27 +406,54 @@ class _SelectedBody extends ConsumerWidget {
           ),
           if (showingChart) ...[
             const SizedBox(height: 4),
-            // Slot fisso per la quota al cursore (spazio riservato sempre, così la
-            // card non cambia altezza scorrendo il grafico).
+            // Slot fisso (altezza riservata sempre, così la card non cambia
+            // altezza scorrendo il grafico): a sinistra la quota al cursore o
+            // le istruzioni per la selezione di un tratto (§P1.C2), a destra
+            // l'azione per entrare/uscire da quella modalità.
             SizedBox(
-              height: 16,
-              child: Text(
-                cursor == null
-                    ? 'Tocca il grafico per la quota del punto'
-                    : 'Quota ${Format.meters(cursor.elevation)} · '
-                        '${Format.distance(cursor.distanceMeters)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight:
-                          cursor == null ? FontWeight.normal : FontWeight.bold,
-                      color:
-                          cursor == null ? Theme.of(context).hintColor : null,
+              height: 18,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _profileHintText(rangeSel, cursor),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: (rangeSel == null && cursor == null)
+                                ? FontWeight.normal
+                                : FontWeight.bold,
+                            color: (rangeSel == null && cursor == null)
+                                ? Theme.of(context).hintColor
+                                : null,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  _RangeAction(
+                    label: rangeSel == null
+                        ? 'Tempo di un tratto'
+                        : (rangeSel.complete ? 'Cambia' : 'Annulla'),
+                    onTap: () {
+                      final n = ref.read(profileRangeProvider.notifier);
+                      if (rangeSel == null || rangeSel.complete) {
+                        n.begin();
+                      } else {
+                        n.clear();
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
             ElevationProfileChart(
               profile: metrics.profile,
               trailSegments: metrics.trailSegments,
-              cursor: cursor,
+              cursor: rangeSel != null && !rangeSel.complete ? null : cursor,
+              selStartIndex: rangeSel?.a,
+              selEndIndex: rangeSel?.b,
+              selecting: rangeSel != null && !rangeSel.complete,
+              onPickIndex: (i) =>
+                  ref.read(profileRangeProvider.notifier).pick(i),
               steepness: steepnessOn,
               height: 120,
               onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
@@ -1239,7 +1292,7 @@ class _GainLoss extends StatelessWidget {
 /// Tempo di percorrenza stimato start → end (§ROADMAP P1.2, poi P1.C). Stima
 /// col metodo CAI, soste escluse: prefisso "Circa". Lo split salita/discesa
 /// automatico per i percorsi ad anello è stato rimosso (P1.C, 30 ago 2026) —
-/// il tempo su un tratto scelto arriverà con la selezione manuale (C2).
+/// il tempo su un tratto scelto è la selezione manuale sul profilo (C2).
 class _HikingTimeRow extends StatelessWidget {
   const _HikingTimeRow({required this.time});
 
@@ -1254,6 +1307,85 @@ class _HikingTimeRow extends StatelessWidget {
       Text('Circa ${Format.duration(time)} di cammino',
           style: AppText.captionSmall),
     ]);
+  }
+}
+
+/// Testo di supporto sotto le icone del grafico: quota al cursore, oppure le
+/// istruzioni per la selezione di un tratto (§P1.C2).
+String _profileHintText(ProfileRangeSel? sel, ProfileSample? cursor) {
+  if (sel == null) {
+    return cursor == null
+        ? 'Tocca il grafico per la quota del punto'
+        : 'Quota ${Format.meters(cursor.elevation)} · '
+            '${Format.distance(cursor.distanceMeters)}';
+  }
+  if (!sel.complete) {
+    return sel.a == null
+        ? 'Tocca l\'inizio del tratto'
+        : 'Tocca la fine del tratto';
+  }
+  return 'Tratto scelto sul profilo';
+}
+
+/// Azione testuale compatta (tinta d'accento) accanto al testo di supporto del
+/// grafico: entra/esce dalla selezione di un tratto.
+class _RangeAction extends StatelessWidget {
+  const _RangeAction({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      minimumSize: const Size(0, 28),
+      onPressed: onTap,
+      child: Text(
+        label,
+        style: AppText.captionSmall.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Riga del tempo di percorrenza su un **tratto scelto** (§P1.C2): tempo +
+/// distanza + D+/D- della sola sotto-tratta, con la × per tornare al totale.
+class _HikingRangeRow extends StatelessWidget {
+  const _HikingRangeRow({required this.est, required this.onClear});
+
+  final HikingRangeEstimate est;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Row(
+      children: [
+        Icon(CupertinoIcons.clock, size: 14, color: palette.secondaryLabel),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            'Tratto: circa ${Format.duration(est.time)} · '
+            '${Format.distance(est.distanceMeters)} · '
+            '↗${est.gainMeters.round()} ↘${est.lossMeters.round()} m',
+            style: AppText.captionSmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onClear,
+          child: Icon(CupertinoIcons.clear_circled,
+              size: 16, color: palette.tertiaryIcon),
+        ),
+      ],
+    );
   }
 }
 
