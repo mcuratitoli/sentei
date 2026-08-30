@@ -113,6 +113,13 @@ class _DifficultyLegendSheet extends StatelessWidget {
               style: AppText.body.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 16),
+            Text(
+              'Sulla mappa lo stile della linea del tracciato segue il grado, '
+              'come sulle carte escursionistiche: pieno per T, poi trattini, '
+              'punti e dash‑punto.',
+              style: AppText.footnote.copyWith(color: palette.secondaryLabel),
+            ),
+            const SizedBox(height: 14),
             const _SectionLabel('Escursionistiche'),
             for (final s in caiScalesInOrder)
               _GradeRow(
@@ -120,6 +127,7 @@ class _DifficultyLegendSheet extends StatelessWidget {
                 color: caiScaleColor(s),
                 title: caiScaleLabel(s),
                 body: caiScaleDescription(s),
+                lineStyle: true,
               ),
             const SizedBox(height: 8),
             const _SectionLabel('Alpinistiche'),
@@ -224,12 +232,17 @@ class _GradeRow extends StatelessWidget {
     required this.color,
     required this.title,
     required this.body,
+    this.lineStyle = false,
   });
 
   final String sigla;
   final Color color;
   final String title;
   final String body;
+
+  /// Se vero mostra un campione della **linea del tracciato** per questo grado
+  /// (§P1.B), col tratteggio di [caiScaleDash]. Solo per la scala CAI.
+  final bool lineStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +270,24 @@ class _GradeRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppText.value.copyWith(color: color)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(title,
+                          style: AppText.value.copyWith(color: color)),
+                    ),
+                    if (lineStyle) ...[
+                      const SizedBox(width: 10),
+                      CustomPaint(
+                        size: const Size(52, 12),
+                        painter: _LineStylePainter(
+                          color: color,
+                          dash: caiScaleDash(sigla),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 3),
                 Text(body,
                     style: AppText.bodyDetail
@@ -269,6 +299,48 @@ class _GradeRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Campione della linea del tracciato: un segmento orizzontale col tratteggio
+/// [dash] (unità di larghezza linea, come Mapbox — qui ×2.6 per i px) e cap
+/// tondo, così i "punti" di EE si vedono rotondi come in mappa.
+class _LineStylePainter extends CustomPainter {
+  const _LineStylePainter({required this.color, required this.dash});
+
+  final Color color;
+  final List<double>? dash;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height / 2;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    final d = dash;
+    if (d == null || d.isEmpty) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      return;
+    }
+    const scale = 2.6;
+    var x = 0.0;
+    var on = true;
+    var i = 0;
+    while (x < size.width) {
+      final len = d[i % d.length] * scale;
+      if (on && len > 0) {
+        canvas.drawLine(
+            Offset(x, y), Offset((x + len).clamp(0, size.width), y), paint);
+      }
+      x += len;
+      on = !on;
+      i++;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LineStylePainter old) =>
+      old.color != color || old.dash != dash;
 }
 
 /// Riquadro-nota (condizioni). Sfondo tenue, testo secondario.

@@ -35,8 +35,11 @@ distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità del
 > del **28 ago 2026** di `docs/CHANGELOG-DEV.md`.
 >
 > Dal 28 agosto P1 ospita **tre nuovi lavori** a massima priorità, decisi con l'utente.
-> **Ordine A→B→C dato dall'utente, non riordinato per SP** (come già la vecchia P1): A e C
-> sono lavori chiusi e stimabili, B è al confine con l'epica.
+> **Ordine A→B→C dato dall'utente, non riordinato per SP** (come già la vecchia P1).
+>
+> **Stato (31 ago):** A ✅ implementato — in attesa del test su device dell'utente per la
+> rifinitura; C ✅ (C1 + C2); B ✅ (v1: tracce salvate; EEA con dash-punto di ripiego). Da
+> validare su device fisico: quota reale in A, valori di tratteggio in B (→ P8).
 >
 > *Totale indicativo: ~16 story point (A 3 · C 5 · B 8).*
 
@@ -79,57 +82,42 @@ sulla mappa (card "punto ispezionato"). Dettaglio implementativo: voce **28 ago 
 - [ ] **Da testare su device fisico** (utente, 30 ago) — poi rifinitura in base al
   feedback.
 
-### B. [FEATURE] Difficoltà CAI resa sullo stile della linea del tracciato — *SP 8*
+### B. [FEATURE] Difficoltà CAI resa sullo stile della linea del tracciato — *SP 8* — ✅ fatto (31 ago 2026)
 
-> *Al confine con l'epica: se in implementazione supera la giornata, spezzare in
-> **B1** (helper di segmentazione + resa in disegno) e **B2** (tracce salvate + legenda).*
+Sul tracciato, ogni tratto ha uno **stile di linea diverso in base al grado CAI**,
+replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, sessione
+30 ago). Dettaglio: voce **31 ago 2026** in `docs/CHANGELOG-DEV.md`.
 
-Sul tracciato disegnato ogni tratto assume uno **stile di linea diverso in base al grado
-CAI**, **replicando la legenda delle carte escursionistiche ufficiali** (Tabacco/CAI —
-foto della legenda reale allegata alla sessione del 30 ago 2026):
-
-| Grado | Legenda carta | Reso in-app (`line-dasharray`) |
+| Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
 |---|---|---|
-| **T** (e "T/E" turistico) | linea continua | nessun dash |
-| **E** (media difficoltà) | trattini lunghi `— — — —` | `[3, 2]` circa |
-| **EE** (per esperti) | punteggiato `• • • • •` | `[0.3, 1.6]` circa + `line-cap: round` |
-| **EEA** (via ferrata, per esperti con attrezzatura) | linea a crocette `+‑+‑+‑+` | *vedi nota resa tecnica* |
-| sconosciuto | — | come T (continua) |
+| **T** / sconosciuto | linea continua | nessun dash |
+| **E** | trattini | `[2.5, 2]` |
+| **EE** | punteggiato | `[0.4, 2]` + `line-cap: round` (punti rotondi) |
+| **EEA** | crocette via ferrata | `[2, 1.2, 0.4, 1.2]` (dash-punto, ripiego) |
 
-- [ ] **Fedele alla legenda ufficiale** — non è più una "convenzione Sentèi" libera: la
-  scala continua → trattini → punti → crocette è quella stampata sulle carte. Da fissare in
-  una costante unica e documentare. Nota: la legenda usa il **rosso** per tutti; noi
-  teniamo il colore assegnato al tracciato (è lo *stile* a portare il significato).
-- [ ] **Colore invariato** (scelta dell'utente) — cambia **solo** il pattern di tratteggio,
-  la linea resta del colore assegnato al tracciato. I colori difficoltà (verde/teal/
-  arancio/rosso) restano riservati a badge e banda per-tratto, come da linee guida.
-- [ ] **Tratti senza dato CAI = linea piena** (come T). Accettato che T e "sconosciuto"
-  risultino visivamente uguali sulla linea: il chip/badge e la banda per-tratto già
-  distinguono, e una voce di legenda lo chiarisce.
-- [ ] **Resa tecnica** — su Mapbox GL il `line-dasharray` **non è data-driven**: la linea
-  va spezzata in run contigui per classe di difficoltà, ognuno su un manager/layer col suo
-  dash (T/E/EE/EEA/sconosciuto), stesso colore e spessore. Estende il pattern già in uso
-  per i tratti liberi vs agganciati (`map_gl_screen.dart`, `_savedFreeLines`).
-- [ ] **EEA (crocette) — resa fedele vs ripiego** — le crocette `+‑+‑+` **non** si ottengono
-  col solo `line-dasharray` (fa solo segmenti on/off, non simboli): serve un `line-pattern`
-  (sprite "+") o un `SymbolLayer` con `symbol-placement: line` e un glifo "+". Ripiego v1
-  accettabile: un pattern **dash-punto** (`[2, 1.4, 0.3, 1.4]`) ben distinto da EE, con la
-  resa a crocette come rifinitura successiva se serve.
-- [ ] **Interazione coi tratti "liberi"** — i tratti liberi (già tratteggiati, senza dato
-  sentiero per definizione) restano come sono: lo stile-difficoltà vale solo per i tratti
-  agganciati. La segmentazione per difficoltà si compone con lo split libero/agganciato
-  esistente (libero prevale).
-- [ ] **Sorgente del grado per-tratto** — `TrailSegment.caiScale` già calcolato
-  (`combined_trail_service.dart`) e già mappato sul percorso per la "banda per-tratto":
-  riusare quella struttura.
-- [ ] **Ambito** — vale sia per la traccia in disegno/modifica sia per le tracce salvate
-  mostrate sulla mappa (scelta dell'utente). **Profilo altimetrico invariato.**
-- [ ] **Legenda** — nuova voce "stile linea = difficoltà" nelle legende in-app
-  (`features/settings`).
-- [ ] **Test** — helper puro `percorso + caiScale per indice → lista di (classe,
-  sotto-percorso)`, con test unitario.
-- [ ] **Attenzione perf** — 4-5 manager in più per traccia visibile; con più tracce salvate
-  sulla mappa, tenere d'occhio il numero di annotation.
+- [x] **Fonte unica** — `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart`, condivisa da
+  mappa e legenda.
+- [x] **Colore invariato** — cambia solo il tratteggio, la linea resta del colore del
+  tracciato; casing bianco invariato.
+- [x] **Tratti senza dato CAI = linea piena** (come T).
+- [x] **Resa tecnica** — `line-dasharray` non data-driven → un `PolylineAnnotationManager`
+  per stile (`_savedLinesE`/`_savedLinesEE`/`_savedLinesEEA`, + `_savedLines` pieno per
+  T/sconosciuto, + `_savedFreeLines` per i liberi). Nuovo helper puro `sliceStyledRuns`
+  (`domain/services/track_runs.dart`) che spezza i run agganciati per `caiScale` per
+  distanza cumulata; test in `test/domain/track_runs_test.dart` (6 casi). 260 test verdi.
+- [x] **Tratti "liberi"** — restano un solo run col loro tratteggio (`caiScale: null`),
+  lo stile-difficoltà vale solo per gli agganciati.
+- [x] **Legenda** — `showDifficultyLegend` (`lib/ui/legends.dart`): campione della linea
+  (`_LineStylePainter`) accanto a ogni grado + riga introduttiva.
+- **EEA fedele (crocette con sprite/`SymbolLayer`)** — rifinitura rimandata; il dash-punto è
+  il ripiego v1.
+- **Ambito v1**: tracce **salvate/selezionate** sulla mappa. La linea live durante il
+  drag-editing resta piena (i `trailSegments` non sono ancora risolti mentre si trascina);
+  lo stile compare appena finito/salvato. Da estendere all'editing se serve.
+- **Perf**: 3 manager in più; con molte tracce sulla mappa, tenere d'occhio il conteggio
+  annotation.
+- [ ] **Da tarare su device** (P8): valori di `caiScaleDash`, leggibilità EE (punti) a
+  vari zoom.
 
 ### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 

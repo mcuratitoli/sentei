@@ -23,6 +23,7 @@ import '../../domain/services/steepness.dart';
 import '../../domain/services/track_runs.dart';
 import '../../app/theme_provider.dart';
 import '../../ui/badges.dart';
+import '../../ui/cai_difficulty.dart';
 import '../../ui/glass.dart';
 import '../../ui/ios_toast.dart';
 import '../../ui/tokens.dart';
@@ -69,6 +70,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // selezionata/salvata: manager a parte perché il tratteggio si imposta
   // solo a livello di manager, non per singola annotazione.
   PolylineAnnotationManager? _savedFreeLines;
+  // Tratti agganciati per **grado CAI** (§P1.B): `line-dasharray` non è
+  // data-driven su Mapbox GL, quindi un manager per stile — T/sconosciuto
+  // resta su _savedLines (pieno). Stessi colori/spessori di _savedLines.
+  PolylineAnnotationManager? _savedLinesE;
+  PolylineAnnotationManager? _savedLinesEE;
+  PolylineAnnotationManager? _savedLinesEEA;
   CircleAnnotationManager? _savedEnds;
   // Bandiera a scacchi (arrivo): icona raster registrata nello stile, uno
   // solo per traccia selezionata (vedi _buildFinishFlagImageData).
@@ -362,6 +369,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // _savedLines (sopra, per restare visibili), dash a livello manager.
     _savedFreeLines = await map.annotations.createPolylineAnnotationManager();
     await _savedFreeLines!.setLineDasharray([2, 1.4]);
+    // Stile-linea per grado CAI (§P1.B): E trattini, EE punteggiato (cap
+    // tondo → punti rotondi), EEA dash-punto. Dash da `caiScaleDash`, fonte
+    // condivisa con la legenda.
+    _savedLinesE = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesE!.setLineDasharray(caiScaleDash('E')!);
+    _savedLinesEE = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesEE!.setLineDasharray(caiScaleDash('EE')!);
+    await _savedLinesEE!.setLineCap(LineCap.ROUND);
+    _savedLinesEEA = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesEEA!.setLineDasharray(caiScaleDash('EEA')!);
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
     _importRawLine = await map.annotations.createPolylineAnnotationManager();
     await _importRawLine!.setLineDasharray([2, 2]);
@@ -596,6 +613,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       final importing = ref.read(importLoadingProvider) != null;
       await _savedLines!.deleteAll();
       await _savedFreeLines!.deleteAll();
+      await _savedLinesE!.deleteAll();
+      await _savedLinesEE!.deleteAll();
+      await _savedLinesEEA!.deleteAll();
       await _savedEnds!.deleteAll();
       await _finishFlags!.deleteAll();
       await _liveLine!.deleteAll();
@@ -632,16 +652,17 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           // nelle aree con più tracce sovrapposte.
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
-          // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") senza
-          // richiamare il routing: `segmentPointCounts` è già persistito.
-          final runs = sliceTrackRuns(
+          // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
+          // grado CAI (§P1.B) senza richiamare il routing: `segmentPointCounts`
+          // e `trailSegments` sono già persistiti nelle metriche.
+          final runs = sliceStyledRuns(
             routedPath: path,
             segmentPointCounts: t.segmentPointCounts,
             freeSegments: t.freeSegments,
+            trailSegments: t.metrics?.trailSegments ?? const [],
           );
           for (final run in runs) {
-            final manager = run.free ? _savedFreeLines! : _savedLines!;
-            await manager.create(PolylineAnnotationOptions(
+            await _managerForRun(run).create(PolylineAnnotationOptions(
               geometry: _lineOf(run.points),
               lineColor: t.color.toARGB32(),
               lineWidth: isSelected ? 7 : 4.5,
@@ -680,6 +701,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   LineString _lineOf(List<ll.LatLng> path) => LineString(
         coordinates: [for (final p in path) Position(p.longitude, p.latitude)],
       );
+
+  /// Manager (= stile di linea) per un tratto: libero → tratteggio "misto";
+  /// altrimenti per grado CAI (§P1.B); T e grado sconosciuto → linea piena.
+  PolylineAnnotationManager _managerForRun(StyledRun run) {
+    if (run.free) return _savedFreeLines!;
+    switch (run.caiScale) {
+      case 'E':
+        return _savedLinesE!;
+      case 'EE':
+        return _savedLinesEE!;
+      case 'EEA':
+        return _savedLinesEEA!;
+      default:
+        return _savedLines!;
+    }
+  }
 
   Future<void> _drawEndpoints(List<ll.LatLng> wps) async {
     if (wps.isEmpty) return;

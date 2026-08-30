@@ -11,6 +11,39 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 31 agosto 2026 — P1.B: difficoltà CAI resa sullo stile della linea del tracciato
+
+Ultimo dei tre lavori di P1 (§`docs/ROADMAP.md`). Sul modello delle carte escursionistiche
+(Tabacco/CAI — foto della legenda reale, 30 ago): T pieno, E trattini, EE punteggiato, EEA
+dash‑punto (ripiego delle crocette da via ferrata — un `line-dasharray` non fa simboli).
+
+- **Fonte unica** `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart` (valori in unità di
+  larghezza linea, come Mapbox): E `[2.5,2]`, EE `[0.4,2]`, EEA `[2,1.2,0.4,1.2]`,
+  T/sconosciuto → `null` (pieno). Usata sia dalla mappa sia dalla legenda.
+- **Segmentazione** — nuovo helper puro `sliceStyledRuns` (`domain/services/track_runs.dart`):
+  parte da `sliceTrackRuns` (free/agganciato, con fallback) e spezza ogni run **agganciato**
+  per `caiScale` in base alla **distanza cumulata** (haversine locale) confrontata con
+  `TrailSegment.fromMeters/toMeters`. Tratti scoperti → `caiScale: null` (pieno). Normalizza
+  il grado in ingresso (`' ee '` → `'EE'`). Test `test/domain/track_runs_test.dart`: 6 casi
+  (niente segmenti, un grado unico, confine fra due gradi, buco di copertura, normalizzazione,
+  tratto libero). **260 test verdi.**
+- **Resa mappa** (`map_gl_screen.dart`) — `line-dasharray` non è data-driven su Mapbox GL →
+  un `PolylineAnnotationManager` per stile: `_savedLinesE`/`_savedLinesEE`/`_savedLinesEEA`
+  (EE con `setLineCap(LineCap.ROUND)` → punti rotondi), oltre a `_savedLines` (pieno,
+  T/sconosciuto) e `_savedFreeLines` (liberi). `_renderAll` chiama `sliceStyledRuns` e
+  smista ogni run con `_managerForRun`. **Colore del tracciato e casing bianco invariati** —
+  è solo lo *stile* a portare il grado.
+- **Legenda** — `showDifficultyLegend` (`lib/ui/legends.dart`): `_GradeRow` ha ora un flag
+  `lineStyle` che disegna un campione di linea (`_LineStylePainter`, cap tondo, dash da
+  `caiScaleDash`) accanto al titolo, solo per la scala CAI; aggiunta una riga introduttiva.
+- **Ambito v1**: tracce **salvate/selezionate**. La linea live durante il drag-editing resta
+  piena (i `trailSegments` non sono risolti mentre si trascina) — lo stile compare a
+  editing finito.
+- `flutter analyze` pulito. Verifica su simulatore: la traccia si spezza visibilmente in
+  tratti con tratteggi diversi, colore/casing invariati. I **valori di dash e la
+  leggibilità dei punti EE** vanno tarati su device (→ P8); i tap sintetici non permettono
+  di ispezionare lo zoom ravvicinato.
+
 ## 30 agosto 2026 — P1.C2: selezione di un tratto sul profilo per il tempo di percorrenza
 
 Seconda metà di P1.C. Chiude P1.C (§`docs/ROADMAP.md`).

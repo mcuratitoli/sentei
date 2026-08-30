@@ -29,6 +29,13 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
   fa scegliere due punti sul grafico e stima tempo, distanza e dislivelli di
   quel solo tratto — utile per sapere "da qui a lì quanto manca". Una × torna
   al totale.
+- 🗺️ **Difficoltà del sentiero visibile sulla linea del tracciato.** Come
+  su una cartina di montagna, la linea cambia stile in base al grado CAI:
+  **piena** per i tratti turistici (T), **a trattini** per gli
+  escursionistici (E), **a puntini** per quelli da esperti (EE), **tratto e
+  punto** per i tratti attrezzati / via ferrata (EEA). Il colore del
+  tracciato non cambia. La legenda "Difficoltà dei percorsi" mostra ora
+  anche il campione di ogni linea.
 
 ## 1.0.0 (10) — 26 agosto 2026
 

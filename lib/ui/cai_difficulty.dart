@@ -94,3 +94,25 @@ String caiScaleDescription(String scale) {
 
 /// Gradi CAI in ordine di difficoltà crescente (per la legenda).
 const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA'];
+
+/// Pattern di **tratteggio** della linea del tracciato per grado CAI, sul
+/// modello delle carte escursionistiche ufficiali (Tabacco/CAI): **T** linea
+/// piena, **E** trattini lunghi, **EE** punteggiato, **EEA** dash‑punto (resa
+/// di ripiego delle crocette da via ferrata — un `line-dasharray` non può fare
+/// simboli). `null` = linea piena (T o grado sconosciuto).
+///
+/// Valori in **unità di larghezza linea** (come vuole Mapbox `line-dasharray`):
+/// scalano con lo spessore. Fonte unica condivisa da mappa
+/// (`map_gl_screen.dart`) e legenda (`legends.dart`).
+List<double>? caiScaleDash(String? scale) {
+  switch (normalizeCaiScale(scale)) {
+    case 'E':
+      return const [2.5, 2];
+    case 'EE':
+      return const [0.4, 2];
+    case 'EEA':
+      return const [2, 1.2, 0.4, 1.2];
+    default:
+      return null;
+  }
+}
