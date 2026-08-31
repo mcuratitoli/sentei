@@ -92,9 +92,14 @@ replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, 
 | Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
 |---|---|---|
 | **T** / sconosciuto | linea continua | nessun dash |
-| **E** | trattini | `[2.5, 2]` |
-| **EE** | punteggiato | `[0.4, 2]` + `line-cap: round` (punti rotondi) |
-| **EEA** | crocette via ferrata | `[2, 1.2, 0.4, 1.2]` (dash-punto, ripiego) |
+| **E** | trattini | `[3, 3]` |
+| **EE** | punteggiato | `[0.1, 4.5]` + `line-cap: round` (pallini tondi ben staccati) |
+| **EEA** / `EEA:F` | crocette via ferrata | `[3, 2.5, 0.1, 2.5]` + `line-cap: round` (tratto-punto, ripiego) |
+
+> Valori rivisti il **1 set** (feedback su device: il `[0.4, 2]` col cap tondo saldava i
+> pallini → linea "sfumata"). Periodo più largo + niente casing bianco sui tratteggiati
+> (impastava i trattini) — dettaglio nella voce **1 settembre 2026** di
+> `docs/CHANGELOG-DEV.md`.
 
 - [x] **Fonte unica** — `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart`, condivisa da
   mappa e legenda.

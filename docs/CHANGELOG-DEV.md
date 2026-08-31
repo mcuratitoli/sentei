@@ -11,6 +11,29 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 1 settembre 2026 — P1.B: tratteggio linea rifatto (era "sfumato" su device)
+
+Il casing più sottile (voce 31 ago) non bastava: su device i tratti EE si vedevano come una
+linea teal continua e sfocata, non punteggiata. Causa doppia:
+
+- `caiScaleDash('EE') = [0.4, 2]` con `line-cap: round`: il cap tondo allunga ogni `on` di
+  mezza larghezza di linea per lato, e con un periodo di sole 2.4 unità i pallini si
+  **saldavano** (a `lineWidth 7`, selezionata: ~10 px di "on" reso, ~7 px di stacco).
+- Il bordo bianco (anche a 0.5/1) alonava ogni pallino, impastandolo col vicino.
+
+Interventi (`lib/ui/cai_difficulty.dart`, `map_gl_screen.dart`):
+
+- **Pattern più radi e netti**: E `[2.5,2]`→`[3,3]`; EE `[0.4,2]`→`[0.1,4.5]` (`on`
+  quasi-nullo = cerchio pieno dal cap tondo, periodo largo = pallini staccati); EEA/`EEA:F`
+  `[2,1.2,0.4,1.2]`→`[3,2.5,0.1,2.5]`. `_savedLinesEEA` ora ha anche `setLineCap(ROUND)`
+  (il "punto" del dash-punto diventa un cerchio).
+- **Niente casing sui tratteggiati**: nel loop di render il bordo bianco resta solo sulla
+  **linea piena** (`identical(mgr, _savedLines)`); su E/EE/EEA/liberi `lineBorderWidth: 0`.
+  Sulla piena il bordo torna anzi pieno (`2 / 1.2` sel./non) visto che lì non dà problemi.
+- Legenda e tabella ROADMAP §B aggiornate ai nuovi valori.
+- `flutter analyze` pulito, 270 test verdi (i valori di `caiScaleDash` non sono asseriti nei
+  test — sono taratura visiva).
+
 ## 31 agosto 2026 — P1.B: rifiniture (badge per grado, `EEA:F`, casing più sottile)
 
 Feedback utente su una traccia reale ("Alagna: Otro, Bivacco Ravelli, Tailly", t2):

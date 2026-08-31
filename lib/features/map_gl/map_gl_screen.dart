@@ -369,9 +369,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // _savedLines (sopra, per restare visibili), dash a livello manager.
     _savedFreeLines = await map.annotations.createPolylineAnnotationManager();
     await _savedFreeLines!.setLineDasharray([2, 1.4]);
-    // Stile-linea per grado CAI (§P1.B): E trattini, EE punteggiato (cap
-    // tondo → punti rotondi), EEA dash-punto. Dash da `caiScaleDash`, fonte
-    // condivisa con la legenda.
+    // Stile-linea per grado CAI (§P1.B): E trattini, EE punteggiato, EEA
+    // dash-punto. Dash da `caiScaleDash`, fonte condivisa con la legenda.
+    // EE ed EEA usano `line-cap: round` così l'`on` quasi-nullo dei pallini
+    // diventa un cerchio pieno. Nessun casing bianco su questi (vedi loop di
+    // render): su una linea tratteggiata il bordo impasta i trattini.
     _savedLinesE = await map.annotations.createPolylineAnnotationManager();
     await _savedLinesE!.setLineDasharray(caiScaleDash('E')!);
     _savedLinesEE = await map.annotations.createPolylineAnnotationManager();
@@ -379,6 +381,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     await _savedLinesEE!.setLineCap(LineCap.ROUND);
     _savedLinesEEA = await map.annotations.createPolylineAnnotationManager();
     await _savedLinesEEA!.setLineDasharray(caiScaleDash('EEA')!);
+    await _savedLinesEEA!.setLineCap(LineCap.ROUND);
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
     _importRawLine = await map.annotations.createPolylineAnnotationManager();
     await _importRawLine!.setLineDasharray([2, 2]);
@@ -649,9 +652,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa; le altre, quando c'è una
           // selezione, si attenuano per leggibilità nelle aree con più tracce
-          // sovrapposte. Casing bianco ridotto a un filo: su una traccia
-          // tratteggiata (E/EE/EEA — la maggior parte dei sentieri CAI) un
-          // bordo spesso "mangiava" i trattini e li faceva sembrare pallidi.
+          // sovrapposte.
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
           // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
@@ -664,13 +665,18 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
             trailSegments: t.metrics?.trailSegments ?? const [],
           );
           for (final run in runs) {
-            await _managerForRun(run).create(PolylineAnnotationOptions(
+            final mgr = _managerForRun(run);
+            // Casing bianco **solo sulla linea piena** (T/sconosciuto): sui
+            // tratti tratteggiati il bordo impastava i trattini e li faceva
+            // sembrare una linea sfumata invece che punteggiata.
+            final solid = identical(mgr, _savedLines);
+            await mgr.create(PolylineAnnotationOptions(
               geometry: _lineOf(run.points),
               lineColor: t.color.toARGB32(),
               lineWidth: isSelected ? 7 : 4.5,
               lineOpacity: dimmed ? 0.35 : 1,
               lineBorderColor: 0xFFFFFFFF,
-              lineBorderWidth: isSelected ? 1 : 0.5,
+              lineBorderWidth: solid ? (isSelected ? 2 : 1.2) : 0,
             ));
           }
           // Pallini inizio/fine solo sulla traccia selezionata: con più
