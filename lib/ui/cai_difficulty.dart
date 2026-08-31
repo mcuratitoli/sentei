@@ -149,16 +149,13 @@ const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA', 'EEA:F'];
 List<double>? caiScaleDash(String? scale) {
   switch (normalizeCaiScale(scale)) {
     case 'E':
-      return const [3, 3];
+      return const [2.5, 2];
     case 'EE':
-      // `on` quasi nullo + `line-cap: round` = pallini tondi; periodo largo
-      // così i pallini restano **ben staccati** (con cap tondo ogni "on"
-      // guadagna mezza larghezza per lato, un periodo stretto li salda).
-      return const [0.1, 4.5];
+      return const [0.4, 2];
     case 'EEA':
     case 'EEA:F':
-      return const [3, 2.5, 0.1, 2.5];
+      return const [2, 1.2, 0.4, 1.2];
   }
-  if (_baseCaiScale(scale) == 'EEA') return const [3, 2.5, 0.1, 2.5];
+  if (_baseCaiScale(scale) == 'EEA') return const [2, 1.2, 0.4, 1.2];
   return null;
 }
