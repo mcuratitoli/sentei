@@ -3,7 +3,8 @@
 > Da eseguire ad ogni **bump di versione in `pubspec.yaml`** (nuova build distribuita ai
 > tester), **prima di chiudere la sessione di lavoro**. Copre solo l'allineamento della
 > documentazione — per il processo di upload/distribuzione vero e proprio vedi
-> `testflight-amici.md` (iOS) e la sezione Android in `docs/`.
+> `testflight-amici.md` + `distribuzione-unlisted.md` (iOS) e `android-apk-setup.md` +
+> `notifica-aggiornamenti.md` (Android).
 
 ## 1. File utente (visibili anche in-app)
 
@@ -32,6 +33,14 @@
 ## 3. File pubblici di stato
 
 - [ ] **`README.md`** — riga "Stato attuale" (data + build) aggiornata.
+- [ ] **`docs/latest.json`** — manifest del controllo aggiornamenti in-app, aggiornato alla
+  build appena distribuita e **committato + pushato** (GitHub Pages si rigenera in ~1 min):
+  - `android.build` / `android.version` / `android.notes` / `android.apk` **dopo** aver
+    caricato il nuovo APK nella cartella condivisa.
+  - `ios.build` / `ios.version` **solo quando** la versione App Store corrispondente è
+    *live* (non alla submission).
+  - Verifica: `https://mcuratitoli.github.io/sentei/latest.json` restituisce il nuovo contenuto.
+  - Dettagli: `docs/notifica-aggiornamenti.md`.
 
 ## 4. Verifica di coerenza finale
 

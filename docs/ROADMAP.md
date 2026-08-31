@@ -3,7 +3,7 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 31 agosto 2026 · **Stato:** beta `1.0.0+10` distribuita; su `main` ci sono
+**Aggiornato:** 1 settembre 2026 · **Stato:** beta `1.0.0+10` distribuita; su `main` ci sono
 modifiche **non ancora rilasciate** (P1 A/B/C — vedi `## Non ancora rilasciato` in
 `CHANGELOG.md`), da validare su device prima del prossimo bump.
 
@@ -304,14 +304,27 @@ indice A e indice B", con A=0 o B=ultimo come casi particolari).
 
 ## P6 — Distribuzione & accesso (ordine per SP crescente)
 
-**Decisione presa (22 luglio 2026):** iOS **Unlisted App Distribution** + Android **Play
-closed testing** con Google Group — niente codice di sblocco, niente vetrina pubblica.
-Motivazione e analisi completa in `docs/CHANGELOG-DEV.md`.
+**Decisione presa (22 luglio 2026, Android rivisto 1 settembre 2026):** iOS **Unlisted App
+Distribution** + Android **APK sideload in cartella condivisa** con **controllo aggiornamenti
+in-app via manifest** — niente codice di sblocco, niente vetrina pubblica, **nessun Play
+Store**. Motivazione dello scarto degli store pubblici + codice alfanumerico in
+`docs/CHANGELOG-DEV.md`.
 
-- [ ] iOS: submit review della build corrente + richiesta Unlisted. — *SP 2*
-- [ ] Documentare i due flussi in `docs/` (es. `docs/distribuzione-unlisted.md`). — *SP 2*
-- [ ] Android: creare Play Console, generare upload keystore, build `.aab` (non più APK),
-  track closed testing + Google Group come lista tester. — *SP 5*
+> **Perché non più Play closed testing** (previsto fino al 31 agosto 2026): 25 $ una tantum,
+> upload keystore dedicata, build `.aab` e il vincolo "20 tester per 14 giorni" degli account
+> personali recenti non si giustificano alla scala "amici". Si tiene l'APK sideload e un
+> piccolo `latest.json` su GitHub Pages avvisa in-app quando c'è un APK nuovo — vedi
+> `docs/notifica-aggiornamenti.md`.
+
+- [x] Documentati i due flussi: `docs/distribuzione-unlisted.md` (iOS Unlisted, passo passo)
+  e `docs/notifica-aggiornamenti.md` (manifest aggiornamenti). — *SP 2*
+- [ ] iOS: submit review della build corrente + richiesta Unlisted, seguendo
+  `docs/distribuzione-unlisted.md`. — *SP 2*
+- [ ] Android: implementare il controllo aggiornamenti in-app (`lib/data/update/`, manifest
+  `docs/latest.json` su GitHub Pages) e pubblicare il primo `latest.json`. — *SP 3*
+- [ ] Android: keystore di release dedicata e stabile al posto della debug key
+  (`android/app/build.gradle`), fuori dal repo e con backup — un cambio di chiave rompe
+  l'installazione degli aggiornamenti sideload. — *SP 1*
 - [ ] **Analitiche d'uso** — *SP 13 (epica)*. Analisi completa fatta e aggiornata (24 luglio 2026,
   `docs/eval-usage-analytics.md`): privacy policy non è un vincolo (2 tester consapevoli),
   login **escluso** (decisione presa dall'utente). Mapbox Dashboard + **alert di soglia**
