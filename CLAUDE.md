@@ -110,7 +110,7 @@ lib/
     models/             # Track, ElevationProfile, TrackPhoto, ...
     services/           # calcolo distanza/dislivello, semplificazione path, matching foto
   features/
-    map_gl/             # schermata mappa principale (Mapbox GL) + info punto ispezionato
+    map_gl/             # schermata mappa principale (Mapbox GL) + info punto ispezionato + HUD quota/coordinate GPS
     draw_route/         # disegno/editing tracciato, azioni foto vicine, export (GPX/immagine)
     tracks_list/        # libreria tracciati salvati (ordinamento, ricerca)
     offline_maps/       # gestione mappe/elevazione scaricate
@@ -131,10 +131,11 @@ test/
 
 ### 6.2 Disegno tracciati + snap-to-trail
 - Waypoint instradati sui sentieri OSM via **BRouter** (pubblico, GeoJSON, no API key), per segmento (un punto non instradabile degrada solo quel tratto a linea retta, con retry). Catena profili `hiking-mountain` → `trekking`: i profili `hiking-*` fanno esplodere alcuni segmenti alpini (il server pubblico li uccide per timeout), `trekking` li calcola comunque seguendo i sentieri; linea retta solo se entrambi falliscono. Riserva (serve API key): GraphHopper/Valhalla/OpenRouteService.
-- **Numeri sentiero (ref CAI) e difficoltà:** non disponibili da BRouter → `TrailService` (`data/trails/`), strategia combinata: **OSM2CAI** primario (Italia, `ref` CAI/REI anche dove manca il tag OSM, es. Valle d'Aosta) → **Overpass** fallback (confini FR/CH). Risultato: chip + banda per-tratto (`TrailSegment`, incluso `cai_scale` T/E/EE/EEA).
+- **Numeri sentiero (ref CAI) e difficoltà:** non disponibili da BRouter → `TrailService` (`data/trails/`), strategia combinata: **OSM2CAI** primario (Italia, `ref` CAI/REI anche dove manca il tag OSM, es. Valle d'Aosta) → **Overpass** fallback (confini FR/CH). Risultato: chip + banda per-tratto (`TrailSegment`, incluso `cai_scale` T/E/EE/EEA), e **stile della linea del tracciato sulla mappa** in base al grado (piena/trattini/punti/dash-punto — `caiScaleDash` in `ui/cai_difficulty.dart`, fonte condivisa con la legenda; `line-dasharray` non è data-driven → un manager per stile).
 
-### 6.3 Calcolo distanza/dislivello
+### 6.3 Calcolo distanza / dislivello / tempo
 - Distanza: haversine cumulativo su punti densificati (~10-25 m). Dislivello: campionamento con filtro a soglia (**deadband**, default 8 m) per evitare D+ gonfiato dal rumore del DEM — da validare con tracce reali (`docs/ROADMAP.md`).
+- **Tempo di percorrenza** (`domain/services/hiking_time.dart`, `HikingTimeCalculator`): metodo **CAI/SAC** — 4 km/h piano, 400 m/h salita, 500 m/h discesa, `t = max(t_oriz, t_vert) + min(t_oriz, t_vert)/4` (`/4` invece del `/2` da manuale, tarato su esempi reali — nota nel file). Soste **escluse**; passo Lento/Medio/Veloce persistito. Input = distanza + D+/D- **già calcolati** (D+ con deadband). `estimateRange(profile, {startIndex, endIndex})` copre un **intervallo scelto** del profilo (default = intera traccia); niente split automatico salita/discesa sugli anelli — l'utente sceglie il tratto sul grafico.
 
 ### 6.4 GPX
 - Export: percorso instradato e densificato con quota. Import: parsing di terzi + **riallineamento ibrido** ai sentieri rilevati (flusso a 2 fasi caricamento→revisione, vedi `docs/CHANGELOG-DEV.md`).
@@ -153,7 +154,7 @@ test/
 | **Fase 0** | Setup progetto, struttura cartelle, mappa base + attribuzioni | ✅ Completa |
 | **Fase 1 (MVP)** | GPS, disegno + snap-to-trail, distanza/dislivello, salvataggio locale, GPX, aree offline | ✅ Completa |
 | **Fase 2** | Sync cloud (iCloud + Drive) ✅, snap-to-trail online ✅ · routing offline embedded ⏳ · registrazione traccia live ⏳ | In corso |
-| **Fase 3** | Rifiniture: ricerca località ✅, waypoint/foto ⏳, statistiche ⏳ | In corso |
+| **Fase 3** | Rifiniture: ricerca località ✅, HUD quota/coordinate ✅, tempo di percorrenza + tempo per tratto ✅, difficoltà CAI sullo stile della linea ✅, waypoint/foto ⏳, statistiche ⏳ | In corso |
 
 > Costruire **end-to-end** ogni fase: modello → repository → servizio → UI, con test sulla
 > logica geo (distanza/dislivello/GPX) — è il cuore dell'app, deterministico e separato dalla UI.

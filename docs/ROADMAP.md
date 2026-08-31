@@ -3,8 +3,9 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 28 agosto 2026 · **Stato:** beta `1.0.0+10` in preparazione per la
-distribuzione ai tester (iOS/Android) — vedi `CHANGELOG.md` per le novità della build.
+**Aggiornato:** 31 agosto 2026 · **Stato:** beta `1.0.0+10` distribuita; su `main` ci sono
+modifiche **non ancora rilasciate** (P1 A/B/C — vedi `## Non ancora rilasciato` in
+`CHANGELOG.md`), da validare su device prima del prossimo bump.
 
 ## Come leggere questo documento
 

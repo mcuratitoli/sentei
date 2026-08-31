@@ -86,6 +86,18 @@
 - [ ] Download mappe + elevazione offline in modalità aereo.
 - [ ] Smoothing dislivello (deadband) su tracce reali — validare la soglia di default.
 - [ ] Difficoltà CAI su tracce reali.
+- [ ] **HUD quota/coordinate correnti** (P1.A, 28 ago 2026, `docs/CHANGELOG-DEV.md`) — sul
+  **simulatore la quota è sempre a trattino** (nessuna accuratezza verticale GPS realistica):
+  su un iPhone fisico verificare che la quota compaia quando l'accuratezza verticale è
+  ≤ 25 m, il trattino + spiegazione altrimenti; accuratezza orizzontale che si aggiorna;
+  copia coordinate; posizione della card rispetto a scale bar / logo Mapbox / bottoni.
+- [ ] **Difficoltà CAI sullo stile della linea** (P1.B, 31 ago 2026, `docs/CHANGELOG-DEV.md`)
+  — mai vista da vicino (i tap sintetici non fanno zoom): tarare i valori di `caiScaleDash`
+  a vari livelli di zoom, leggibilità dei "punti" EE, se serve la resa EEA a crocette vere
+  (sprite/`SymbolLayer`) invece del dash-punto di ripiego.
+- [ ] **Tempo di un tratto scelto sul profilo** (P1.C2, 30 ago 2026) — i tap sintetici sul
+  simulatore cadono sempre al centro del grafico (press AX, non a coordinate): l'intervallo
+  reale — due punti distinti, tempo/distanza/D+/D- del tratto — va provato su device.
 - [x] **Tempo di percorrenza stimato — validato su una traccia reale, due correzioni**
   (P1.2, 15 ago 2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI
   (D+ quasi identico) per Rassa → Alpe Toso (VC). **Prima correzione:** velocità di salita
