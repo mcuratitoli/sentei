@@ -253,15 +253,21 @@ class _GradeRow extends StatelessWidget {
         children: [
           Container(
             width: 46,
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
             alignment: Alignment.center,
             decoration: BoxDecoration(color: color, borderRadius: AppRadii.rSm),
-            child: Text(
-              sigla,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+            // Le sigle sono corte (T, EE, PD…) tranne le varianti ferrata
+            // (`EEA:F`): FittedBox le rimpicciolisce quanto basta senza
+            // allargare il badge, così le righe restano allineate.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                sigla,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),

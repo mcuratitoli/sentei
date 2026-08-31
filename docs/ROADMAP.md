@@ -119,6 +119,12 @@ replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, 
   annotation.
 - [ ] **Da tarare su device** (P8): valori di `caiScaleDash`, leggibilità EE (punti) a
   vari zoom.
+- [x] **Rifiniture 31 ago** (feedback su traccia reale): casing bianco dei tracciati
+  salvati assottigliato (`lineBorderWidth` `2.5/1.5` → `1/0.5`) — il bordo spesso
+  copriva i trattini; la **card traccia** mostra un badge per **ogni** grado presente
+  (`presentCaiScales`), non solo il massimo; gestito `EEA:F` (via ferrata) come grado a
+  sé (colore/dash EEA, badge, riga in legenda). Dettaglio: voce **31 ago 2026** in
+  `docs/CHANGELOG-DEV.md`. Da tarare su device se i trattini ora "ballano" senza casing.
 
 ### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 

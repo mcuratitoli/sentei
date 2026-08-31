@@ -255,8 +255,8 @@ class _SelectedBody extends ConsumerWidget {
     final steepnessOn = ref.watch(steepnessVisibleProvider);
     final cursor = ref.watch(profileCursorProvider);
     final rangeSel = ref.watch(profileRangeProvider);
-    final difficulty =
-        hasMetrics ? overallCaiScale(metrics.trailSegments) : null;
+    final difficulties =
+        hasMetrics ? presentCaiScales(metrics.trailSegments) : const <String>[];
     final pace = ref.watch(hikingPaceProvider);
     final hikingTime = hasMetrics
         ? _hikingTimeCalculator.estimate(
@@ -356,8 +356,8 @@ class _SelectedBody extends ConsumerWidget {
                 ]),
               )
             else if ((track?.trailRefs.isNotEmpty ?? false) ||
-                difficulty != null)
-              _TrailInfo(track: track, scale: difficulty),
+                difficulties.isNotEmpty)
+              _TrailInfo(track: track, scales: difficulties),
           ],
           const SizedBox(height: 8),
           // Icone nude, senza testo/sfondo. Solo le due "vista" (profilo
@@ -758,14 +758,16 @@ class _SelectedWaypointBar extends ConsumerWidget {
 /// un punto qualsiasi: un ref può comparire più volte lungo un percorso
 /// lungo, serve un punto vicino a **questo** tratto specifico.
 class _TrailInfo extends ConsumerWidget {
-  const _TrailInfo({required this.track, required this.scale});
+  const _TrailInfo({required this.track, required this.scales});
 
   final DrawnTrack? track;
-  final String? scale;
+
+  /// Tutti i gradi CAI presenti lungo la traccia, dal più facile al più
+  /// difficile ([presentCaiScales]): un badge ciascuno, non solo il massimo.
+  final List<String> scales;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = scale; // locale: promuovibile dopo il null-check
     final t = track;
     final refs = t?.trailRefs ?? const [];
     return Padding(
@@ -782,7 +784,7 @@ class _TrailInfo extends ConsumerWidget {
                   ? null
                   : () => showTrailDetailByRef(context, ref, r, _anchorFor(t, r)),
             ),
-          if (s != null) AppDifficultyBadge(scale: s),
+          for (final s in scales) AppDifficultyBadge(scale: s),
         ],
       ),
     );

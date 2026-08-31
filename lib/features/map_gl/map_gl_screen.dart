@@ -647,9 +647,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           // nascondi TUTTE le altre: mappa pulita, editing più facile.
           if (state.editingId != null || importing) continue;
           if (path.length < 2) continue;
-          // La traccia selezionata è più spessa e con bordo più marcato; le
-          // altre, quando c'è una selezione, si attenuano per leggibilità
-          // nelle aree con più tracce sovrapposte.
+          // La traccia selezionata è più spessa; le altre, quando c'è una
+          // selezione, si attenuano per leggibilità nelle aree con più tracce
+          // sovrapposte. Casing bianco ridotto a un filo: su una traccia
+          // tratteggiata (E/EE/EEA — la maggior parte dei sentieri CAI) un
+          // bordo spesso "mangiava" i trattini e li faceva sembrare pallidi.
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
           // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
@@ -668,7 +670,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
               lineWidth: isSelected ? 7 : 4.5,
               lineOpacity: dimmed ? 0.35 : 1,
               lineBorderColor: 0xFFFFFFFF,
-              lineBorderWidth: isSelected ? 2.5 : 1.5,
+              lineBorderWidth: isSelected ? 1 : 0.5,
             ));
           }
           // Pallini inizio/fine solo sulla traccia selezionata: con più
@@ -704,6 +706,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
 
   /// Manager (= stile di linea) per un tratto: libero → tratteggio "misto";
   /// altrimenti per grado CAI (§P1.B); T e grado sconosciuto → linea piena.
+  /// Le varianti attrezzate (`EEA:F` ecc.) sono rese come EEA.
   PolylineAnnotationManager _managerForRun(StyledRun run) {
     if (run.free) return _savedFreeLines!;
     switch (run.caiScale) {
@@ -713,9 +716,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         return _savedLinesEE!;
       case 'EEA':
         return _savedLinesEEA!;
-      default:
-        return _savedLines!;
     }
+    if (run.caiScale?.startsWith('EEA') ?? false) return _savedLinesEEA!;
+    return _savedLines!;
   }
 
   Future<void> _drawEndpoints(List<ll.LatLng> wps) async {

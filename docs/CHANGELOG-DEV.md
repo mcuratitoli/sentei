@@ -11,6 +11,39 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 31 agosto 2026 — P1.B: rifiniture (badge per grado, `EEA:F`, casing più sottile)
+
+Feedback utente su una traccia reale ("Alagna: Otro, Bivacco Ravelli, Tailly", t2):
+la card la dava tutta **EEA** mentre solo i rami `203A` lo sono (il resto è `203`/`203E`
+= EE), e il tratteggio sulla mappa era quasi invisibile.
+
+- **Card: un badge per ogni grado presente**, non solo il massimo. Nuovo helper
+  `presentCaiScales(segments)` in `lib/ui/cai_difficulty.dart` (gradi distinti,
+  normalizzati, ordinati per `caiScaleRank`); rimosso `overallCaiScale` (unico uso).
+  `_TrailInfo` (`draw_route_controls.dart`) prende ora `List<String> scales` e rende un
+  `AppDifficultyBadge` per grado nel `Wrap` accanto ai tag segnavia.
+- **`EEA:F` come grado di prima classe.** Il dato OSM porta `cai_scale=EEA:F` (tratto di
+  via ferrata, `:F` = difficoltà alpinistica del tratto attrezzato) su alcuni sentieri
+  (es. t20/t6): prima cadeva nel `default` → grigio, linea piena, e `caiScaleRank` 0 lo
+  escludeva pure dal badge. Ora `_caiRank` lo mappa a 5 (un gradino sopra EEA);
+  `_baseCaiScale` estrae `EEA` da `EEA:<x>` come fallback per varianti non previste
+  (`EEA:PD`…); `caiScaleColor`/`caiScaleDash` → rosso EEA + dash-punto; label/descrizione
+  dedicate (menzionano la ferrata); aggiunto a `caiScalesInOrder` (→ riga in legenda).
+  `map_gl_screen._managerForRun`: `caiScale` che inizia per `EEA` → `_savedLinesEEA`.
+  Badge legenda in `FittedBox` così `EEA:F` (5 caratteri) sta nei 46 px senza sballare
+  l'allineamento delle righe.
+- **Casing bianco più sottile** (`map_gl_screen.dart`, loop run tracce salvate):
+  `lineBorderWidth` `2.5/1.5` → `1/0.5` (selezionata/non). Su una linea tratteggiata il
+  bordo spesso copriva quasi tutto il trattino colorato (peggio con tinte a basso
+  contrasto sul terreno, es. il teal di t2) → sembrava una fila di trattini bianchi
+  pallidi. Colore e spessore linea invariati.
+- Test: nuovo `test/ui/cai_difficulty_test.dart` (10 casi: `presentCaiScales`,
+  `caiScaleRank`, gestione `EEA:F`). `flutter analyze` pulito, **270 test verdi**.
+- **Non toccato**: la banda difficoltà del profilo altimetrico e i tooltip usano già
+  `caiScaleColor`/`caiScaleLabel`, quindi `EEA:F` ora vi compare rosso + etichetta giusta
+  senza modifiche. Se `EEA:F` sia il grado corretto per `203A` è una questione di tagging
+  OSM: l'app rispecchia la fonte.
+
 ## 31 agosto 2026 — P1.B: difficoltà CAI resa sullo stile della linea del tracciato
 
 Ultimo dei tre lavori di P1 (§`docs/ROADMAP.md`). Sul modello delle carte escursionistiche
