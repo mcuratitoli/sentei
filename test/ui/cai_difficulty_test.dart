@@ -64,9 +64,9 @@ void main() {
       expect(caiScaleColor('EEA:F'), isNot(const Color(0xFF616161)));
     });
 
-    test('tratteggio = dash-punto come EEA', () {
-      expect(caiScaleDash('EEA:F'), caiScaleDash('EEA'));
-      expect(caiScaleDash('EEA:F'), isNotNull);
+    test('motivo linea = crocetta come EEA', () {
+      expect(caiScaleGlyph('EEA:F'), caiScaleGlyph('EEA'));
+      expect(caiScaleGlyph('EEA:F'), CaiLineGlyph.cross);
     });
 
     test('etichetta e descrizione dedicate (menzionano la ferrata)', () {
@@ -76,6 +76,24 @@ void main() {
 
     test('è incluso in caiScalesInOrder per la legenda', () {
       expect(caiScalesInOrder, contains('EEA:F'));
+    });
+  });
+
+  group('caiScaleGlyph', () {
+    test('E → trattino, EE → puntino, EEA → crocetta', () {
+      expect(caiScaleGlyph('E'), CaiLineGlyph.dash);
+      expect(caiScaleGlyph('ee'), CaiLineGlyph.dot);
+      expect(caiScaleGlyph('EEA'), CaiLineGlyph.cross);
+    });
+
+    test('T e grado sconosciuto/assente → nessun motivo (linea piena)', () {
+      expect(caiScaleGlyph('T'), CaiLineGlyph.none);
+      expect(caiScaleGlyph('boh'), CaiLineGlyph.none);
+      expect(caiScaleGlyph(null), CaiLineGlyph.none);
+    });
+
+    test('varianti EEA:<x> non note → crocetta come EEA', () {
+      expect(caiScaleGlyph('EEA:PD'), CaiLineGlyph.cross);
     });
   });
 }

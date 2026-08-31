@@ -29,23 +29,21 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
   fa scegliere due punti sul grafico e stima tempo, distanza e dislivelli di
   quel solo tratto — utile per sapere "da qui a lì quanto manca". Una × torna
   al totale.
-- 🗺️ **Difficoltà del sentiero visibile sulla linea del tracciato.** Come
-  su una cartina di montagna, la linea cambia stile in base al grado CAI:
-  **piena** per i tratti turistici (T), **a trattini** per gli
-  escursionistici (E), **a puntini** per quelli da esperti (EE), **tratto e
-  punto** per i tratti attrezzati / via ferrata (EEA). Il colore del
-  tracciato non cambia. La linea dei tracciati salvati ha ora un **bordo
-  bianco più sottile**: i trattini si vedevano poco perché il bordo se li
-  "mangiava". La legenda "Difficoltà dei percorsi" mostra il campione di
-  ogni linea.
+- 🗺️ **Difficoltà del sentiero visibile lungo la linea del tracciato.** Come
+  su una cartina di montagna, sopra la linea corre un motivo che dice il
+  grado CAI: **trattini** per gli escursionistici (E), **puntini** per quelli
+  da esperti (EE), **crocette** per i tratti attrezzati / via ferrata (EEA);
+  linea liscia per i turistici (T). Il colore e lo spessore del tracciato non
+  cambiano. La legenda "Difficoltà dei percorsi" mostra il campione di ogni
+  motivo.
 - 🐛 **La card della traccia mostra tutti i gradi di difficoltà, non solo
   il più duro.** Se un percorso è per lo più EE con un tratto EEA, prima si
   vedeva solo "EEA" e sembrava tutta la gita di quel livello; ora compare un
   badge per ogni grado presente (es. `EE` e `EEA`), dal più facile al più
   difficile. Gestito anche il grado `EEA:F` (tratto di **via ferrata** vera
   e propria, con la difficoltà alpinistica indicata dopo i due punti), che
-  prima restava senza colore e con linea piena; ora ha un badge, una voce
-  in legenda e lo stile "tratto e punto" come EEA.
+  prima restava senza colore; ora ha un badge, una voce in legenda e le
+  crocette come EEA.
 
 ## 1.0.0 (10) — 26 agosto 2026
 

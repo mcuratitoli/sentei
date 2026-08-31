@@ -136,26 +136,27 @@ String caiScaleDescription(String scale) {
 /// Gradi CAI in ordine di difficoltà crescente (per la legenda).
 const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA', 'EEA:F'];
 
-/// Pattern di **tratteggio** della linea del tracciato per grado CAI, sul
-/// modello delle carte escursionistiche ufficiali (Tabacco/CAI): **T** linea
-/// piena, **E** trattini lunghi, **EE** punteggiato, **EEA** (e varianti
-/// attrezzate `EEA:<x>`) dash‑punto (resa di ripiego delle crocette da via
-/// ferrata — un `line-dasharray` non può fare simboli). `null` = linea piena
-/// (T o grado sconosciuto).
+/// Motivo grafico ripetuto **lungo la linea** del tracciato per rendere il
+/// grado CAI, sul modello delle carte escursionistiche (Tabacco/CAI):
+/// **E** trattini, **EE** puntini, **EEA** (e varianti attrezzate `EEA:<x>`)
+/// crocette; **T** / sconosciuto = nessun motivo (linea piena).
 ///
-/// Valori in **unità di larghezza linea** (come vuole Mapbox `line-dasharray`):
-/// scalano con lo spessore. Fonte unica condivisa da mappa
-/// (`map_gl_screen.dart`) e legenda (`legends.dart`).
-List<double>? caiScaleDash(String? scale) {
+/// Reso sulla mappa con un `SymbolLayer` (glifi a spaziatura in **pixel**,
+/// nitidi a ogni zoom) e non con `line-dasharray` — che scala con lo spessore
+/// della linea e sui zoom bassi degenerava in "blocchi". Fonte unica
+/// condivisa da mappa (`map_gl_screen.dart`) e legenda (`legends.dart`).
+enum CaiLineGlyph { none, dash, dot, cross }
+
+CaiLineGlyph caiScaleGlyph(String? scale) {
   switch (normalizeCaiScale(scale)) {
     case 'E':
-      return const [2.5, 2];
+      return CaiLineGlyph.dash;
     case 'EE':
-      return const [0.4, 2];
+      return CaiLineGlyph.dot;
     case 'EEA':
     case 'EEA:F':
-      return const [2, 1.2, 0.4, 1.2];
+      return CaiLineGlyph.cross;
   }
-  if (_baseCaiScale(scale) == 'EEA') return const [2, 1.2, 0.4, 1.2];
-  return null;
+  if (_baseCaiScale(scale) == 'EEA') return CaiLineGlyph.cross;
+  return CaiLineGlyph.none;
 }

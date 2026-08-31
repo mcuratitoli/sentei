@@ -11,6 +11,44 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 1 settembre 2026 — P1.B: difficoltà sulla linea rifatta con glifi `SymbolLayer`
+
+2° feedback su device: il tratteggio `line-dasharray` (anche dopo l'assottigliamento del
+casing del 31 ago) si vedeva "sfumato", non tratteggiato, e sui zoom bassi degenerava in
+**blocchi** teal. Causa strutturale: le unità di `line-dasharray` sono multipli di
+`line-width` (traccia selezionata = 7 px → pattern enorme) e il pattern è un SDF cotto al
+caricamento del tile, non ridisegnato per zoom. Ritentare i numeri (fatto 2 volte) è la
+strada sbagliata → cambiato approccio, scelto con l'utente.
+
+**Nuovo approccio — linea piena + motivo di glifi.**
+
+- `lib/ui/cai_difficulty.dart`: `caiScaleDash` → **rimosso**; al suo posto
+  `enum CaiLineGlyph { none, dash, dot, cross }` + `caiScaleGlyph(scale)` (E→dash, EE→dot,
+  EEA/`EEA:F`/`EEA:<x>`→cross, T/ignoto→none).
+- `map_gl_screen.dart`:
+  - Via i 3 manager `_savedLinesE/EE/EEA`. **Tutti** i tratti agganciati tornano su
+    `_savedLines` (pieno, casing bianco `2.5/1.5` ripristinato). `_managerForRun` ora è
+    solo `run.free ? _savedFreeLines : _savedLines`.
+  - Nuova sorgente GeoJSON `sentei-cai-glyphs` + **3 `SymbolLayer`** (uno per glifo, `filter`
+    su `['get','g']`): `symbol-placement: line`, `symbol-spacing` in **pixel** (dash 20,
+    dot 12, cross 24), `icon-rotation-alignment: map`, `icon-allow-overlap`,
+    `icon-size`/`icon-opacity` data-driven (`['get','s']`/`['get','o']`) per
+    selezione (1.25×) e dim (0.35). Aggiunte subito dopo `_savedFreeLines` → sopra la
+    linea, sotto estremi/waypoint/foto.
+  - Immagini glifo 48 px (scale 3 ≈ 16 pt) generate via Canvas — forma **bianca bordata
+    di scuro**, non-SDF (colore fisso, leggibile su ogni colore di traccia e tema):
+    `_paintDashGlyph` (barra), `_paintDotGlyph` (cerchio), `_paintCrossGlyph` (croce).
+  - `_renderAll`: nel loop dei run accumula una feature `LineString` per ogni run
+    agganciato con `caiScaleGlyph != none` (props `g`/`s`/`o`) e scrive la
+    `FeatureCollection` in blocco con `setStyleSourceProperty`. `sliceStyledRuns` invariato.
+- `legends.dart`: `_LineStylePainter` non prende più un `dash` ma un `CaiLineGlyph` e
+  disegna linea piena + il glifo ripetuto (stesso stile bianco-bordato).
+- Test: `test/ui/cai_difficulty_test.dart` — gruppo `caiScaleDash` → `caiScaleGlyph`
+  (E/EE/EEA/T/ignoto/`EEA:<x>`). `flutter analyze` pulito, **273 test verdi**.
+- **EEA fedele**: le crocette da via ferrata, prima "rimandate" (un `line-dasharray` non
+  fa simboli), ora ci sono.
+- Supera: l'assottigliamento del casing e l'approccio `caiScaleDash` della voce 31 ago.
+
 ## 31 agosto 2026 — P1.B: rifiniture (badge per grado, `EEA:F`, casing più sottile)
 
 Feedback utente su una traccia reale ("Alagna: Otro, Bivacco Ravelli, Tailly", t2):
