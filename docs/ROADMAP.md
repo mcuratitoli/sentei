@@ -92,9 +92,9 @@ replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, 
 | Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
 |---|---|---|
 | **T** / sconosciuto | linea continua | nessun dash |
-| **E** | trattini | `[3, 2]` |
-| **EE** | punteggiato | `[1.5, 1.5]` (trattini corti) |
-| **EEA** / `EEA:F` | crocette via ferrata | `[3, 1.5, 1, 1.5]` (tratto-punto, ripiego) |
+| **E** | trattini | `[3, 1.2]` |
+| **EE** | punteggiato | `[1.5, 1]` (trattini corti) |
+| **EEA** / `EEA:F` | crocette via ferrata | `[3, 1, 1, 1]` (tratto-punto, ripiego) |
 
 > **Reso rifatto il 1 set** (2 tentativi di ritaratura non bastavano — il tratteggio
 > restava sgranato): le tracce salvate sono ora **`LineLayer` su sorgente GeoJSON**, non

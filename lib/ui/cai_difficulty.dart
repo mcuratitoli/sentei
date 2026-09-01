@@ -150,13 +150,13 @@ const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA', 'EEA:F'];
 List<double>? caiScaleDash(String? scale) {
   switch (normalizeCaiScale(scale)) {
     case 'E':
-      return const [3, 2];
+      return const [3, 1.2];
     case 'EE':
-      return const [1.5, 1.5];
+      return const [1.5, 1];
     case 'EEA':
     case 'EEA:F':
-      return const [3, 1.5, 1, 1.5];
+      return const [3, 1, 1, 1];
   }
-  if (_baseCaiScale(scale) == 'EEA') return const [3, 1.5, 1, 1.5];
+  if (_baseCaiScale(scale) == 'EEA') return const [3, 1, 1, 1];
   return null;
 }

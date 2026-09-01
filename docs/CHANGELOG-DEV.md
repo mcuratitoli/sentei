@@ -40,6 +40,8 @@ disegna GaiaGPS & co.).
   - Niente più casing bianco (era il punto 1 del feedback utente).
 - `cai_difficulty.dart`: `caiScaleDash` — E `[2.5,2]`→`[3,2]`, EE `[0.4,2]`→`[1.5,1.5]`
   (trattini corti, non più "punti" col cap tondo), EEA `[2,1.2,0.4,1.2]`→`[3,1.5,1,1.5]`.
+  Poi (stessa sessione, feedback utente "dash più ravvicinati") stacchi ridotti: E
+  `[3,1.2]`, EE `[1.5,1]`, EEA `[3,1,1,1]` — la tozzaggine (larghezza linea) resta.
 - `legends.dart`: `_LineStylePainter` con `StrokeCap.butt` (come la mappa); testo intro
   "trattini corti" invece di "punti".
 - Verifica su simulatore (traccia "Alagna: Otro, Bivacco Ravelli"): tratteggio **netto**,
