@@ -89,45 +89,42 @@ Sul tracciato, ogni tratto ha uno **stile di linea diverso in base al grado CAI*
 replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, sessione
 30 ago). Dettaglio: voce **31 ago 2026** in `docs/CHANGELOG-DEV.md`.
 
-| Grado | Legenda carta | Reso in-app (glifo `SymbolLayer`, spaziatura px) |
+| Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
 |---|---|---|
-| **T** / sconosciuto | linea continua | nessun glifo (solo linea piena) |
-| **E** | trattini | trattino, ogni 20 px |
-| **EE** | punteggiato | puntino, ogni 12 px |
-| **EEA** / `EEA:F` | crocette via ferrata | crocetta, ogni 24 px |
+| **T** / sconosciuto | linea continua | nessun dash |
+| **E** | trattini | `[2.5, 2]` |
+| **EE** | punteggiato | `[0.4, 2]` + `line-cap: round` (punti rotondi) |
+| **EEA** | crocette via ferrata | `[2, 1.2, 0.4, 1.2]` (dash-punto, ripiego) |
 
-> **Rifatto il 1 set** (2° feedback su device: `line-dasharray` scala con lo spessore
-> della linea e sui zoom bassi degenerava in blocchi/"sfumato"). Ora la linea è **sempre
-> piena** (colore traccia) e il grado lo porta un **motivo di glifi** (`enum CaiLineGlyph`
-> → `caiScaleGlyph`) ripetuto sopra con un `SymbolLayer` a **spaziatura in pixel** (nitido
-> a ogni zoom, decluttering di Mapbox). Glifi bianchi bordati di scuro (Canvas, non-SDF),
-> leggibili su qualsiasi colore di traccia e tema. Voce **1 settembre 2026** in
-> `docs/CHANGELOG-DEV.md`.
-
-- [x] **Fonte unica** — `caiScaleGlyph(scale)` in `lib/ui/cai_difficulty.dart`, condivisa
-  da mappa (glifi) e legenda (`_LineStylePainter`).
-- [x] **Colore invariato** — la linea resta piena del colore del tracciato; il grado è nel
-  motivo sovrapposto.
+- [x] **Fonte unica** — `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart`, condivisa da
+  mappa e legenda.
+- [x] **Colore invariato** — cambia solo il tratteggio, la linea resta del colore del
+  tracciato; casing bianco invariato.
 - [x] **Tratti senza dato CAI = linea piena** (come T).
-- [x] **Resa tecnica** — `_savedLines` (pieno) + `_savedFreeLines` (liberi) come prima;
-  in più una sorgente GeoJSON `sentei-cai-glyphs` + 3 `SymbolLayer` (`filter` per tipo di
-  glifo, `symbol-placement: line`, `icon-rotation-alignment: map`, `icon-size`/`icon-opacity`
-  data-driven per selezione/dim). `_renderAll` accumula una feature `LineString` per ogni
-  run agganciato con grado noto e la scrive in blocco. Immagini glifo via Canvas
-  (`_paintDashGlyph`/`_paintDotGlyph`/`_paintCrossGlyph`). `sliceStyledRuns` invariato.
-- [x] **Tratti "liberi"** — restano tratteggiati (`_savedFreeLines`), nessun glifo.
-- [x] **Legenda** — `_LineStylePainter` disegna linea piena + il glifo ripetuto.
-- [x] **EEA fedele** — le crocette ora ci sono (era "rimandata": il `line-dasharray` non
-  poteva fare simboli).
-- **Ambito v1**: tracce **salvate/selezionate**. La linea live durante il drag-editing
-  resta piena senza glifi (i `trailSegments` non sono risolti mentre si trascina).
-- **Perf**: 1 sorgente + 3 `SymbolLayer` in più; i glifi hanno `icon-allow-overlap` →
-  con molte tracce lunghe a zoom alto tenere d'occhio il conteggio simboli.
-- [ ] **Da tarare su device** (P8): spaziatura/dimensione dei glifi ai vari zoom.
-- [x] **Rifiniture 31 ago** — la **card traccia** mostra un badge per **ogni** grado
-  presente (`presentCaiScales`), non solo il massimo; `EEA:F` (via ferrata) gestito come
-  grado a sé (rosso EEA, crocetta, badge, riga in legenda). Voce **31 ago 2026** in
-  `docs/CHANGELOG-DEV.md`.
+- [x] **Resa tecnica** — `line-dasharray` non data-driven → un `PolylineAnnotationManager`
+  per stile (`_savedLinesE`/`_savedLinesEE`/`_savedLinesEEA`, + `_savedLines` pieno per
+  T/sconosciuto, + `_savedFreeLines` per i liberi). Nuovo helper puro `sliceStyledRuns`
+  (`domain/services/track_runs.dart`) che spezza i run agganciati per `caiScale` per
+  distanza cumulata; test in `test/domain/track_runs_test.dart` (6 casi). 260 test verdi.
+- [x] **Tratti "liberi"** — restano un solo run col loro tratteggio (`caiScale: null`),
+  lo stile-difficoltà vale solo per gli agganciati.
+- [x] **Legenda** — `showDifficultyLegend` (`lib/ui/legends.dart`): campione della linea
+  (`_LineStylePainter`) accanto a ogni grado + riga introduttiva.
+- **EEA fedele (crocette con sprite/`SymbolLayer`)** — rifinitura rimandata; il dash-punto è
+  il ripiego v1.
+- **Ambito v1**: tracce **salvate/selezionate** sulla mappa. La linea live durante il
+  drag-editing resta piena (i `trailSegments` non sono ancora risolti mentre si trascina);
+  lo stile compare appena finito/salvato. Da estendere all'editing se serve.
+- **Perf**: 3 manager in più; con molte tracce sulla mappa, tenere d'occhio il conteggio
+  annotation.
+- [ ] **Da tarare su device** (P8): valori di `caiScaleDash`, leggibilità EE (punti) a
+  vari zoom.
+- [x] **Rifiniture 31 ago** (feedback su traccia reale): casing bianco dei tracciati
+  salvati assottigliato (`lineBorderWidth` `2.5/1.5` → `1/0.5`) — il bordo spesso
+  copriva i trattini; la **card traccia** mostra un badge per **ogni** grado presente
+  (`presentCaiScales`), non solo il massimo; gestito `EEA:F` (via ferrata) come grado a
+  sé (colore/dash EEA, badge, riga in legenda). Dettaglio: voce **31 ago 2026** in
+  `docs/CHANGELOG-DEV.md`. Da tarare su device se i trattini ora "ballano" senza casing.
 
 ### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 

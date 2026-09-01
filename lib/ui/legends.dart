@@ -241,7 +241,7 @@ class _GradeRow extends StatelessWidget {
   final String body;
 
   /// Se vero mostra un campione della **linea del tracciato** per questo grado
-  /// (§P1.B), col motivo di [caiScaleGlyph]. Solo per la scala CAI.
+  /// (§P1.B), col tratteggio di [caiScaleDash]. Solo per la scala CAI.
   final bool lineStyle;
 
   @override
@@ -285,10 +285,10 @@ class _GradeRow extends StatelessWidget {
                     if (lineStyle) ...[
                       const SizedBox(width: 10),
                       CustomPaint(
-                        size: const Size(52, 14),
+                        size: const Size(52, 12),
                         painter: _LineStylePainter(
                           color: color,
-                          glyph: caiScaleGlyph(sigla),
+                          dash: caiScaleDash(sigla),
                         ),
                       ),
                     ],
@@ -310,74 +310,43 @@ class _GradeRow extends StatelessWidget {
 /// Campione della linea del tracciato: un segmento orizzontale col tratteggio
 /// [dash] (unità di larghezza linea, come Mapbox — qui ×2.6 per i px) e cap
 /// tondo, così i "punti" di EE si vedono rotondi come in mappa.
-/// Campione della linea del tracciato per un grado CAI: linea piena del colore
-/// del grado + il [CaiLineGlyph] ripetuto sopra (trattini / puntini / crocette),
-/// come lo rende la mappa (`caiScaleGlyph` + `SymbolLayer` in `map_gl_screen`).
 class _LineStylePainter extends CustomPainter {
-  const _LineStylePainter({required this.color, required this.glyph});
+  const _LineStylePainter({required this.color, required this.dash});
 
   final Color color;
-  final CaiLineGlyph glyph;
+  final List<double>? dash;
 
   @override
   void paint(Canvas canvas, Size size) {
     final y = size.height / 2;
-    final line = Paint()
+    final paint = Paint()
       ..color = color
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
-    if (glyph == CaiLineGlyph.none) return;
-
-    // Glifo bianco bordato di scuro, come sulla mappa: leggibile su qualsiasi
-    // colore di traccia.
-    final fill = Paint()..color = const Color(0xFFFFFFFF);
-    final edge = Paint()
-      ..color = const Color(0xFF1C1C1E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    final spacing = switch (glyph) {
-      CaiLineGlyph.dash => 14.0,
-      CaiLineGlyph.dot => 9.0,
-      CaiLineGlyph.cross => 16.0,
-      CaiLineGlyph.none => 0.0,
-    };
-    for (var x = spacing / 2; x <= size.width; x += spacing) {
-      final c = Offset(x, y);
-      switch (glyph) {
-        case CaiLineGlyph.dash:
-          final r = RRect.fromRectAndRadius(
-            Rect.fromCenter(center: c, width: 8, height: 4),
-            const Radius.circular(2),
-          );
-          canvas.drawRRect(r, fill);
-          canvas.drawRRect(r, edge);
-        case CaiLineGlyph.dot:
-          canvas.drawCircle(c, 2.6, fill);
-          canvas.drawCircle(c, 2.6, edge);
-        case CaiLineGlyph.cross:
-          final h = RRect.fromRectAndRadius(
-            Rect.fromCenter(center: c, width: 9, height: 3),
-            const Radius.circular(1.5),
-          );
-          final v = RRect.fromRectAndRadius(
-            Rect.fromCenter(center: c, width: 3, height: 9),
-            const Radius.circular(1.5),
-          );
-          canvas.drawRRect(h, fill);
-          canvas.drawRRect(v, fill);
-          canvas.drawRRect(h, edge);
-          canvas.drawRRect(v, edge);
-        case CaiLineGlyph.none:
-          break;
+    final d = dash;
+    if (d == null || d.isEmpty) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      return;
+    }
+    const scale = 2.6;
+    var x = 0.0;
+    var on = true;
+    var i = 0;
+    while (x < size.width) {
+      final len = d[i % d.length] * scale;
+      if (on && len > 0) {
+        canvas.drawLine(
+            Offset(x, y), Offset((x + len).clamp(0, size.width), y), paint);
       }
+      x += len;
+      on = !on;
+      i++;
     }
   }
 
   @override
   bool shouldRepaint(_LineStylePainter old) =>
-      old.color != color || old.glyph != glyph;
+      old.color != color || old.dash != dash;
 }
 
 /// Riquadro-nota (condizioni). Sfondo tenue, testo secondario.

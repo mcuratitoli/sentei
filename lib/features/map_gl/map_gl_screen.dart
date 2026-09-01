@@ -70,6 +70,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   // selezionata/salvata: manager a parte perché il tratteggio si imposta
   // solo a livello di manager, non per singola annotazione.
   PolylineAnnotationManager? _savedFreeLines;
+  // Tratti agganciati per **grado CAI** (§P1.B): `line-dasharray` non è
+  // data-driven su Mapbox GL, quindi un manager per stile — T/sconosciuto
+  // resta su _savedLines (pieno). Stessi colori/spessori di _savedLines.
+  PolylineAnnotationManager? _savedLinesE;
+  PolylineAnnotationManager? _savedLinesEE;
+  PolylineAnnotationManager? _savedLinesEEA;
   CircleAnnotationManager? _savedEnds;
   // Bandiera a scacchi (arrivo): icona raster registrata nello stile, uno
   // solo per traccia selezionata (vedi _buildFinishFlagImageData).
@@ -149,20 +155,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   static const double _trailMinZoom = 13;
   static const String _steepSourceId = 'sentei-steepness';
   static const String _steepLayerId = 'sentei-steepness-line';
-
-  // Glifi di difficoltà CAI (§P1.B): un `SymbolLayer` per tipo di motivo,
-  // stessa sorgente. I glifi sono ripetuti lungo la linea a spaziatura in
-  // **pixel** (nitidi a ogni zoom) invece che con `line-dasharray` (che scala
-  // con lo spessore → "blocchi" sui zoom bassi). Immagini generate via Canvas.
-  static const String _caiGlyphSourceId = 'sentei-cai-glyphs';
-  static const int _caiGlyphImageSize = 48;
-  static const double _caiGlyphImageScale = 3.0; // 48/3 ≈ 16pt
-  // (layerId, valore della proprietà `g` della feature, imageId, spaziatura px)
-  static const List<(String, String, String, double)> _caiGlyphLayers = [
-    ('sentei-cai-glyph-dash', 'dash', 'sentei-glyph-dash', 20),
-    ('sentei-cai-glyph-dot', 'dot', 'sentei-glyph-dot', 12),
-    ('sentei-cai-glyph-cross', 'cross', 'sentei-glyph-cross', 24),
-  ];
 
   // Rete di sicurezza: se il setup o il GPS si incantano, lo splash non deve
   // restare all'infinito → dopo questo timeout si chiude comunque.
@@ -377,50 +369,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     // _savedLines (sopra, per restare visibili), dash a livello manager.
     _savedFreeLines = await map.annotations.createPolylineAnnotationManager();
     await _savedFreeLines!.setLineDasharray([2, 1.4]);
-    // Difficoltà CAI (§P1.B): la linea del tracciato resta **piena** (colore
-    // della traccia) e il grado lo porta un motivo di **glifi** ripetuti
-    // sopra — trattini (E), puntini (EE), crocette (EEA). `SymbolLayer` con
-    // spaziatura in pixel: nitido a ogni zoom (un `line-dasharray` scala con
-    // lo spessore e sui zoom bassi diventava a blocchi). Sorgente riempita da
-    // `_renderAll`; sopra `_savedLines`, sotto estremi/waypoint/foto.
-    for (final (id, painter) in <(String, void Function(Canvas, double))>[
-      ('sentei-glyph-dash', _paintDashGlyph),
-      ('sentei-glyph-dot', _paintDotGlyph),
-      ('sentei-glyph-cross', _paintCrossGlyph),
-    ]) {
-      await map.style.addStyleImage(
-        id,
-        _caiGlyphImageScale,
-        MbxImage(
-          width: _caiGlyphImageSize,
-          height: _caiGlyphImageSize,
-          data: await _buildGlyphImageData(painter),
-        ),
-        false,
-        const [],
-        const [],
-        null,
-      );
-    }
-    await map.style.addSource(GeoJsonSource(
-      id: _caiGlyphSourceId,
-      data: '{"type":"FeatureCollection","features":[]}',
-    ));
-    for (final (layerId, gValue, imageId, spacing) in _caiGlyphLayers) {
-      await map.style.addLayer(SymbolLayer(
-        id: layerId,
-        sourceId: _caiGlyphSourceId,
-        filter: <Object>['==', <Object>['get', 'g'], gValue],
-        symbolPlacement: SymbolPlacement.LINE,
-        symbolSpacing: spacing,
-        iconImage: imageId,
-        iconRotationAlignment: IconRotationAlignment.MAP,
-        iconAllowOverlap: true,
-        iconIgnorePlacement: true,
-        iconSizeExpression: <Object>['get', 's'],
-        iconOpacityExpression: <Object>['get', 'o'],
-      ));
-    }
+    // Stile-linea per grado CAI (§P1.B): E trattini, EE punteggiato (cap
+    // tondo → punti rotondi), EEA dash-punto. Dash da `caiScaleDash`, fonte
+    // condivisa con la legenda.
+    _savedLinesE = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesE!.setLineDasharray(caiScaleDash('E')!);
+    _savedLinesEE = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesEE!.setLineDasharray(caiScaleDash('EE')!);
+    await _savedLinesEE!.setLineCap(LineCap.ROUND);
+    _savedLinesEEA = await map.annotations.createPolylineAnnotationManager();
+    await _savedLinesEEA!.setLineDasharray(caiScaleDash('EEA')!);
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
     _importRawLine = await map.annotations.createPolylineAnnotationManager();
     await _importRawLine!.setLineDasharray([2, 2]);
@@ -655,15 +613,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       final importing = ref.read(importLoadingProvider) != null;
       await _savedLines!.deleteAll();
       await _savedFreeLines!.deleteAll();
+      await _savedLinesE!.deleteAll();
+      await _savedLinesEE!.deleteAll();
+      await _savedLinesEEA!.deleteAll();
       await _savedEnds!.deleteAll();
       await _finishFlags!.deleteAll();
       await _liveLine!.deleteAll();
       await _importRawLine!.deleteAll();
       await _waypointDots!.deleteAll();
       _wpIndexById.clear();
-      // Feature dei glifi di difficoltà CAI (§P1.B), accumulate e scritte in
-      // blocco sulla sorgente `_caiGlyphSourceId` in fondo al render.
-      final glyphFeatures = <Map<String, Object>>[];
 
       // Traccia grezza importata (riferimento **tratteggiato, dimmed**) durante
       // caricamento ed editing dell'import.
@@ -691,7 +649,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa; le altre, quando c'è una
           // selezione, si attenuano per leggibilità nelle aree con più tracce
-          // sovrapposte.
+          // sovrapposte. Casing bianco ridotto a un filo: su una traccia
+          // tratteggiata (E/EE/EEA — la maggior parte dei sentieri CAI) un
+          // bordo spesso "mangiava" i trattini e li faceva sembrare pallidi.
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
           // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
@@ -704,34 +664,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
             trailSegments: t.metrics?.trailSegments ?? const [],
           );
           for (final run in runs) {
-            // La linea è sempre **piena** col colore della traccia (i tratti
-            // "liberi" restano tratteggiati). Il grado CAI lo porta il motivo
-            // di glifi sovrapposto, sotto.
             await _managerForRun(run).create(PolylineAnnotationOptions(
               geometry: _lineOf(run.points),
               lineColor: t.color.toARGB32(),
               lineWidth: isSelected ? 7 : 4.5,
               lineOpacity: dimmed ? 0.35 : 1,
               lineBorderColor: 0xFFFFFFFF,
-              lineBorderWidth: isSelected ? 2.5 : 1.5,
+              lineBorderWidth: isSelected ? 1 : 0.5,
             ));
-            if (run.free || run.points.length < 2) continue;
-            final glyph = caiScaleGlyph(run.caiScale);
-            if (glyph == CaiLineGlyph.none) continue;
-            glyphFeatures.add({
-              'type': 'Feature',
-              'geometry': {
-                'type': 'LineString',
-                'coordinates': [
-                  for (final p in run.points) [p.longitude, p.latitude],
-                ],
-              },
-              'properties': {
-                'g': glyph.name,
-                's': isSelected ? 1.25 : 1.0,
-                'o': dimmed ? 0.35 : 1.0,
-              },
-            });
           }
           // Pallini inizio/fine solo sulla traccia selezionata: con più
           // tracce vicine, mostrarli tutti confondeva più che aiutare.
@@ -750,11 +690,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           await _drawWaypoints(t.waypoints);
         }
       }
-      await _map!.style.setStyleSourceProperty(
-        _caiGlyphSourceId,
-        'data',
-        jsonEncode({'type': 'FeatureCollection', 'features': glyphFeatures}),
-      );
       await _renderPhotos();
     } finally {
       _rendering = false;
@@ -769,11 +704,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         coordinates: [for (final p in path) Position(p.longitude, p.latitude)],
       );
 
-  /// Manager (= stile di linea) per un tratto: **libero** → tratteggio "misto"
-  /// (§"Traccia mista"); **agganciato** → linea piena (il grado CAI lo porta il
-  /// motivo di glifi sovrapposto, §P1.B).
-  PolylineAnnotationManager _managerForRun(StyledRun run) =>
-      run.free ? _savedFreeLines! : _savedLines!;
+  /// Manager (= stile di linea) per un tratto: libero → tratteggio "misto";
+  /// altrimenti per grado CAI (§P1.B); T e grado sconosciuto → linea piena.
+  /// Le varianti attrezzate (`EEA:F` ecc.) sono rese come EEA.
+  PolylineAnnotationManager _managerForRun(StyledRun run) {
+    if (run.free) return _savedFreeLines!;
+    switch (run.caiScale) {
+      case 'E':
+        return _savedLinesE!;
+      case 'EE':
+        return _savedLinesEE!;
+      case 'EEA':
+        return _savedLinesEEA!;
+    }
+    if (run.caiScale?.startsWith('EEA') ?? false) return _savedLinesEEA!;
+    return _savedLines!;
+  }
 
   Future<void> _drawEndpoints(List<ll.LatLng> wps) async {
     if (wps.isEmpty) return;
@@ -838,67 +784,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         _finishFlagImageSize, _finishFlagImageSize);
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
-  }
-
-  /// PNG di un glifo di difficoltà (dash/dot/cross): forma **bianca bordata di
-  /// scuro** su trasparente — leggibile su qualsiasi colore di traccia e su
-  /// entrambi i temi. Non-SDF: il colore è fisso, non serve tinta per feature.
-  Future<Uint8List> _buildGlyphImageData(
-      void Function(Canvas, double) paint) async {
-    final size = _caiGlyphImageSize.toDouble();
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
-    paint(canvas, size);
-    final img = await recorder
-        .endRecording()
-        .toImage(_caiGlyphImageSize, _caiGlyphImageSize);
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
-  }
-
-  static const Color _glyphFill = Color(0xFFFFFFFF);
-  static const Color _glyphEdge = Color(0xFF1C1C1E);
-
-  /// Trattino (grado E): barra lungo il cammino.
-  static void _paintDashGlyph(Canvas c, double s) {
-    Rect bar(double pad) => Rect.fromCenter(
-        center: Offset(s / 2, s / 2), width: s * 0.66 + pad, height: s * 0.24 + pad);
-    c.drawRRect(
-        RRect.fromRectAndRadius(bar(3), Radius.circular(s * 0.14)),
-        Paint()..color = _glyphEdge);
-    c.drawRRect(
-        RRect.fromRectAndRadius(bar(0), Radius.circular(s * 0.12)),
-        Paint()..color = _glyphFill);
-  }
-
-  /// Puntino (grado EE).
-  static void _paintDotGlyph(Canvas c, double s) {
-    final ctr = Offset(s / 2, s / 2);
-    c.drawCircle(ctr, s * 0.19, Paint()..color = _glyphEdge);
-    c.drawCircle(ctr, s * 0.13, Paint()..color = _glyphFill);
-  }
-
-  /// Crocetta (grado EEA / attrezzato): due barre incrociate.
-  static void _paintCrossGlyph(Canvas c, double s) {
-    final ctr = Offset(s / 2, s / 2);
-    RRect arm(bool vertical, double pad) {
-      final long = s * 0.62 + pad;
-      final thick = s * 0.22 + pad;
-      return RRect.fromRectAndRadius(
-        Rect.fromCenter(
-            center: ctr,
-            width: vertical ? thick : long,
-            height: vertical ? long : thick),
-        Radius.circular(thick / 2),
-      );
-    }
-
-    final edge = Paint()..color = _glyphEdge;
-    final fill = Paint()..color = _glyphFill;
-    c.drawRRect(arm(false, 3), edge);
-    c.drawRRect(arm(true, 3), edge);
-    c.drawRRect(arm(false, 0), fill);
-    c.drawRRect(arm(true, 0), fill);
   }
 
   /// Maniglie draggabili al centro di ogni segmento (tra waypoint consecutivi).
