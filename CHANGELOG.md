@@ -13,7 +13,7 @@ L'emoji a inizio riga dice **di che tipo** è la novità: ✨ nuova funzione · 
 distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 `lib/ui/release_notes.dart`), non dall'emoji.
 
-## Non ancora rilasciato
+## 1.0.0 (11) — 2 settembre 2026
 
 - 🗺️ **Quota e posizione sempre in vista.** Un riquadro in alto a sinistra
   mostra di continuo la tua **quota**, letta dal GPS, mentre cammini.

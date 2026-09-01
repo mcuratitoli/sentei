@@ -3,9 +3,10 @@
 > Piano di lavoro operativo: **solo punti aperti**, in ordine di priorità. Il completato è
 > stato spostato nel changelog tecnico — vedi i riferimenti in fondo.
 
-**Aggiornato:** 1 settembre 2026 · **Stato:** beta `1.0.0+10` distribuita; su `main` ci sono
-modifiche **non ancora rilasciate** (P1 A/B/C — vedi `## Non ancora rilasciato` in
-`CHANGELOG.md`), da validare su device prima del prossimo bump.
+**Aggiornato:** 2 settembre 2026 · **Stato:** beta `1.0.0+11` distribuita — **chiude P1**
+(A HUD quota/coordinate, B difficoltà CAI a colore sulla linea, C tempo per tratto scelto).
+Resta la validazione su device di P1 (→ P8) e una rifinitura HUD (nascondere l'HUD sotto le
+bottom sheet / nello snapshot export). Prossimo blocco: **P2**.
 
 ## Come leggere questo documento
 
@@ -38,13 +39,20 @@ modifiche **non ancora rilasciate** (P1 A/B/C — vedi `## Non ancora rilasciato
 > Dal 28 agosto P1 ospita **tre nuovi lavori** a massima priorità, decisi con l'utente.
 > **Ordine A→B→C dato dall'utente, non riordinato per SP** (come già la vecchia P1).
 >
-> **Stato (31 ago):** A ✅ implementato — in attesa del test su device dell'utente per la
-> rifinitura; C ✅ (C1 + C2); B ✅ (v1: tracce salvate; EEA con dash-punto di ripiego). Da
-> validare su device fisico: quota reale in A, valori di tratteggio in B (→ P8).
+> **Stato (2 set): P1 chiuso, rilasciato in `1.0.0+11`.** A ✅ (HUD quota/coordinate —
+> resta la rifinitura "nascondi HUD sotto le sheet / nello snapshot", sotto); B ✅ (resa
+> finale: **colore** della linea per grado CAI sulla traccia **selezionata**, non più
+> tratteggio — iter completo nella voce 1 set di `docs/CHANGELOG-DEV.md`); C ✅ (C1 + C2,
+> C2 ridisegnata l'1 set con due maniglie trascinabili + pallini in mappa). Da validare su
+> device fisico: quota reale in A, colori/spessori in B, trascinamento maniglie in C
+> (→ P8, `docs/validazione-device.md`).
 >
 > *Totale indicativo: ~16 story point (A 3 · C 5 · B 8).*
 
-### A. [FEATURE] Indicatore di quota e coordinate correnti (HUD posizione) — *SP 3* — [~] in corso (28 ago 2026)
+### A. [FEATURE] Indicatore di quota e coordinate correnti (HUD posizione) — *SP 3* — ✅ rilasciato in `1.0.0+11` (2 set 2026)
+
+> Restano aperti solo i due `[ ]` qui sotto: la rifinitura "nascondi HUD" e la validazione
+> su device (P8). Il grosso è in produzione.
 
 Lettore **sempre visibile** sulla schermata mappa con **quota** e **coordinate** della
 posizione GPS dell'utente — il dato che si consulta di continuo in escursione ("a che quota
@@ -83,7 +91,7 @@ sulla mappa (card "punto ispezionato"). Dettaglio implementativo: voce **28 ago 
 - [ ] **Da testare su device fisico** (utente, 30 ago) — poi rifinitura in base al
   feedback.
 
-### B. [FEATURE] Difficoltà CAI resa sullo stile della linea del tracciato — *SP 8* — ✅ fatto (31 ago 2026)
+### B. [FEATURE] Difficoltà CAI resa sulla linea del tracciato — *SP 8* — ✅ rilasciato in `1.0.0+11` (resa: colore, non tratteggio)
 
 Sul tracciato, ogni tratto ha uno **stile di linea diverso in base al grado CAI**,
 replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, sessione
@@ -124,7 +132,7 @@ sconosciuto), **solo sulla traccia selezionata**.
 - [ ] **Da validare su device** (P8): leggibilità dei colori sul terreno reale, spessore
   linea + fade ai vari zoom.
 
-### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
+### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ rilasciato in `1.0.0+11` (C2 ridisegnata l'1 set)
 
 > *Spezzato: **C1** dominio + rimozione split automatico — **fatto**;
 > **C2** selezione manuale dell'intervallo sul profilo — **fatto**.*

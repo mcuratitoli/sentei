@@ -11,6 +11,24 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 2 settembre 2026 — build `1.0.0+11` distribuita (chiude P1 A/B/C)
+
+`pubspec.yaml` `1.0.0+10` → `1.0.0+11`. La build raccoglie i tre lavori di P1 —
+**A** HUD quota/coordinate (28 ago), **B** difficoltà CAI sulla linea (resa finale: il
+**colore** per grado sulla traccia selezionata, non il tratteggio — voci 31 ago / 1 set),
+**C** tempo di percorrenza per un tratto scelto (C1 30 ago + C2, ridisegnata l'1 set con
+due maniglie trascinabili sul profilo + due pallini corrispondenti in mappa). Dettagli
+nelle voci sotto.
+
+Allineati nella stessa sessione: `CHANGELOG.md` (sezione `1.0.0 (11)`), `kReleaseNotes` +
+`kRoadmapGroups` (`lib/ui/release_notes.dart`), `docs/ROADMAP.md` (header + stato P1),
+`README.md` (riga stato), `CLAUDE.md` §7. **`docs/latest.json` NON toccato** — va
+aggiornato solo dopo aver caricato l'APK nella cartella condivisa / quando la versione iOS
+è live sullo store (vedi `docs/release-checklist.md` §3).
+
+`flutter analyze` pulito, **276 test verdi**. Build: `flutter build apk` + `flutter build
+ipa`.
+
 ## 1 settembre 2026 — P1.C2 ridisegnata: due maniglie trascinabili + pallini in mappa
 
 L'utente non gradiva la selezione a tap del tratto per il tempo di percorrenza. Nuova UX:

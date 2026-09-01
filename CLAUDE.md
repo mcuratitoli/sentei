@@ -154,7 +154,7 @@ test/
 | **Fase 0** | Setup progetto, struttura cartelle, mappa base + attribuzioni | ✅ Completa |
 | **Fase 1 (MVP)** | GPS, disegno + snap-to-trail, distanza/dislivello, salvataggio locale, GPX, aree offline | ✅ Completa |
 | **Fase 2** | Sync cloud (iCloud + Drive) ✅, snap-to-trail online ✅ · routing offline embedded ⏳ · registrazione traccia live ⏳ | In corso |
-| **Fase 3** | Rifiniture: ricerca località ✅, HUD quota/coordinate ✅, tempo di percorrenza + tempo per tratto ✅, difficoltà CAI sullo stile della linea ✅, waypoint/foto ⏳, statistiche ⏳ | In corso |
+| **Fase 3** | Rifiniture: ricerca località ✅, HUD quota/coordinate ✅, tempo di percorrenza + tempo per un tratto scelto ✅, difficoltà CAI a **colore** sulla linea (traccia selezionata) ✅, waypoint/foto ⏳, statistiche ⏳ | In corso |
 
 > Costruire **end-to-end** ogni fase: modello → repository → servizio → UI, con test sulla
 > logica geo (distanza/dislivello/GPX) — è il cuore dell'app, deterministico e separato dalla UI.

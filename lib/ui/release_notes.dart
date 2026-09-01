@@ -69,6 +69,75 @@ class ReleaseNote {
 const List<ReleaseNote> kReleaseNotes = [
   ReleaseNote(
     version: '1.0.0',
+    build: 11,
+    date: '2 settembre 2026',
+    highlights: [
+      NoteItem(
+        icon: CupertinoIcons.location,
+        title: 'Quota e posizione sempre in vista',
+        body: 'Un riquadro in alto a sinistra mostra di continuo la tua '
+            'quota dal GPS; toccandolo, anche accuratezza del segnale e '
+            'coordinate da copiare.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.clock,
+        title: 'Tempo di percorrenza anche per un tratto scelto',
+        body: 'Sul profilo altimetrico trascini due punti (che compaiono '
+            'anche sulla mappa) e vedi tempo, distanza e dislivelli di quel '
+            'solo tratto.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.paintbrush,
+        title: 'Difficoltà CAI a colori sulla linea del tracciato',
+        body: 'Selezionando un tracciato, la linea si colora tratto per '
+            'tratto per grado CAI — verde T, verde acqua E, arancio EE, '
+            'rosso EEA; grigio dove il grado non è noto.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.checkmark_seal,
+        title: 'Tutti i gradi di difficoltà sulla card',
+        body: 'Un badge per ogni grado presente lungo la traccia, non solo '
+            'il più impegnativo; gestito anche il grado di via ferrata '
+            '(EEA:F).',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.wrench,
+        title: 'Bugfix e rifiniture',
+      ),
+    ],
+    spotlight: [
+      NoteItem(
+        icon: CupertinoIcons.location,
+        title: 'Quota e posizione sempre in vista',
+        body: 'Il dato che si guarda di continuo in escursione — "a che '
+            'quota sono?" — ora è sempre sullo schermo, letto dal GPS. '
+            'Toccando il riquadro si aprono accuratezza del segnale e '
+            'coordinate, con un tasto per copiarle (utile per il soccorso). '
+            'Se il GPS non è abbastanza preciso sulla quota, compare un '
+            'trattino.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.clock,
+        title: 'Tempo di percorrenza anche per un tratto scelto',
+        body: 'Non solo l\'intera gita: apri il profilo altimetrico, premi '
+            '"cambia intervallo" e trascini due punti (all\'inizio e alla '
+            'fine) per sapere "da qui a lì quanto manca". I due punti '
+            'compaiono e si muovono anche sulla mappa. Tolto lo spezzone '
+            'automatico salita/discesa sui percorsi ad anello.',
+      ),
+      NoteItem(
+        icon: CupertinoIcons.paintbrush,
+        title: 'Difficoltà CAI a colori sulla linea',
+        body: 'Quando selezioni un tracciato, la sua linea si colora tratto '
+            'per tratto in base al grado CAI (le stesse tinte della legenda '
+            '"Difficoltà dei percorsi"), grigio dove il grado non è noto. Le '
+            'tracce non selezionate restano del loro colore. Sulla card '
+            'compare un badge per ogni grado attraversato.',
+      ),
+    ],
+  ),
+  ReleaseNote(
+    version: '1.0.0',
     build: 10,
     date: '26 agosto 2026',
     highlights: [
@@ -382,28 +451,10 @@ const List<RoadmapGroup> kRoadmapGroups = [
     label: 'Prossime',
     items: [
       NoteItem(
-        icon: CupertinoIcons.location,
-        title: 'Quota e coordinate sempre in vista',
-        body: 'La quota e il punto in cui ti trovi, letti di continuo dal '
-            'GPS senza dover toccare la mappa.',
+        icon: CupertinoIcons.xmark_circle,
+        title: 'Uscire dalla ricerca più facilmente',
+        body: 'Un tocco fuori dal pannello, non solo la freccia a sinistra.',
       ),
-      NoteItem(
-        icon: CupertinoIcons.scribble,
-        title: 'Difficoltà del sentiero visibile sulla linea',
-        body: 'Tratto pieno o tratteggiato secondo il grado CAI (T, E, EE, '
-            'EEA), come su una cartina di montagna.',
-      ),
-      NoteItem(
-        icon: CupertinoIcons.clock,
-        title: 'Tempo di percorrenza anche per un tratto',
-        body: 'Non solo l\'intera traccia: la stima da qui a un punto, tra '
-            'due punti, o da un punto alla fine.',
-      ),
-    ],
-  ),
-  RoadmapGroup(
-    label: 'Più avanti',
-    items: [
       NoteItem(
         icon: CupertinoIcons.exclamationmark_triangle,
         title: 'Segnavia: ricerca più affidabile',
@@ -422,11 +473,11 @@ const List<RoadmapGroup> kRoadmapGroups = [
         body: 'Selezione multipla e possibilità di scegliere quali foto '
             'mostrare, non solo aggiungerle tutte.',
       ),
-      NoteItem(
-        icon: CupertinoIcons.xmark_circle,
-        title: 'Uscire dalla ricerca più facilmente',
-        body: 'Un tocco fuori dal pannello, non solo la freccia a sinistra.',
-      ),
+    ],
+  ),
+  RoadmapGroup(
+    label: 'Più avanti',
+    items: [
       NoteItem(
         icon: CupertinoIcons.map,
         title: 'Sentieri disegnati in modo più chiaro sulla mappa',

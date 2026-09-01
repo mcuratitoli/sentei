@@ -47,7 +47,7 @@ riapertura della decisione.
 
 ## 3. Stato di implementazione
 
-Versione corrente: **`1.0.0` build 10** (`1.0.0+10`). Beta privata: **TestFlight**
+Versione corrente: **`1.0.0` build 11** (`1.0.0+11`). Beta privata: **TestFlight**
 (iOS) + **APK** (Android), distribuita ad amici.
 
 Costruzione **a fasi**, ognuna end-to-end (modello → repository → servizio → UI):
