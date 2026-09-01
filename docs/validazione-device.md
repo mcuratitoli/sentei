@@ -91,16 +91,17 @@
   su un iPhone fisico verificare che la quota compaia quando l'accuratezza verticale è
   ≤ 25 m, il trattino + spiegazione altrimenti; accuratezza orizzontale che si aggiorna;
   copia coordinate; posizione della card rispetto a scale bar / logo Mapbox / bottoni.
-- [ ] **Tratteggio della linea per difficoltà CAI** (P1.B, 31 ago → 1 set 2026,
-  `docs/CHANGELOG-DEV.md`) — **da testare sul telefono fisico al prossimo rilascio.** Reso
-  rifatto il 1 set: tracce salvate come `LineLayer` su sorgente GeoJSON (il
-  `PolylineAnnotationManager` rendeva il `line-dasharray` sgranato), niente casing bianco.
-  Verificato **solo sul simulatore** (traccia "Alagna: Otro, Bivacco Ravelli"): tratteggio
-  netto, E/EE/EEA distinguibili, segue le curve, dash ravvicinati (E `[3,1.2]`, EE
-  `[1.5,1]`, EEA `[3,1,1,1]`). Su device: lunghezza/spessore dei trattini ai vari zoom
-  (specie zoom-out), leggibilità del pattern EE vs E, contrasto colore-traccia su terreno
-  reale, resa sui tornanti stretti; valutare se la resa EEA vuole le crocette vere
-  (rimandata). Card traccia: un badge per **ogni** grado presente + `EEA:F` gestito.
+- [ ] **Difficoltà CAI = colore della linea (traccia selezionata)** (P1.B, 31 ago → 1 set
+  2026, `docs/CHANGELOG-DEV.md`) — **da testare sul telefono fisico al prossimo rilascio.**
+  Resa finale (dopo un iter lungo — vedi CHANGELOG-DEV): la linea del tracciato è sempre
+  **unita** col **fade bianco**, e **solo quando è selezionata** si **colora per grado CAI**
+  tratto per tratto (verde T / teal E / arancio EE / rosso EEA, grigio se ignoto). Le
+  tracce non selezionate restano del proprio colore. Verificato **solo sul simulatore**
+  (traccia "Alagna: Otro, Bivacco Ravelli"): coerente con badge e legenda. Su device:
+  leggibilità/contrasto dei colori sul terreno reale (specie il grigio e il verde T su
+  rilievo verde), spessore linea + fade ai vari zoom, transizione di colore fra tratti
+  contigui, resa sui tornanti. Card traccia: un badge per **ogni** grado presente +
+  `EEA:F` gestito.
 - [ ] **Tempo di un tratto scelto sul profilo** (P1.C2, 30 ago 2026) — i tap sintetici sul
   simulatore cadono sempre al centro del grafico (press AX, non a coordinate): l'intervallo
   reale — due punti distinti, tempo/distanza/D+/D- del tratto — va provato su device.

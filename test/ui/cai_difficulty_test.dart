@@ -64,9 +64,8 @@ void main() {
       expect(caiScaleColor('EEA:F'), isNot(const Color(0xFF616161)));
     });
 
-    test('tratteggio = dash-punto come EEA', () {
-      expect(caiScaleDash('EEA:F'), caiScaleDash('EEA'));
-      expect(caiScaleDash('EEA:F'), isNotNull);
+    test('rank appena sopra EEA (via ferrata)', () {
+      expect(caiScaleRank('EEA:F'), greaterThan(caiScaleRank('EEA')));
     });
 
     test('etichetta e descrizione dedicate (menzionano la ferrata)', () {

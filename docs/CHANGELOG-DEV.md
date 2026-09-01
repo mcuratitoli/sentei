@@ -11,6 +11,37 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 1 settembre 2026 — P1.B: difficoltà = colore della linea (traccia selezionata)
+
+Dopo aver validato che il `LineLayer` + `line-dasharray` dà un tratteggio davvero netto
+(vedi sotto), l'utente ha deciso che **il tratteggio non è la resa voluta**. Cambio di
+strada totale:
+
+- **Linea sempre unita** (niente più dash per grado), larghezza invariata
+  (`['case', sel, 5, 3.5]`), **fade bianco** attorno (`line-border-color` bianco,
+  `line-border-width` 1.6).
+- Il grado CAI lo dà il **colore** della linea, tratto per tratto (`caiScaleColor` — verde
+  T / teal E / arancio EE / rosso EEA, **grigio** se il grado non è noto, tratti liberi
+  inclusi), **solo quando la traccia è selezionata**. Le altre tracce restano del proprio
+  colore (`t.color`).
+- `map_gl_screen.dart`: da 5 `LineLayer` (solid/free/E/EE/EEA) a **2** (`_trackLayerLine`
+  agganciato pieno + `_trackLayerFree` tratteggio "misto"), `filter` su una proprietà `k`
+  (`trail`/`free`). Il colore è **risolto in Dart** per feature (`_trackRunColorHex` →
+  `caiScaleColor`; `_hex(t.color)` se non selezionata) e passato come `c` →
+  `line-color: ['get','c']`. `_renderAll` invariato per il resto (una feature per run da
+  `sliceStyledRuns`, scrittura in blocco).
+- `cai_difficulty.dart`: rimosso `caiScaleDash` (non più usato).
+- `legends.dart`: `_LineStylePainter` ora disegna una linea **piena** nel colore del grado
+  col fade bianco (non più il campione di tratteggio); testo intro riscritto ("quando
+  selezioni un tracciato, la linea prende il colore del grado…").
+- `test/ui/cai_difficulty_test.dart`: il test su `caiScaleDash('EEA:F')` → test su
+  `caiScaleRank('EEA:F') > caiScaleRank('EEA')`.
+- Verificato su simulatore (traccia "Alagna: Otro, Bivacco Ravelli" selezionata): linea
+  unita colorata arancio (EE) / rosso (EEA) / grigio (raccordo GTA) col contorno bianco,
+  coerente coi badge della card e con la legenda. `flutter analyze` pulito, **270 test**.
+- Da validare su device (P8): leggibilità dei colori sul terreno reale, spessore linea e
+  fade ai vari zoom.
+
 ## 1 settembre 2026 — P1.B: tratteggio linea rifatto con `LineLayer` (era sgranato)
 
 Dopo più tentativi (ritarare i valori di `caiScaleDash`, `line-cap: butt`, casing 0,

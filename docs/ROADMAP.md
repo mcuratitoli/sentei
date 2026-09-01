@@ -89,42 +89,40 @@ Sul tracciato, ogni tratto ha uno **stile di linea diverso in base al grado CAI*
 replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, sessione
 30 ago). Dettaglio: voce **31 ago 2026** in `docs/CHANGELOG-DEV.md`.
 
-| Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
-|---|---|---|
-| **T** / sconosciuto | linea continua | nessun dash |
-| **E** | trattini | `[3, 1.2]` |
-| **EE** | punteggiato | `[1.5, 1]` (trattini corti) |
-| **EEA** / `EEA:F` | crocette via ferrata | `[3, 1, 1, 1]` (tratto-punto, ripiego) |
+**Resa finale (1 set 2026): il grado lo dà il COLORE, non il tratteggio.** Iter completo:
+tratteggio per grado (`caiScaleDash` sul `PolylineAnnotationManager`) → sgranato su device;
+tentata ritaratura ×2 → sempre molle; provati glifi `SymbolLayer` → scartati; provato
+`LineLayer` + `line-dasharray` → tratteggio finalmente **netto**, ma non era la resa
+voluta. **Decisione utente:** linea **sempre unita** + fade bianco; il grado CAI si legge
+dal **colore** della linea, tratto per tratto (tinte di `caiScaleColor`, grigio se
+sconosciuto), **solo sulla traccia selezionata**.
 
-> **Reso rifatto il 1 set** (2 tentativi di ritaratura non bastavano — il tratteggio
-> restava sgranato): le tracce salvate sono ora **`LineLayer` su sorgente GeoJSON**, non
-> `PolylineAnnotationManager` (il plugin annotazioni rende il `line-dasharray` male). È
-> l'approccio di GaiaGPS & co. Niente casing bianco. Dettaglio: voce **1 settembre 2026**
-> in `docs/CHANGELOG-DEV.md`.
+| Grado | Colore linea (selezionata) — `caiScaleColor` |
+|---|---|
+| **T** | verde (`AppDifficultyColors.t`) |
+| **E** | verde acqua (`.e`) |
+| **EE** | arancio (`.ee`) |
+| **EEA** / `EEA:F` | rosso (`.eea`) |
+| grado non noto / tratti liberi | grigio `#616161` |
 
-- [x] **Fonte unica** — `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart`, condivisa da
-  mappa e legenda.
-- [x] **Colore invariato** — cambia solo il tratteggio (e il grado dei badge sulla card);
-  la linea resta del colore del tracciato; **niente casing**.
-- [x] **Tratti senza dato CAI = linea piena** (come T).
-- [x] **Resa tecnica** — sorgente `sentei-tracks` + 5 `LineLayer` (`solid`/`free`/`E`/`EE`/
-  `EEA`), `filter` su una proprietà `g`; `line-color`/`line-width`/`line-opacity`
-  data-driven per colore traccia / selezione / attenuazione; `line-cap: butt`,
-  `line-emissive-strength: 1`. Nuovo helper puro `sliceStyledRuns`
-  (`domain/services/track_runs.dart`) che spezza i run agganciati per `caiScale`; test in
-  `test/domain/track_runs_test.dart`.
-- [x] **Tratti "liberi"** — layer `free` (dash `[2,1.5]`), lo stile-difficoltà vale solo
-  per gli agganciati.
-- [x] **Legenda** — `showDifficultyLegend` (`lib/ui/legends.dart`): campione della linea
-  (`_LineStylePainter`, `StrokeCap.butt`) accanto a ogni grado.
-- [x] **`EEA:F`** (via ferrata, dal tag OSM `cai_scale=EEA:F`) gestito come grado a sé:
-  rosso EEA, tratto-punto, badge, riga in legenda.
-- [x] **Card traccia** — un badge per **ogni** grado presente (`presentCaiScales`), non
-  solo il massimo.
-- **EEA fedele (crocette vere)** — ancora rimandata; il tratto-punto è il ripiego.
-- **Ambito v1**: tracce **salvate/selezionate**. La linea live durante il drag-editing
-  resta piena (i `trailSegments` non sono risolti mentre si trascina).
-- [ ] **Da tarare su device** (P8): lunghezza/spessore esatti dei trattini ai vari zoom.
+- [x] **Linea unita + fade bianco** — 2 `LineLayer` su sorgente GeoJSON `sentei-tracks`
+  (`_trackLayerLine` agganciato, `_trackLayerFree` tratteggio "misto"), `filter` su una
+  proprietà `k`. `line-color: ['get','c']` (colore risolto in Dart per feature),
+  `line-width` `['case',sel,5,3.5]`, `line-border-*` bianco 1.6, `line-opacity`
+  `['case',dim,0.35,1]`, `line-emissive-strength: 1`.
+- [x] **Colore = grado solo se selezionata** — `_trackRunColorHex` (→ `caiScaleColor`,
+  grigio se ignoto) quando `isSelected`, altrimenti `_hex(t.color)`.
+- [x] **Segmentazione** — `sliceStyledRuns` (`domain/services/track_runs.dart`) invariato,
+  test in `test/domain/track_runs_test.dart`.
+- [x] **Legenda** — `_LineStylePainter` disegna una linea piena nel colore del grado col
+  fade bianco; testo intro riscritto.
+- [x] **`EEA:F`** gestito come grado a sé (rosso EEA + rank sopra EEA); badge in legenda.
+- [x] **Card traccia** — un badge per **ogni** grado presente (`presentCaiScales`).
+- Rimosso `caiScaleDash` (non più usato).
+- **Ambito**: tracce **salvate/selezionate**. La linea live durante il drag-editing resta
+  piena senza colori-grado (i `trailSegments` si risolvono al salvataggio, come i segnavia).
+- [ ] **Da validare su device** (P8): leggibilità dei colori sul terreno reale, spessore
+  linea + fade ai vari zoom.
 
 ### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 

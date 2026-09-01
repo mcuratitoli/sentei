@@ -144,13 +144,14 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   static const double _trailMinZoom = 13;
   static const String _steepSourceId = 'sentei-steepness';
   static const String _steepLayerId = 'sentei-steepness-line';
-  // Tracce salvate: sorgente GeoJSON + un LineLayer per grado CAI (§P1.B).
+  // Tracce salvate: sorgente GeoJSON + `LineLayer` piene (§P1.B). La linea è
+  // sempre unita col fade bianco attorno; il grado CAI lo dà il **colore**
+  // (`caiScaleColor`, grigio se assente) ma **solo sulla traccia selezionata**
+  // — le altre restano del colore della traccia. Un layer per la linea
+  // agganciata, uno per i tratti "liberi" (tratteggio "misto").
   static const String _savedTracksSourceId = 'sentei-tracks';
-  static const String _trackLayerSolid = 'sentei-track-solid';
+  static const String _trackLayerLine = 'sentei-track-line';
   static const String _trackLayerFree = 'sentei-track-free';
-  static const String _trackLayerE = 'sentei-track-e';
-  static const String _trackLayerEE = 'sentei-track-ee';
-  static const String _trackLayerEEA = 'sentei-track-eea';
 
   // Rete di sicurezza: se il setup o il GPS si incantano, lo splash non deve
   // restare all'infinito → dopo questo timeout si chiude comunque.
@@ -359,48 +360,40 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       textHaloWidth: 2,
       textHaloBlur: 0.5,
     ));
-    // Tracce salvate: **`LineLayer` su sorgente GeoJSON** (non annotazioni — il
-    // plugin annotation rende il `line-dasharray` sgranato; un `LineLayer` dà
-    // il tratteggio netto, è così che lo fanno GaiaGPS & co.). Una feature per
-    // tratto (`_renderAll`), con proprietà: `c` colore, `g` grado
-    // (solid/free/E/EE/EEA), `sel`/`dim` per selezione/attenuazione. Il
-    // `line-dasharray` non è data-driven → un layer per grado, filtrati su `g`.
+    // Tracce salvate: **`LineLayer` su sorgente GeoJSON** (non annotazioni —
+    // il plugin annotation rende le linee peggio). Linea sempre **unita** col
+    // **fade bianco** attorno (`line-border`). Una feature per tratto
+    // (`_renderAll`) con: `c` colore già risolto (colore traccia, oppure
+    // colore del grado CAI se la traccia è selezionata — vedi
+    // `_trackRunColor`), `k` tipo di linea (`trail`/`free`), `sel`/`dim`.
+    // Due layer: agganciato (pieno) e libero (tratteggio "misto").
     await map.style.addSource(GeoJsonSource(
       id: _savedTracksSourceId,
       data: '{"type":"FeatureCollection","features":[]}',
     ));
-    for (final (layerId, g, dash) in <(String, String, List<double>?)>[
-      (_trackLayerSolid, 'solid', null),
+    final lineWidthExpr = <Object>['case', <Object>['get', 'sel'], 5.0, 3.5];
+    final lineOpacityExpr =
+        <Object>['case', <Object>['get', 'dim'], 0.35, 1.0];
+    for (final (layerId, kind, dash) in <(String, String, List<double>?)>[
+      (_trackLayerLine, 'trail', null),
       (_trackLayerFree, 'free', const [2, 1.5]),
-      (_trackLayerE, 'E', caiScaleDash('E')),
-      (_trackLayerEE, 'EE', caiScaleDash('EE')),
-      (_trackLayerEEA, 'EEA', caiScaleDash('EEA')),
     ]) {
       await map.style.addLayer(LineLayer(
         id: layerId,
         sourceId: _savedTracksSourceId,
-        filter: <Object>['==', <Object>['get', 'g'], g],
+        filter: <Object>['==', <Object>['get', 'k'], kind],
         lineDasharray: dash,
-        // `butt`: un cap tondo allunga ogni trattino di mezza larghezza per
-        // lato e li salda → linea "sfumata" invece che tratteggiata.
         lineCap: dash == null ? LineCap.ROUND : LineCap.BUTT,
         lineJoin: LineJoin.ROUND,
         // `emissive-strength: 1`: senza, lo stile v11 illumina la linea col
         // lighting 3D e la slava.
         lineEmissiveStrength: 1,
         lineColorExpression: <Object>['get', 'c'],
-        lineWidthExpression: <Object>[
-          'case',
-          <Object>['get', 'sel'],
-          5.0,
-          3.5,
-        ],
-        lineOpacityExpression: <Object>[
-          'case',
-          <Object>['get', 'dim'],
-          0.35,
-          1.0,
-        ],
+        lineWidthExpression: lineWidthExpr,
+        // Fade bianco attorno alla linea (`line-border`, costante).
+        lineBorderColor: 0xFFFFFFFF,
+        lineBorderWidth: 1.6,
+        lineOpacityExpression: lineOpacityExpr,
       ));
     }
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
@@ -675,8 +668,6 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           // LineLayer, vedi `_setupLayers`).
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
-          final colorHex =
-              '#${(t.color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
           // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
           // grado CAI (§P1.B) senza richiamare il routing: `segmentPointCounts`
           // e `trailSegments` sono già persistiti nelle metriche.
@@ -697,8 +688,10 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
                 ],
               },
               'properties': {
-                'c': colorHex,
-                'g': _trackRunGrade(run),
+                // Colore del grado CAI (grigio se assente) **solo** sulla
+                // traccia selezionata; le altre restano del colore proprio.
+                'c': isSelected ? _trackRunColorHex(run) : _hex(t.color),
+                'k': run.free ? 'free' : 'trail',
                 'sel': isSelected,
                 'dim': dimmed,
               },
@@ -740,21 +733,16 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         coordinates: [for (final p in path) Position(p.longitude, p.latitude)],
       );
 
-  /// Chiave di stile-linea per un tratto (proprietà `g` della feature, usata
-  /// dai `filter` dei LineLayer): libero → `free`; altrimenti per grado CAI
-  /// (§P1.B) `E`/`EE`/`EEA` (varianti attrezzate `EEA:*` incluse); T e grado
-  /// sconosciuto → `solid` (linea piena).
-  static String _trackRunGrade(StyledRun run) {
-    if (run.free) return 'free';
-    switch (run.caiScale) {
-      case 'E':
-        return 'E';
-      case 'EE':
-        return 'EE';
-    }
-    if (run.caiScale?.startsWith('EEA') ?? false) return 'EEA';
-    return 'solid';
-  }
+  /// `#rrggbb` di un [Color] (canale alfa scartato), per le espressioni
+  /// `line-color` di Mapbox.
+  static String _hex(ui.Color c) =>
+      '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+  /// Colore del tratto **per la traccia selezionata** (§P1.B): quello del
+  /// grado CAI (`caiScaleColor`), grigio se il tratto non ha un grado noto
+  /// (tratti liberi inclusi).
+  static String _trackRunColorHex(StyledRun run) =>
+      _hex(caiScaleColor(run.free ? '' : (run.caiScale ?? '')));
 
   Future<void> _drawEndpoints(List<ll.LatLng> wps) async {
     if (wps.isEmpty) return;

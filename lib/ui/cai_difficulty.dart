@@ -136,27 +136,7 @@ String caiScaleDescription(String scale) {
 /// Gradi CAI in ordine di difficoltà crescente (per la legenda).
 const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA', 'EEA:F'];
 
-/// Pattern di **tratteggio** della linea del tracciato per grado CAI, sul
-/// modello delle carte escursionistiche: **T** linea piena, **E** trattini,
-/// **EE** trattini corti (più "spezzato" = più impegnativo), **EEA** (e
-/// varianti attrezzate `EEA:<x>`) tratto‑punto. `null` = linea piena
-/// (T o grado sconosciuto).
-///
-/// Valori in **unità di larghezza linea** (come vuole Mapbox `line-dasharray`).
-/// Pensati per `line-cap: butt` (estremi netti — un cap tondo "salda" i
-/// trattini) su una linea sottile (~3,5 px) senza bordo bianco: così il
-/// tratteggio è netto come sulle carte, non "sfumato". Fonte unica condivisa
-/// da mappa (`map_gl_screen.dart`) e legenda (`legends.dart`).
-List<double>? caiScaleDash(String? scale) {
-  switch (normalizeCaiScale(scale)) {
-    case 'E':
-      return const [3, 1.2];
-    case 'EE':
-      return const [1.5, 1];
-    case 'EEA':
-    case 'EEA:F':
-      return const [3, 1, 1, 1];
-  }
-  if (_baseCaiScale(scale) == 'EEA') return const [3, 1, 1, 1];
-  return null;
-}
+// Nota (§P1.B, 1 set 2026): il grado sulla mappa lo dà il **colore**
+// (`caiScaleColor`) della linea della **traccia selezionata** — la linea resta
+// sempre unita, col fade bianco. Niente più tratteggio per grado: un
+// `line-dasharray` netto è possibile (LineLayer) ma non era la resa voluta.

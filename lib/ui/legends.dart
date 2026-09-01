@@ -114,9 +114,9 @@ class _DifficultyLegendSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Sulla mappa lo stile della linea del tracciato segue il grado, '
-              'come sulle carte escursionistiche: pieno per T, poi trattini, '
-              'trattini corti e tratto‑punto.',
+              'Sulla mappa, quando selezioni un tracciato, la sua linea prende '
+              'il colore del grado di difficoltà, tratto per tratto (grigio '
+              'dove il grado non è noto).',
               style: AppText.footnote.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 14),
@@ -240,8 +240,8 @@ class _GradeRow extends StatelessWidget {
   final String title;
   final String body;
 
-  /// Se vero mostra un campione della **linea del tracciato** per questo grado
-  /// (§P1.B), col tratteggio di [caiScaleDash]. Solo per la scala CAI.
+  /// Se vero mostra un campione della **linea del tracciato** nel colore di
+  /// questo grado (§P1.B). Solo per la scala CAI.
   final bool lineStyle;
 
   @override
@@ -285,11 +285,8 @@ class _GradeRow extends StatelessWidget {
                     if (lineStyle) ...[
                       const SizedBox(width: 10),
                       CustomPaint(
-                        size: const Size(52, 12),
-                        painter: _LineStylePainter(
-                          color: color,
-                          dash: caiScaleDash(sigla),
-                        ),
+                        size: const Size(52, 14),
+                        painter: _LineStylePainter(color: color),
                       ),
                     ],
                   ],
@@ -310,44 +307,37 @@ class _GradeRow extends StatelessWidget {
 /// Campione della linea del tracciato: un segmento orizzontale col tratteggio
 /// [dash] (unità di larghezza linea, come Mapbox — qui ×2.6 per i px) e cap
 /// tondo, così i "punti" di EE si vedono rotondi come in mappa.
+/// Campione della **linea del tracciato** per un grado: linea piena nel colore
+/// del grado, col fade bianco — come appare sulla mappa quando la traccia è
+/// selezionata (§P1.B). Il grado lo dà il colore, non più il tratteggio.
 class _LineStylePainter extends CustomPainter {
-  const _LineStylePainter({required this.color, required this.dash});
+  const _LineStylePainter({required this.color});
 
   final Color color;
-  final List<double>? dash;
 
   @override
   void paint(Canvas canvas, Size size) {
     final y = size.height / 2;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      // `butt` come sulla mappa: un cap tondo salderebbe i trattini corti.
-      ..strokeCap = StrokeCap.butt;
-    final d = dash;
-    if (d == null || d.isEmpty) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-      return;
-    }
-    const scale = 2.6;
-    var x = 0.0;
-    var on = true;
-    var i = 0;
-    while (x < size.width) {
-      final len = d[i % d.length] * scale;
-      if (on && len > 0) {
-        canvas.drawLine(
-            Offset(x, y), Offset((x + len).clamp(0, size.width), y), paint);
-      }
-      x += len;
-      on = !on;
-      i++;
-    }
+    final a = Offset(3, y);
+    final b = Offset(size.width - 3, y);
+    canvas.drawLine(
+        a,
+        b,
+        Paint()
+          ..color = const Color(0xFFFFFFFF)
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+        a,
+        b,
+        Paint()
+          ..color = color
+          ..strokeWidth = 3.5
+          ..strokeCap = StrokeCap.round);
   }
 
   @override
-  bool shouldRepaint(_LineStylePainter old) =>
-      old.color != color || old.dash != dash;
+  bool shouldRepaint(_LineStylePainter old) => old.color != color;
 }
 
 /// Riquadro-nota (condizioni). Sfondo tenue, testo secondario.

@@ -29,13 +29,13 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
   fa scegliere due punti sul grafico e stima tempo, distanza e dislivelli di
   quel solo tratto — utile per sapere "da qui a lì quanto manca". Una × torna
   al totale.
-- 🗺️ **Difficoltà del sentiero visibile sulla linea del tracciato.** Come
-  su una cartina di montagna, la linea del tracciato è **tratteggiata** in
-  base al grado CAI: linea piena per i tratti turistici (T), **trattini**
-  per gli escursionistici (E), **trattini corti** per quelli da esperti
-  (EE), **tratto e punto** per i tratti attrezzati / via ferrata (EEA). Il
-  colore del tracciato non cambia; niente bordo bianco. La legenda
-  "Difficoltà dei percorsi" mostra il campione di ogni linea.
+- 🗺️ **Difficoltà del sentiero visibile sulla linea del tracciato.** Quando
+  **selezioni** un tracciato, la sua linea si **colora tratto per tratto in
+  base al grado CAI** — verde T, verde acqua E, arancio EE, rosso EEA (le
+  stesse tinte della legenda "Difficoltà dei percorsi"), grigio dove il
+  grado non è noto. La linea resta unita, con un contorno bianco per
+  staccarla dallo sfondo. Le tracce **non** selezionate restano del loro
+  colore.
 - 🐛 **La card della traccia mostra tutti i gradi di difficoltà, non solo
   il più duro.** Se un percorso è per lo più EE con un tratto EEA, prima si
   vedeva solo "EEA" e sembrava tutta la gita di quel livello; ora compare un
