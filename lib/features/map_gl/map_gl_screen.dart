@@ -361,12 +361,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       textHaloBlur: 0.5,
     ));
     // Tracce salvate: **`LineLayer` su sorgente GeoJSON** (non annotazioni —
-    // il plugin annotation rende le linee peggio). Linea sempre **unita** col
-    // **fade bianco** attorno (`line-border`). Una feature per tratto
-    // (`_renderAll`) con: `c` colore già risolto (colore traccia, oppure
-    // colore del grado CAI se la traccia è selezionata — vedi
-    // `_trackRunColor`), `k` tipo di linea (`trail`/`free`), `sel`/`dim`.
-    // Due layer: agganciato (pieno) e libero (tratteggio "misto").
+    // il plugin annotation rende le linee peggio). Linea sempre **unita**; il
+    // **fade bianco** (`line-border`) e i colori-grado ci sono **solo sulla
+    // traccia selezionata**. Una feature per tratto (`_renderAll`) con: `c`
+    // colore già risolto (colore traccia, oppure colore del grado CAI se
+    // selezionata — `_trackRunColorHex`), `k` tipo di linea (`trail`/`free`),
+    // `sel`/`dim`. Due layer: agganciato (pieno) e libero (tratteggio "misto").
     await map.style.addSource(GeoJsonSource(
       id: _savedTracksSourceId,
       data: '{"type":"FeatureCollection","features":[]}',
@@ -374,6 +374,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     final lineWidthExpr = <Object>['case', <Object>['get', 'sel'], 6.5, 4.5];
     final lineOpacityExpr =
         <Object>['case', <Object>['get', 'dim'], 0.35, 1.0];
+    // Fade bianco **solo sulla traccia selezionata**: sulle altre la linea è
+    // "nuda" (il grado non è colorato, quindi il bordo non serve a leggerlo).
+    final lineBorderExpr = <Object>['case', <Object>['get', 'sel'], 1.3, 0.0];
     for (final (layerId, kind, dash) in <(String, String, List<double>?)>[
       (_trackLayerLine, 'trail', null),
       (_trackLayerFree, 'free', const [2, 1.5]),
@@ -390,9 +393,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         lineEmissiveStrength: 1,
         lineColorExpression: <Object>['get', 'c'],
         lineWidthExpression: lineWidthExpr,
-        // Fade bianco attorno alla linea (`line-border`, costante).
         lineBorderColor: 0xFFFFFFFF,
-        lineBorderWidth: 1.3,
+        lineBorderWidthExpression: lineBorderExpr,
         lineOpacityExpression: lineOpacityExpr,
       ));
     }

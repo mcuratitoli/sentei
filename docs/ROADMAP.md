@@ -108,7 +108,7 @@ sconosciuto), **solo sulla traccia selezionata**.
 - [x] **Linea unita + fade bianco** — 2 `LineLayer` su sorgente GeoJSON `sentei-tracks`
   (`_trackLayerLine` agganciato, `_trackLayerFree` tratteggio "misto"), `filter` su una
   proprietà `k`. `line-color: ['get','c']` (colore risolto in Dart per feature),
-  `line-width` `['case',sel,6.5,4.5]`, `line-border-*` bianco 1.3, `line-opacity`
+  `line-width` `['case',sel,6.5,4.5]`, `line-border-*` bianco 1.3 **solo se selezionata**, `line-opacity`
   `['case',dim,0.35,1]`, `line-emissive-strength: 1`.
 - [x] **Colore = grado solo se selezionata** — `_trackRunColorHex` (→ `caiScaleColor`,
   grigio se ignoto) quando `isSelected`, altrimenti `_hex(t.color)`.

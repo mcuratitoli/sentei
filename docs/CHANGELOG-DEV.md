@@ -19,7 +19,7 @@ strada totale:
 
 - **Linea sempre unita** (niente più dash per grado), larghezza invariata
   (`['case', sel, 6.5, 4.5]`), **fade bianco** attorno (`line-border-color` bianco,
-  `line-border-width` 1.3).
+  `line-border-width` `['case',sel,1.3,0]`).
 - Il grado CAI lo dà il **colore** della linea, tratto per tratto (`caiScaleColor` — verde
   T / teal E / arancio EE / rosso EEA, **grigio** se il grado non è noto, tratti liberi
   inclusi), **solo quando la traccia è selezionata**. Le altre tracce restano del proprio
