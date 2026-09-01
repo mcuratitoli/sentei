@@ -102,9 +102,13 @@
   rilievo verde), spessore linea + fade ai vari zoom, transizione di colore fra tratti
   contigui, resa sui tornanti. Card traccia: un badge per **ogni** grado presente +
   `EEA:F` gestito.
-- [ ] **Tempo di un tratto scelto sul profilo** (P1.C2, 30 ago 2026) — i tap sintetici sul
-  simulatore cadono sempre al centro del grafico (press AX, non a coordinate): l'intervallo
-  reale — due punti distinti, tempo/distanza/D+/D- del tratto — va provato su device.
+- [ ] **Tempo di un tratto scelto sul profilo** (P1.C2, 30 ago → rifatto 1 set 2026) — UI
+  **ridisegnata**: tasto "Tempo di un tratto" accanto al tempo totale → apre il profilo
+  con **due maniglie trascinabili** (default inizio/fine) + **due pallini corrispondenti
+  in mappa** (verde inizio / ambra fine) che si muovono col trascinamento. Su simulatore
+  verificato solo l'ingresso e la comparsa di maniglie + pallini (i drag sintetici non
+  funzionano). **Su device**: trascinamento fluido delle due maniglie, i pallini in mappa
+  che seguono, il non-scavalcarsi, tempo/distanza/D+/D- del tratto scelto, uscita con la ×.
 - [x] **Tempo di percorrenza stimato — validato su una traccia reale, due correzioni**
   (P1.2, 15 ago 2026): l'utente segnala 3h43 stimati contro i 2h15-2h20 di due fonti CAI
   (D+ quasi identico) per Rassa → Alpe Toso (VC). **Prima correzione:** velocità di salita

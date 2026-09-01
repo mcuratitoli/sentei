@@ -147,21 +147,29 @@ indice A e indice B", con A=0 o B=ultimo come casi particolari).
   `tracks_list_screen`, `export_image_screen`) passati a `estimate(...)` diretto. Test
   `estimateForTrack` → `estimateRange` (254 verdi). Dettaglio: voce **30 ago 2026** in
   `docs/CHANGELOG-DEV.md`.
-- [x] **C2 — UI selezione intervallo** — `ElevationProfileChart` ha ora `selecting` +
-  `onPickIndex`: nella card, il tasto testuale "Tempo di un tratto" entra in modalità
-  selezione (i tap scelgono gli estremi invece di fare scrubbing), il testo di supporto
-  guida ("Tocca l'inizio/la fine del tratto"). Provider `profileRangeProvider`
-  (`ProfileRangeSel {a, b}`, transitorio, azzerato al cambio traccia e alla chiusura del
-  grafico). Il painter disegna maniglia + linea sui due estremi e scurisce fuori
-  dall'intervallo. Funziona anche per un GPX importato (è index-based sul profilo).
+- [x] **C2 — UI selezione intervallo** — *rifatta il 1 set 2026 (l'utente non gradiva il
+  meccanismo a tap):* il tasto **"Tempo di un tratto"** è **accanto alla riga del tempo
+  totale**; premendolo si apre il grafico ed entra in modalità tratto con gli estremi
+  **già a inizio/fine** (`ProfileRange.beginFull`). Sul grafico le **due maniglie si
+  trascinano** (`ElevationProfileChart.onHandleDrag`, `ProfileRange.moveHandle` — afferra
+  la più vicina, non si scavalcano, clamp a `[0, ultimo]`); niente più tap-per-estremo.
+  I **due estremi compaiono anche sulla mappa** (pallino verde inizio / ambra fine,
+  `_rangeDots` in `map_gl_screen.dart`, in ascolto su `profileRangeProvider`) e si muovono
+  in tempo reale col trascinamento. `ProfileRangeSel {a, b}` ora ha `a`/`b` sempre
+  valorizzati; transitorio, azzerato al cambio traccia / chiusura grafico. Il painter
+  disegna un pomello in cima a ogni maniglia + fascia ombreggiata fuori dall'intervallo.
+  Uscita: la × su `_HikingRangeRow`. Test: `test/features/profile_range_test.dart`
+  (`beginFull`, `moveHandle` clamp/non-scavalco).
 - [x] **C2 — risultato** — `_HikingRangeRow`: "Tratto: circa <tempo> · <dist> · ↗X ↘Y m"
   con la × per tornare al totale. Query transitoria, **non** persistita. La riga del tempo
   totale (`_HikingTimeRow`) resta il default quando non c'è selezione.
 - [x] **Test** — `estimateRange` puro (default = totale, solo-salita, solo-discesa, tratta
   centrale, indici invertiti/coincidenti/fuori-range, profilo < 2 campioni). 254 verdi.
-- Nota: i tap sintetici sul simulatore (`osascript`) cadono sempre al centro del grafico
-  (press di accessibilità, non a coordinate) → intervallo di lunghezza 0. La logica di
-  `pick` è verificata via log; l'intervallo reale va provato su device.
+- Nota: i tap/drag sintetici sul simulatore non permettono di trascinare le maniglie
+  (press di accessibilità al centro, non un vero drag a coordinate) → il **trascinamento
+  reale** delle due maniglie e il movimento dei pallini in mappa vanno provati su device
+  (→ P8). Su simulatore verificati: apertura via il tasto accanto al tempo, comparsa delle
+  due maniglie a inizio/fine, comparsa dei due pallini in mappa, uscita con la ×.
 
 ---
 

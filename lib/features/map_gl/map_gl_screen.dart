@@ -17,6 +17,7 @@ import '../../core/constants.dart';
 import '../../core/util/format.dart';
 import '../../data/location/location_service.dart';
 import '../../data/search/geocoding_service.dart';
+import '../../domain/models/elevation_profile.dart' show ProfileSample;
 import '../../domain/models/track_photo.dart';
 import '../../domain/services/path_geometry.dart';
 import '../../domain/services/steepness.dart';
@@ -71,6 +72,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   PointAnnotationManager? _finishFlags;
   CircleAnnotationManager? _waypointDots;
   CircleAnnotationManager? _cursorDot;
+  // Estremi del "tratto scelto" sul profilo (§P1.C2): pallino verde = inizio,
+  // ambra = fine; seguono in tempo reale il trascinamento sul grafico.
+  CircleAnnotationManager? _rangeDots;
   CircleAnnotationManager? _inspectedDot;
   // Foto collegate alla traccia attiva (§"Sync album fotografico"): pallino
   // ambra alla posizione GPS reale dello scatto.
@@ -437,6 +441,9 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     _waypointDots!.tapEvents(onTap: _onWaypointTap);
     // Cursore profilo (sopra a tutto): punto evidenziato scorrendo il grafico.
     _cursorDot = await map.annotations.createCircleAnnotationManager();
+    // I due estremi del "tratto scelto" sul profilo (§P1.C2): si muovono in
+    // tempo reale mentre si trascinano le maniglie sul grafico.
+    _rangeDots = await map.annotations.createCircleAnnotationManager();
     // Marker del punto ispezionato in esplorazione (info point).
     _inspectedDot = await map.annotations.createCircleAnnotationManager();
     _photoDots = await map.annotations.createCircleAnnotationManager();
@@ -447,6 +454,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     _ready = true; // tutto creato: ora si può renderizzare
     await _renderAll();
     await _renderSteepness();
+    await _renderRangeDots();
     await _renderInspectedPoint();
     await _renderPhotos();
     await _renderTrailDetail();
@@ -476,6 +484,35 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       circleStrokeColor: 0xFFFFFFFF,
       circleStrokeWidth: 3,
     ));
+  }
+
+  /// I due estremi del "tratto scelto" sul profilo altimetrico (§P1.C2):
+  /// verde = inizio, ambra = fine. Chiamato a ogni cambio di
+  /// `profileRangeProvider` (cioè a ogni spostamento di una maniglia).
+  Future<void> _renderRangeDots() async {
+    final mgr = _rangeDots;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    final sel = ref.read(profileRangeProvider);
+    if (sel == null) return;
+    final samples =
+        ref.read(tracksProvider).active?.metrics?.profile.samples ??
+            const <ProfileSample>[];
+    if (samples.length < 2) return;
+    final aP = samples[sel.a.clamp(0, samples.length - 1)].position;
+    final bP = samples[sel.b.clamp(0, samples.length - 1)].position;
+    for (final (p, color) in [
+      (aP, 0xFF2E7D32), // inizio: verde
+      (bP, 0xFFF57C00), // fine: ambra
+    ]) {
+      await mgr.create(CircleAnnotationOptions(
+        geometry: Point(coordinates: Position(p.longitude, p.latitude)),
+        circleRadius: 7,
+        circleColor: color,
+        circleStrokeColor: 0xFFFFFFFF,
+        circleStrokeWidth: 3,
+      ));
+    }
   }
 
   /// Marker del punto ispezionato in esplorazione: pallino colorato circondato
@@ -1396,6 +1433,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     ref.listen(appThemeModeProvider, (_, __) => _syncMapTheme());
     ref.listen(steepnessVisibleProvider, (_, __) => _renderSteepness());
     ref.listen(profileCursorProvider, (_, __) => _renderCursor());
+    ref.listen(profileRangeProvider, (_, __) => _renderRangeDots());
     ref.listen(inspectedPointProvider, (_, __) => _renderInspectedPoint());
     ref.listen(selectedPhotoProvider, (_, next) {
       _renderPhotos();

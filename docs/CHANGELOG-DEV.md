@@ -11,6 +11,38 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 1 settembre 2026 — P1.C2 ridisegnata: due maniglie trascinabili + pallini in mappa
+
+L'utente non gradiva la selezione a tap del tratto per il tempo di percorrenza. Nuova UX:
+
+- **Ingresso** — il tasto testuale **"Tempo di un tratto"** è ora **accanto alla riga del
+  tempo totale** (`_HikingTimeRow`), non più sotto il grafico. Premendolo:
+  `profileVisibleProvider.show()` + `profileRangeProvider.notifier.beginFull(lastIndex)` →
+  il grafico si apre con gli estremi **già a inizio (0) e fine (ultimo indice)**.
+- **`ProfileRangeSel`** — `a`/`b` ora `int` non-null (la modalità, quando attiva, ha
+  sempre entrambi gli estremi). `ProfileRange`: via `begin()`/`pick()`, nuovi
+  `beginFull(lastIndex)` e `moveHandle(handle, index, lastIndex)` (0 = maniglia sinistra,
+  1 = destra; clamp a `[0, lastIndex]`, non si scavalcano).
+- **`ElevationProfileChart`** — via `selecting`/`onPickIndex`; nuovo
+  `onHandleDrag(handle, sampleIndex)`. Il gesto: in modalità tratto un
+  `onHorizontalDragStart` afferra la maniglia più vicina al dito, `onHorizontalDragUpdate`
+  la trascina; fuori modalità, scrubbing come prima. Il painter disegna un **pomello** in
+  cima a ogni maniglia (target di trascinamento) oltre alla linea verticale + pallino
+  sulla curva.
+- **Pallini in mappa** — nuovo `_rangeDots` (`CircleAnnotationManager`) in
+  `map_gl_screen.dart`: `_renderRangeDots()` legge `profileRangeProvider` + il profilo
+  della traccia attiva e disegna 2 cerchi (verde `0xFF2E7D32` = inizio, ambra `0xFFF57C00`
+  = fine). `ref.listen(profileRangeProvider, …)` → si muovono in tempo reale a ogni
+  `moveHandle`.
+- **Card** — il testo sotto il grafico ora è solo "Trascina i due punti per scegliere il
+  tratto"; rimosso il `_RangeAction` sotto il grafico (l'uscita è la × su
+  `_HikingRangeRow`). `_profileHintText` semplificato.
+- Test: `test/features/profile_range_test.dart` (6 casi: `beginFull`, `moveHandle`
+  clamp/non-scavalco/no-op). `flutter analyze` pulito, **276 test**.
+- Su simulatore: verificati ingresso, comparsa maniglie a inizio/fine, comparsa dei 2
+  pallini in mappa, × per uscire. Il **trascinamento** non è testabile coi tap sintetici →
+  P8.
+
 ## 1 settembre 2026 — P1.B: difficoltà = colore della linea (traccia selezionata)
 
 Dopo aver validato che il `LineLayer` + `line-dasharray` dà un tratteggio davvero netto

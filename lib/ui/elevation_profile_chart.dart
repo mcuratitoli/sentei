@@ -25,8 +25,7 @@ class ElevationProfileChart extends StatefulWidget {
     this.onCursor,
     this.selStartIndex,
     this.selEndIndex,
-    this.selecting = false,
-    this.onPickIndex,
+    this.onHandleDrag,
     this.height = 150,
     this.steepness = false,
   });
@@ -45,17 +44,16 @@ class ElevationProfileChart extends StatefulWidget {
   /// Notifica il campione sotto il dito durante lo scrubbing (`null` a fine).
   final ValueChanged<ProfileSample?>? onCursor;
 
-  /// Estremi dell'**intervallo selezionato** (§P1.C2), indici nei campioni;
-  /// `null` se non ancora scelti. Disegnati come maniglie + fascia ombreggiata.
+  /// Estremi dell'**intervallo selezionato** (§P1.C2), indici nei campioni.
+  /// Quando entrambi non-null il grafico è in **modalità tratto**: le due
+  /// maniglie si trascinano (niente scrubbing) e ognuna è mostrata come
+  /// pallino con fascia ombreggiata fuori dall'intervallo.
   final int? selStartIndex;
   final int? selEndIndex;
 
-  /// Se vero, un tap sceglie un estremo dell'intervallo (via [onPickIndex])
-  /// invece di fare scrubbing.
-  final bool selecting;
-
-  /// Indice del campione toccato in modalità [selecting].
-  final ValueChanged<int>? onPickIndex;
+  /// In modalità tratto, notifica lo spostamento di una maniglia: `handle` 0 =
+  /// [selStartIndex], 1 = [selEndIndex]; `sampleIndex` = campione sotto il dito.
+  final void Function(int handle, int sampleIndex)? onHandleDrag;
 
   final double height;
 
@@ -66,6 +64,9 @@ class ElevationProfileChart extends StatefulWidget {
 class _ElevationProfileChartState extends State<ElevationProfileChart> {
   OverlayEntry? _tip;
   Timer? _tipTimer;
+
+  /// Maniglia afferrata nel drag corrente (modalità tratto): 0 o 1.
+  int? _grabbedHandle;
 
   @override
   void dispose() {
@@ -157,23 +158,26 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             widget.onCursor!(_nearestByDistance(widget.profile.samples, target));
           }
 
-          void pick(double dx) {
-            if (widget.onPickIndex == null ||
-                widget.profile.totalDistance <= 0) {
-              return;
-            }
+          int indexAt(double dx) {
             final frac = (dx / width).clamp(0.0, 1.0);
             final target = frac * widget.profile.totalDistance;
-            final i =
-                _nearestIndexByDistance(widget.profile.samples, target);
-            debugPrint('[profile] pick dx=${dx.toStringAsFixed(1)} '
-                'width=${width.toStringAsFixed(1)} frac=${frac.toStringAsFixed(3)} '
-                'target=${target.toStringAsFixed(0)}m → indice $i/'
-                '${widget.profile.samples.length - 1}');
-            widget.onPickIndex!(i);
+            return _nearestIndexByDistance(widget.profile.samples, target);
           }
 
-          final selecting = widget.selecting;
+          double xForIndex(int i) {
+            final td = widget.profile.totalDistance;
+            if (td <= 0) return 0;
+            return (widget.profile.samples[i].distanceMeters / td) * width;
+          }
+
+          // Modalità tratto: entrambi gli estremi valorizzati → si trascinano
+          // le due maniglie invece di fare scrubbing.
+          final si = widget.selStartIndex, ei = widget.selEndIndex;
+          final ranging = si != null && ei != null && widget.onHandleDrag != null;
+
+          int nearestHandle(double dx) =>
+              (dx - xForIndex(si!)).abs() <= (dx - xForIndex(ei!)).abs() ? 0 : 1;
+
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (d) {
@@ -183,19 +187,39 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                 _showTip(d.globalPosition, scale);
                 return; // tap sulla banda difficoltà → tooltip, non altro
               }
-              if (selecting) {
-                pick(d.localPosition.dx);
-                return; // modalità selezione: il tap sceglie un estremo
+              if (ranging) {
+                final dx = d.localPosition.dx;
+                widget.onHandleDrag!(nearestHandle(dx), indexAt(dx));
+                return;
               }
               report(d.localPosition.dx);
             },
-            onHorizontalDragStart:
-                selecting ? null : (d) => report(d.localPosition.dx),
-            onHorizontalDragUpdate:
-                selecting ? null : (d) => report(d.localPosition.dx),
-            onHorizontalDragEnd:
-                selecting ? null : (_) => widget.onCursor?.call(null),
-            onTapUp: selecting ? null : (_) => widget.onCursor?.call(null),
+            onHorizontalDragStart: (d) {
+              if (ranging) {
+                final dx = d.localPosition.dx;
+                _grabbedHandle = nearestHandle(dx);
+                widget.onHandleDrag!(_grabbedHandle!, indexAt(dx));
+              } else {
+                report(d.localPosition.dx);
+              }
+            },
+            onHorizontalDragUpdate: (d) {
+              if (ranging) {
+                if (_grabbedHandle != null) {
+                  widget.onHandleDrag!(
+                      _grabbedHandle!, indexAt(d.localPosition.dx));
+                }
+              } else {
+                report(d.localPosition.dx);
+              }
+            },
+            onHorizontalDragEnd: (_) {
+              _grabbedHandle = null;
+              if (!ranging) widget.onCursor?.call(null);
+            },
+            onTapUp: (_) {
+              if (!ranging) widget.onCursor?.call(null);
+            },
             child: CustomPaint(
               painter: _ProfilePainter(
                 profile: widget.profile,
@@ -414,17 +438,22 @@ class _ProfilePainter extends CustomPainter {
     }
 
     // Intervallo selezionato (§P1.C2): fascia ombreggiata fra i due estremi +
-    // una "maniglia" (cerchio con centro bianco) su ciascun estremo scelto.
+    // una **maniglia** trascinabile su ciascuno — linea verticale, pallino
+    // sulla curva e un pomello ben visibile in cima (target di trascinamento).
     void handleAt(int i) {
       if (i < 0 || i >= samples.length) return;
       final s = samples[i];
       final x = dxFor(s.distanceMeters);
       final y = dyFor(s.elevation);
+      final fill = Paint()..color = selectionColor;
+      final white = Paint()..color = const Color(0xFFFFFFFF);
       canvas.drawLine(Offset(x, 0), Offset(x, chartH),
           Paint()..color = selectionColor..strokeWidth = 1.5);
-      canvas.drawCircle(Offset(x, y), 5.5, Paint()..color = selectionColor);
-      canvas.drawCircle(
-          Offset(x, y), 2.2, Paint()..color = const Color(0xFFFFFFFF));
+      canvas.drawCircle(Offset(x, y), 5, fill);
+      canvas.drawCircle(Offset(x, y), 2, white);
+      // Pomello in cima
+      canvas.drawCircle(Offset(x, 7), 7, white);
+      canvas.drawCircle(Offset(x, 7), 5.5, fill);
     }
 
     final si = selStartIndex, ei = selEndIndex;

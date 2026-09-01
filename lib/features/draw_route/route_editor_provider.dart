@@ -1234,6 +1234,7 @@ class ProfileVisible extends Notifier<bool> {
   }
 
   void toggle() => state = !state;
+  void show() => state = true;
 }
 
 final profileVisibleProvider =
@@ -1289,23 +1290,25 @@ final profileCursorProvider =
     NotifierProvider<ProfileCursor, ProfileSample?>(ProfileCursor.new);
 
 /// Selezione di un **intervallo** sul profilo altimetrico per stimare il tempo
-/// di percorrenza su un tratto (§ROADMAP P1.C2). [a]/[b] sono indici nei
-/// campioni di `ElevationProfile`, `null` finché non toccati.
+/// di percorrenza su un tratto (§ROADMAP P1.C2). [a] (maniglia sinistra) e [b]
+/// (maniglia destra) sono indici nei campioni di `ElevationProfile`; sempre
+/// valorizzati quando la modalità è attiva (default: 0 e ultimo indice), non si
+/// scavalcano (`a <= b`).
 class ProfileRangeSel {
-  const ProfileRangeSel({this.a, this.b});
+  const ProfileRangeSel({required this.a, required this.b});
 
-  final int? a;
-  final int? b;
+  final int a;
+  final int b;
 
-  bool get complete => a != null && b != null;
+  /// Retrocompat: la modalità, quando esiste, ha sempre entrambi gli estremi.
+  bool get complete => true;
 
-  /// Estremi ordinati (l'utente può toccare fine prima di inizio).
-  int? get lo => complete ? (a! <= b! ? a : b) : a;
-  int? get hi => complete ? (a! <= b! ? b : a) : null;
+  int get lo => a <= b ? a : b;
+  int get hi => a <= b ? b : a;
 }
 
-/// `null` = nessuna selezione (scrubbing normale del grafico). Non-null ma
-/// non [ProfileRangeSel.complete] = modalità selezione, in attesa dei tocchi.
+/// `null` = nessuna selezione (scrubbing normale del grafico). Non-null = due
+/// maniglie trascinabili sul grafico (e i due pallini in mappa).
 /// Transitoria: si azzera al cambio di traccia attiva.
 class ProfileRange extends Notifier<ProfileRangeSel?> {
   @override
@@ -1314,17 +1317,23 @@ class ProfileRange extends Notifier<ProfileRangeSel?> {
     return null;
   }
 
-  /// Entra in modalità selezione (in attesa del primo tocco).
-  void begin() => state = const ProfileRangeSel();
+  /// Entra in modalità selezione con gli estremi a **inizio e fine** traccia.
+  void beginFull(int lastIndex) {
+    if (lastIndex <= 0) return;
+    state = ProfileRangeSel(a: 0, b: lastIndex);
+  }
 
-  /// Registra un estremo: primo tocco → [ProfileRangeSel.a]; secondo →
-  /// [ProfileRangeSel.b]; un ulteriore tocco a selezione completa ricomincia.
-  void pick(int index) {
+  /// Sposta una maniglia (`handle` 0 = sinistra/[a], 1 = destra/[b]) al
+  /// campione `index`, senza farla scavalcare l'altra e restando in `[0,
+  /// lastIndex]`.
+  void moveHandle(int handle, int index, int lastIndex) {
     final s = state;
-    if (s == null || s.complete || s.a == null) {
-      state = ProfileRangeSel(a: index);
+    if (s == null) return;
+    final i = index.clamp(0, lastIndex);
+    if (handle == 0) {
+      state = ProfileRangeSel(a: i.clamp(0, s.b), b: s.b);
     } else {
-      state = ProfileRangeSel(a: s.a, b: index);
+      state = ProfileRangeSel(a: s.a, b: i.clamp(s.a, lastIndex));
     }
   }
 

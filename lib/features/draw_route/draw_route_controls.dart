@@ -268,11 +268,11 @@ class _SelectedBody extends ConsumerWidget {
         : null;
     // Tempo su un tratto scelto (§P1.C2): valorizzato solo con selezione
     // completa e grafico visibile (dove la si sceglie/vede).
-    final rangeEst = (showingChart && rangeSel != null && rangeSel.complete)
+    final rangeEst = (showingChart && rangeSel != null)
         ? _hikingTimeCalculator.estimateRange(
             metrics.profile,
-            startIndex: rangeSel.lo!,
-            endIndex: rangeSel.hi!,
+            startIndex: rangeSel.lo,
+            endIndex: rangeSel.hi,
             pace: pace,
           )
         : null;
@@ -344,7 +344,22 @@ class _SelectedBody extends ConsumerWidget {
             else if (hikingTime != null && hikingTime > Duration.zero)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: _HikingTimeRow(time: hikingTime),
+                child: Row(
+                  children: [
+                    _HikingTimeRow(time: hikingTime),
+                    const Spacer(),
+                    if (hasMetrics && metrics.profile.samples.length > 1)
+                      _RangeAction(
+                        label: 'Tempo di un tratto',
+                        onTap: () {
+                          ref.read(profileVisibleProvider.notifier).show();
+                          ref
+                              .read(profileRangeProvider.notifier)
+                              .beginFull(metrics.profile.samples.length - 1);
+                        },
+                      ),
+                  ],
+                ),
               ),
             if (resolvingTrails)
               const Padding(
@@ -407,53 +422,36 @@ class _SelectedBody extends ConsumerWidget {
           if (showingChart) ...[
             const SizedBox(height: 4),
             // Slot fisso (altezza riservata sempre, così la card non cambia
-            // altezza scorrendo il grafico): a sinistra la quota al cursore o
-            // le istruzioni per la selezione di un tratto (§P1.C2), a destra
-            // l'azione per entrare/uscire da quella modalità.
+            // altezza scorrendo il grafico): quota al cursore, oppure — in
+            // modalità tratto — l'istruzione a trascinare le due maniglie
+            // (§P1.C2). L'uscita è la × sulla riga "Tratto: …".
             SizedBox(
               height: 18,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _profileHintText(rangeSel, cursor),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: (rangeSel == null && cursor == null)
-                                ? FontWeight.normal
-                                : FontWeight.bold,
-                            color: (rangeSel == null && cursor == null)
-                                ? Theme.of(context).hintColor
-                                : null,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              child: Text(
+                _profileHintText(rangeSel, cursor),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: (rangeSel == null && cursor == null)
+                          ? FontWeight.normal
+                          : FontWeight.bold,
+                      color: (rangeSel == null && cursor == null)
+                          ? Theme.of(context).hintColor
+                          : null,
                     ),
-                  ),
-                  _RangeAction(
-                    label: rangeSel == null
-                        ? 'Tempo di un tratto'
-                        : (rangeSel.complete ? 'Cambia' : 'Annulla'),
-                    onTap: () {
-                      final n = ref.read(profileRangeProvider.notifier);
-                      if (rangeSel == null || rangeSel.complete) {
-                        n.begin();
-                      } else {
-                        n.clear();
-                      }
-                    },
-                  ),
-                ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             ElevationProfileChart(
               profile: metrics.profile,
               trailSegments: metrics.trailSegments,
-              cursor: rangeSel != null && !rangeSel.complete ? null : cursor,
+              // In modalità tratto niente cursore di scrubbing: si trascinano
+              // le maniglie.
+              cursor: rangeSel != null ? null : cursor,
               selStartIndex: rangeSel?.a,
               selEndIndex: rangeSel?.b,
-              selecting: rangeSel != null && !rangeSel.complete,
-              onPickIndex: (i) =>
-                  ref.read(profileRangeProvider.notifier).pick(i),
+              onHandleDrag: (handle, i) => ref
+                  .read(profileRangeProvider.notifier)
+                  .moveHandle(handle, i, metrics.profile.samples.length - 1),
               steepness: steepnessOn,
               height: 120,
               onCursor: (s) => ref.read(profileCursorProvider.notifier).set(s),
@@ -1315,18 +1313,13 @@ class _HikingTimeRow extends StatelessWidget {
 /// Testo di supporto sotto le icone del grafico: quota al cursore, oppure le
 /// istruzioni per la selezione di un tratto (§P1.C2).
 String _profileHintText(ProfileRangeSel? sel, ProfileSample? cursor) {
-  if (sel == null) {
-    return cursor == null
-        ? 'Tocca il grafico per la quota del punto'
-        : 'Quota ${Format.meters(cursor.elevation)} · '
-            '${Format.distance(cursor.distanceMeters)}';
+  if (sel != null) {
+    return 'Trascina i due punti per scegliere il tratto';
   }
-  if (!sel.complete) {
-    return sel.a == null
-        ? 'Tocca l\'inizio del tratto'
-        : 'Tocca la fine del tratto';
-  }
-  return 'Tratto scelto sul profilo';
+  return cursor == null
+      ? 'Tocca il grafico per la quota del punto'
+      : 'Quota ${Format.meters(cursor.elevation)} · '
+          '${Format.distance(cursor.distanceMeters)}';
 }
 
 /// Azione testuale compatta (tinta d'accento) accanto al testo di supporto del
