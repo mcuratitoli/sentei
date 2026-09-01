@@ -1374,7 +1374,7 @@ class _HikingRangeRow extends StatelessWidget {
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
-                      'Stima tempo di percorrenza: ${Format.duration(est.time)}',
+                      'Circa ${Format.duration(est.time)} di cammino',
                       style: AppText.captionSmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
