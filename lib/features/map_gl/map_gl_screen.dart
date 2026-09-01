@@ -371,7 +371,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       id: _savedTracksSourceId,
       data: '{"type":"FeatureCollection","features":[]}',
     ));
-    final lineWidthExpr = <Object>['case', <Object>['get', 'sel'], 5.0, 3.5];
+    final lineWidthExpr = <Object>['case', <Object>['get', 'sel'], 6.5, 4.5];
     final lineOpacityExpr =
         <Object>['case', <Object>['get', 'dim'], 0.35, 1.0];
     for (final (layerId, kind, dash) in <(String, String, List<double>?)>[
@@ -392,7 +392,7 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         lineWidthExpression: lineWidthExpr,
         // Fade bianco attorno alla linea (`line-border`, costante).
         lineBorderColor: 0xFFFFFFFF,
-        lineBorderWidth: 1.6,
+        lineBorderWidth: 1.3,
         lineOpacityExpression: lineOpacityExpr,
       ));
     }

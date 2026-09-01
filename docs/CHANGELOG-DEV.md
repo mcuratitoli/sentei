@@ -18,8 +18,8 @@ Dopo aver validato che il `LineLayer` + `line-dasharray` dà un tratteggio davve
 strada totale:
 
 - **Linea sempre unita** (niente più dash per grado), larghezza invariata
-  (`['case', sel, 5, 3.5]`), **fade bianco** attorno (`line-border-color` bianco,
-  `line-border-width` 1.6).
+  (`['case', sel, 6.5, 4.5]`), **fade bianco** attorno (`line-border-color` bianco,
+  `line-border-width` 1.3).
 - Il grado CAI lo dà il **colore** della linea, tratto per tratto (`caiScaleColor` — verde
   T / teal E / arancio EE / rosso EEA, **grigio** se il grado non è noto, tratti liberi
   inclusi), **solo quando la traccia è selezionata**. Le altre tracce restano del proprio
@@ -61,7 +61,7 @@ disegna GaiaGPS & co.).
     ripidezza/estremi/waypoint). `line-dasharray` non è data-driven → un layer per grado,
     `filter` su una proprietà `g`.
   - Per-feature (data-driven): `line-color` = `['get','c']` (colore traccia, in `#rrggbb`),
-    `line-width` = `['case',['get','sel'],5,3.5]`, `line-opacity` =
+    `line-width` = `['case',['get','sel'],6.5,4.5]`, `line-opacity` =
     `['case',['get','dim'],0.35,1]`. `line-cap: butt` sui tratteggiati (un cap tondo salda
     i trattini), `round` sul pieno. `line-join: round`. `line-emissive-strength: 1` (senza,
     lo stile v11 illumina la linea col lighting 3D e la slava).
