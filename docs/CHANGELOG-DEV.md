@@ -11,6 +11,42 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 ---
 
+## 1 settembre 2026 — P1.B: tratteggio linea rifatto con `LineLayer` (era sgranato)
+
+Dopo più tentativi (ritarare i valori di `caiScaleDash`, `line-cap: butt`, casing 0,
+`line-emissive-strength: 1`) il tratteggio delle tracce salvate restava **sgranato /
+"sfumato"** su device — sui zoom bassi a blocchi. Causa: era reso con
+`PolylineAnnotationManager.setLineDasharray`, e il plugin annotazioni di
+`mapbox_maps_flutter` rende il `line-dasharray` male. Anche un breve esperimento con glifi
+`SymbolLayer` (icone stampate lungo la linea) è stato scartato dall'utente.
+
+**Soluzione: le tracce salvate diventano `LineLayer` su sorgente GeoJSON** (è così che le
+disegna GaiaGPS & co.).
+
+- `map_gl_screen.dart`:
+  - Via i manager `_savedLines`/`_savedFreeLines`/`_savedLinesE`/`_savedLinesEE`/`_savedLinesEEA`
+    e `_managerForRun`. Nuova sorgente `sentei-tracks` + **5 `LineLayer`**
+    (`solid`/`free`/`E`/`EE`/`EEA`), aggiunti subito dopo le etichette segnavia (sotto
+    ripidezza/estremi/waypoint). `line-dasharray` non è data-driven → un layer per grado,
+    `filter` su una proprietà `g`.
+  - Per-feature (data-driven): `line-color` = `['get','c']` (colore traccia, in `#rrggbb`),
+    `line-width` = `['case',['get','sel'],5,3.5]`, `line-opacity` =
+    `['case',['get','dim'],0.35,1]`. `line-cap: butt` sui tratteggiati (un cap tondo salda
+    i trattini), `round` sul pieno. `line-join: round`. `line-emissive-strength: 1` (senza,
+    lo stile v11 illumina la linea col lighting 3D e la slava).
+  - `_renderAll` accumula una feature `LineString` per ogni run (`_trackRunGrade` dà la
+    chiave `g`) e scrive la `FeatureCollection` in blocco con `setStyleSourceProperty`.
+    `sliceStyledRuns` invariato.
+  - Niente più casing bianco (era il punto 1 del feedback utente).
+- `cai_difficulty.dart`: `caiScaleDash` — E `[2.5,2]`→`[3,2]`, EE `[0.4,2]`→`[1.5,1.5]`
+  (trattini corti, non più "punti" col cap tondo), EEA `[2,1.2,0.4,1.2]`→`[3,1.5,1,1.5]`.
+- `legends.dart`: `_LineStylePainter` con `StrokeCap.butt` (come la mappa); testo intro
+  "trattini corti" invece di "punti".
+- Verifica su simulatore (traccia "Alagna: Otro, Bivacco Ravelli"): tratteggio **netto**,
+  i 3 pattern distinguibili, segue le curve, colore traccia invariato. `flutter analyze`
+  pulito, **270 test verdi**.
+- Da tarare su device (P8): lunghezza/spessore esatti dei trattini.
+
 ## 31 agosto 2026 — P1.B: rifiniture (badge per grado, `EEA:F`, casing più sottile)
 
 Feedback utente su una traccia reale ("Alagna: Otro, Bivacco Ravelli, Tailly", t2):

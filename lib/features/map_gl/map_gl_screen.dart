@@ -63,19 +63,8 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
     with WidgetsBindingObserver {
   MapboxMap? _map;
 
-  // Manager annotation: tracce salvate (linee+estremi), waypoint in modifica,
-  // percorso live in modifica.
-  PolylineAnnotationManager? _savedLines;
-  // Tratti "liberi" (§"Traccia mista", `docs/ROADMAP.md` P3) della traccia
-  // selezionata/salvata: manager a parte perché il tratteggio si imposta
-  // solo a livello di manager, non per singola annotazione.
-  PolylineAnnotationManager? _savedFreeLines;
-  // Tratti agganciati per **grado CAI** (§P1.B): `line-dasharray` non è
-  // data-driven su Mapbox GL, quindi un manager per stile — T/sconosciuto
-  // resta su _savedLines (pieno). Stessi colori/spessori di _savedLines.
-  PolylineAnnotationManager? _savedLinesE;
-  PolylineAnnotationManager? _savedLinesEE;
-  PolylineAnnotationManager? _savedLinesEEA;
+  // Tracce salvate: `LineLayer` su sorgente GeoJSON `_savedTracksSourceId`
+  // (non annotazioni — resa `line-dasharray` migliore). Vedi `_setupLayers`.
   CircleAnnotationManager? _savedEnds;
   // Bandiera a scacchi (arrivo): icona raster registrata nello stile, uno
   // solo per traccia selezionata (vedi _buildFinishFlagImageData).
@@ -155,6 +144,13 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
   static const double _trailMinZoom = 13;
   static const String _steepSourceId = 'sentei-steepness';
   static const String _steepLayerId = 'sentei-steepness-line';
+  // Tracce salvate: sorgente GeoJSON + un LineLayer per grado CAI (§P1.B).
+  static const String _savedTracksSourceId = 'sentei-tracks';
+  static const String _trackLayerSolid = 'sentei-track-solid';
+  static const String _trackLayerFree = 'sentei-track-free';
+  static const String _trackLayerE = 'sentei-track-e';
+  static const String _trackLayerEE = 'sentei-track-ee';
+  static const String _trackLayerEEA = 'sentei-track-eea';
 
   // Rete di sicurezza: se il setup o il GPS si incantano, lo splash non deve
   // restare all'infinito → dopo questo timeout si chiude comunque.
@@ -363,22 +359,50 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       textHaloWidth: 2,
       textHaloBlur: 0.5,
     ));
-    // Manager (ordine = z-order): tracce salvate, percorso live, waypoint sopra.
-    _savedLines = await map.annotations.createPolylineAnnotationManager();
-    // Tratti liberi della traccia salvata/selezionata: stesso ordine di
-    // _savedLines (sopra, per restare visibili), dash a livello manager.
-    _savedFreeLines = await map.annotations.createPolylineAnnotationManager();
-    await _savedFreeLines!.setLineDasharray([2, 1.4]);
-    // Stile-linea per grado CAI (§P1.B): E trattini, EE punteggiato (cap
-    // tondo → punti rotondi), EEA dash-punto. Dash da `caiScaleDash`, fonte
-    // condivisa con la legenda.
-    _savedLinesE = await map.annotations.createPolylineAnnotationManager();
-    await _savedLinesE!.setLineDasharray(caiScaleDash('E')!);
-    _savedLinesEE = await map.annotations.createPolylineAnnotationManager();
-    await _savedLinesEE!.setLineDasharray(caiScaleDash('EE')!);
-    await _savedLinesEE!.setLineCap(LineCap.ROUND);
-    _savedLinesEEA = await map.annotations.createPolylineAnnotationManager();
-    await _savedLinesEEA!.setLineDasharray(caiScaleDash('EEA')!);
+    // Tracce salvate: **`LineLayer` su sorgente GeoJSON** (non annotazioni — il
+    // plugin annotation rende il `line-dasharray` sgranato; un `LineLayer` dà
+    // il tratteggio netto, è così che lo fanno GaiaGPS & co.). Una feature per
+    // tratto (`_renderAll`), con proprietà: `c` colore, `g` grado
+    // (solid/free/E/EE/EEA), `sel`/`dim` per selezione/attenuazione. Il
+    // `line-dasharray` non è data-driven → un layer per grado, filtrati su `g`.
+    await map.style.addSource(GeoJsonSource(
+      id: _savedTracksSourceId,
+      data: '{"type":"FeatureCollection","features":[]}',
+    ));
+    for (final (layerId, g, dash) in <(String, String, List<double>?)>[
+      (_trackLayerSolid, 'solid', null),
+      (_trackLayerFree, 'free', const [2, 1.5]),
+      (_trackLayerE, 'E', caiScaleDash('E')),
+      (_trackLayerEE, 'EE', caiScaleDash('EE')),
+      (_trackLayerEEA, 'EEA', caiScaleDash('EEA')),
+    ]) {
+      await map.style.addLayer(LineLayer(
+        id: layerId,
+        sourceId: _savedTracksSourceId,
+        filter: <Object>['==', <Object>['get', 'g'], g],
+        lineDasharray: dash,
+        // `butt`: un cap tondo allunga ogni trattino di mezza larghezza per
+        // lato e li salda → linea "sfumata" invece che tratteggiata.
+        lineCap: dash == null ? LineCap.ROUND : LineCap.BUTT,
+        lineJoin: LineJoin.ROUND,
+        // `emissive-strength: 1`: senza, lo stile v11 illumina la linea col
+        // lighting 3D e la slava.
+        lineEmissiveStrength: 1,
+        lineColorExpression: <Object>['get', 'c'],
+        lineWidthExpression: <Object>[
+          'case',
+          <Object>['get', 'sel'],
+          5.0,
+          3.5,
+        ],
+        lineOpacityExpression: <Object>[
+          'case',
+          <Object>['get', 'dim'],
+          0.35,
+          1.0,
+        ],
+      ));
+    }
     // Riferimento grezzo importato: linea tratteggiata (dash a livello manager).
     _importRawLine = await map.annotations.createPolylineAnnotationManager();
     await _importRawLine!.setLineDasharray([2, 2]);
@@ -611,17 +635,15 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
       final state = ref.read(tracksProvider);
       final hidden = ref.read(tracksHiddenProvider);
       final importing = ref.read(importLoadingProvider) != null;
-      await _savedLines!.deleteAll();
-      await _savedFreeLines!.deleteAll();
-      await _savedLinesE!.deleteAll();
-      await _savedLinesEE!.deleteAll();
-      await _savedLinesEEA!.deleteAll();
       await _savedEnds!.deleteAll();
       await _finishFlags!.deleteAll();
       await _liveLine!.deleteAll();
       await _importRawLine!.deleteAll();
       await _waypointDots!.deleteAll();
       _wpIndexById.clear();
+      // Feature delle tracce salvate (una per tratto), scritte in blocco sulla
+      // sorgente `_savedTracksSourceId` in fondo al render.
+      final trackFeatures = <Map<String, Object>>[];
 
       // Traccia grezza importata (riferimento **tratteggiato, dimmed**) durante
       // caricamento ed editing dell'import.
@@ -649,11 +671,12 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           if (path.length < 2) continue;
           // La traccia selezionata è più spessa; le altre, quando c'è una
           // selezione, si attenuano per leggibilità nelle aree con più tracce
-          // sovrapposte. Casing bianco ridotto a un filo: su una traccia
-          // tratteggiata (E/EE/EEA — la maggior parte dei sentieri CAI) un
-          // bordo spesso "mangiava" i trattini e li faceva sembrare pallidi.
+          // sovrapposte (spessore/opacità sono espressioni data-driven sui
+          // LineLayer, vedi `_setupLayers`).
           final isSelected = t.id == state.selectedId;
           final dimmed = state.selectedId != null && !isSelected;
+          final colorHex =
+              '#${(t.color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
           // Ritagliata nei tratti liberi/agganciati (§"Traccia mista") e per
           // grado CAI (§P1.B) senza richiamare il routing: `segmentPointCounts`
           // e `trailSegments` sono già persistiti nelle metriche.
@@ -664,14 +687,22 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
             trailSegments: t.metrics?.trailSegments ?? const [],
           );
           for (final run in runs) {
-            await _managerForRun(run).create(PolylineAnnotationOptions(
-              geometry: _lineOf(run.points),
-              lineColor: t.color.toARGB32(),
-              lineWidth: isSelected ? 7 : 4.5,
-              lineOpacity: dimmed ? 0.35 : 1,
-              lineBorderColor: 0xFFFFFFFF,
-              lineBorderWidth: isSelected ? 1 : 0.5,
-            ));
+            if (run.points.length < 2) continue;
+            trackFeatures.add({
+              'type': 'Feature',
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': [
+                  for (final p in run.points) [p.longitude, p.latitude],
+                ],
+              },
+              'properties': {
+                'c': colorHex,
+                'g': _trackRunGrade(run),
+                'sel': isSelected,
+                'dim': dimmed,
+              },
+            });
           }
           // Pallini inizio/fine solo sulla traccia selezionata: con più
           // tracce vicine, mostrarli tutti confondeva più che aiutare.
@@ -690,6 +721,11 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
           await _drawWaypoints(t.waypoints);
         }
       }
+      await _map!.style.setStyleSourceProperty(
+        _savedTracksSourceId,
+        'data',
+        jsonEncode({'type': 'FeatureCollection', 'features': trackFeatures}),
+      );
       await _renderPhotos();
     } finally {
       _rendering = false;
@@ -704,21 +740,20 @@ class _MapGlScreenState extends ConsumerState<MapGlScreen>
         coordinates: [for (final p in path) Position(p.longitude, p.latitude)],
       );
 
-  /// Manager (= stile di linea) per un tratto: libero → tratteggio "misto";
-  /// altrimenti per grado CAI (§P1.B); T e grado sconosciuto → linea piena.
-  /// Le varianti attrezzate (`EEA:F` ecc.) sono rese come EEA.
-  PolylineAnnotationManager _managerForRun(StyledRun run) {
-    if (run.free) return _savedFreeLines!;
+  /// Chiave di stile-linea per un tratto (proprietà `g` della feature, usata
+  /// dai `filter` dei LineLayer): libero → `free`; altrimenti per grado CAI
+  /// (§P1.B) `E`/`EE`/`EEA` (varianti attrezzate `EEA:*` incluse); T e grado
+  /// sconosciuto → `solid` (linea piena).
+  static String _trackRunGrade(StyledRun run) {
+    if (run.free) return 'free';
     switch (run.caiScale) {
       case 'E':
-        return _savedLinesE!;
+        return 'E';
       case 'EE':
-        return _savedLinesEE!;
-      case 'EEA':
-        return _savedLinesEEA!;
+        return 'EE';
     }
-    if (run.caiScale?.startsWith('EEA') ?? false) return _savedLinesEEA!;
-    return _savedLines!;
+    if (run.caiScale?.startsWith('EEA') ?? false) return 'EEA';
+    return 'solid';
   }
 
   Future<void> _drawEndpoints(List<ll.LatLng> wps) async {

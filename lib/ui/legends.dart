@@ -116,7 +116,7 @@ class _DifficultyLegendSheet extends StatelessWidget {
             Text(
               'Sulla mappa lo stile della linea del tracciato segue il grado, '
               'come sulle carte escursionistiche: pieno per T, poi trattini, '
-              'punti e dash‑punto.',
+              'trattini corti e tratto‑punto.',
               style: AppText.footnote.copyWith(color: palette.secondaryLabel),
             ),
             const SizedBox(height: 14),
@@ -322,7 +322,8 @@ class _LineStylePainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
+      // `butt` come sulla mappa: un cap tondo salderebbe i trattini corti.
+      ..strokeCap = StrokeCap.butt;
     final d = dash;
     if (d == null || d.isEmpty) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);

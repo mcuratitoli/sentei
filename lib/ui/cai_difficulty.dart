@@ -137,25 +137,26 @@ String caiScaleDescription(String scale) {
 const List<String> caiScalesInOrder = ['T', 'E', 'EE', 'EEA', 'EEA:F'];
 
 /// Pattern di **tratteggio** della linea del tracciato per grado CAI, sul
-/// modello delle carte escursionistiche ufficiali (Tabacco/CAI): **T** linea
-/// piena, **E** trattini lunghi, **EE** punteggiato, **EEA** (e varianti
-/// attrezzate `EEA:<x>`) dash‑punto (resa di ripiego delle crocette da via
-/// ferrata — un `line-dasharray` non può fare simboli). `null` = linea piena
+/// modello delle carte escursionistiche: **T** linea piena, **E** trattini,
+/// **EE** trattini corti (più "spezzato" = più impegnativo), **EEA** (e
+/// varianti attrezzate `EEA:<x>`) tratto‑punto. `null` = linea piena
 /// (T o grado sconosciuto).
 ///
-/// Valori in **unità di larghezza linea** (come vuole Mapbox `line-dasharray`):
-/// scalano con lo spessore. Fonte unica condivisa da mappa
-/// (`map_gl_screen.dart`) e legenda (`legends.dart`).
+/// Valori in **unità di larghezza linea** (come vuole Mapbox `line-dasharray`).
+/// Pensati per `line-cap: butt` (estremi netti — un cap tondo "salda" i
+/// trattini) su una linea sottile (~3,5 px) senza bordo bianco: così il
+/// tratteggio è netto come sulle carte, non "sfumato". Fonte unica condivisa
+/// da mappa (`map_gl_screen.dart`) e legenda (`legends.dart`).
 List<double>? caiScaleDash(String? scale) {
   switch (normalizeCaiScale(scale)) {
     case 'E':
-      return const [2.5, 2];
+      return const [3, 2];
     case 'EE':
-      return const [0.4, 2];
+      return const [1.5, 1.5];
     case 'EEA':
     case 'EEA:F':
-      return const [2, 1.2, 0.4, 1.2];
+      return const [3, 1.5, 1, 1.5];
   }
-  if (_baseCaiScale(scale) == 'EEA') return const [2, 1.2, 0.4, 1.2];
+  if (_baseCaiScale(scale) == 'EEA') return const [3, 1.5, 1, 1.5];
   return null;
 }

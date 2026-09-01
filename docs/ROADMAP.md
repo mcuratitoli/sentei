@@ -92,39 +92,39 @@ replicando la legenda delle carte escursionistiche (Tabacco/CAI — foto reale, 
 | Grado | Legenda carta | Reso in-app (`caiScaleDash`, unità di larghezza linea) |
 |---|---|---|
 | **T** / sconosciuto | linea continua | nessun dash |
-| **E** | trattini | `[2.5, 2]` |
-| **EE** | punteggiato | `[0.4, 2]` + `line-cap: round` (punti rotondi) |
-| **EEA** | crocette via ferrata | `[2, 1.2, 0.4, 1.2]` (dash-punto, ripiego) |
+| **E** | trattini | `[3, 2]` |
+| **EE** | punteggiato | `[1.5, 1.5]` (trattini corti) |
+| **EEA** / `EEA:F` | crocette via ferrata | `[3, 1.5, 1, 1.5]` (tratto-punto, ripiego) |
+
+> **Reso rifatto il 1 set** (2 tentativi di ritaratura non bastavano — il tratteggio
+> restava sgranato): le tracce salvate sono ora **`LineLayer` su sorgente GeoJSON**, non
+> `PolylineAnnotationManager` (il plugin annotazioni rende il `line-dasharray` male). È
+> l'approccio di GaiaGPS & co. Niente casing bianco. Dettaglio: voce **1 settembre 2026**
+> in `docs/CHANGELOG-DEV.md`.
 
 - [x] **Fonte unica** — `caiScaleDash(scale)` in `lib/ui/cai_difficulty.dart`, condivisa da
   mappa e legenda.
-- [x] **Colore invariato** — cambia solo il tratteggio, la linea resta del colore del
-  tracciato; casing bianco invariato.
+- [x] **Colore invariato** — cambia solo il tratteggio (e il grado dei badge sulla card);
+  la linea resta del colore del tracciato; **niente casing**.
 - [x] **Tratti senza dato CAI = linea piena** (come T).
-- [x] **Resa tecnica** — `line-dasharray` non data-driven → un `PolylineAnnotationManager`
-  per stile (`_savedLinesE`/`_savedLinesEE`/`_savedLinesEEA`, + `_savedLines` pieno per
-  T/sconosciuto, + `_savedFreeLines` per i liberi). Nuovo helper puro `sliceStyledRuns`
-  (`domain/services/track_runs.dart`) che spezza i run agganciati per `caiScale` per
-  distanza cumulata; test in `test/domain/track_runs_test.dart` (6 casi). 260 test verdi.
-- [x] **Tratti "liberi"** — restano un solo run col loro tratteggio (`caiScale: null`),
-  lo stile-difficoltà vale solo per gli agganciati.
+- [x] **Resa tecnica** — sorgente `sentei-tracks` + 5 `LineLayer` (`solid`/`free`/`E`/`EE`/
+  `EEA`), `filter` su una proprietà `g`; `line-color`/`line-width`/`line-opacity`
+  data-driven per colore traccia / selezione / attenuazione; `line-cap: butt`,
+  `line-emissive-strength: 1`. Nuovo helper puro `sliceStyledRuns`
+  (`domain/services/track_runs.dart`) che spezza i run agganciati per `caiScale`; test in
+  `test/domain/track_runs_test.dart`.
+- [x] **Tratti "liberi"** — layer `free` (dash `[2,1.5]`), lo stile-difficoltà vale solo
+  per gli agganciati.
 - [x] **Legenda** — `showDifficultyLegend` (`lib/ui/legends.dart`): campione della linea
-  (`_LineStylePainter`) accanto a ogni grado + riga introduttiva.
-- **EEA fedele (crocette con sprite/`SymbolLayer`)** — rifinitura rimandata; il dash-punto è
-  il ripiego v1.
-- **Ambito v1**: tracce **salvate/selezionate** sulla mappa. La linea live durante il
-  drag-editing resta piena (i `trailSegments` non sono ancora risolti mentre si trascina);
-  lo stile compare appena finito/salvato. Da estendere all'editing se serve.
-- **Perf**: 3 manager in più; con molte tracce sulla mappa, tenere d'occhio il conteggio
-  annotation.
-- [ ] **Da tarare su device** (P8): valori di `caiScaleDash`, leggibilità EE (punti) a
-  vari zoom.
-- [x] **Rifiniture 31 ago** (feedback su traccia reale): casing bianco dei tracciati
-  salvati assottigliato (`lineBorderWidth` `2.5/1.5` → `1/0.5`) — il bordo spesso
-  copriva i trattini; la **card traccia** mostra un badge per **ogni** grado presente
-  (`presentCaiScales`), non solo il massimo; gestito `EEA:F` (via ferrata) come grado a
-  sé (colore/dash EEA, badge, riga in legenda). Dettaglio: voce **31 ago 2026** in
-  `docs/CHANGELOG-DEV.md`. Da tarare su device se i trattini ora "ballano" senza casing.
+  (`_LineStylePainter`, `StrokeCap.butt`) accanto a ogni grado.
+- [x] **`EEA:F`** (via ferrata, dal tag OSM `cai_scale=EEA:F`) gestito come grado a sé:
+  rosso EEA, tratto-punto, badge, riga in legenda.
+- [x] **Card traccia** — un badge per **ogni** grado presente (`presentCaiScales`), non
+  solo il massimo.
+- **EEA fedele (crocette vere)** — ancora rimandata; il tratto-punto è il ripiego.
+- **Ambito v1**: tracce **salvate/selezionate**. La linea live durante il drag-editing
+  resta piena (i `trailSegments` non sono risolti mentre si trascina).
+- [ ] **Da tarare su device** (P8): lunghezza/spessore esatti dei trattini ai vari zoom.
 
 ### C. [FEATURE] Tempi di percorrenza per un intervallo scelto — *SP 5* — ✅ fatto (30 ago 2026)
 
