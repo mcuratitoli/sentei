@@ -350,7 +350,7 @@ class _SelectedBody extends ConsumerWidget {
                     const Spacer(),
                     if (hasMetrics && metrics.profile.samples.length > 1)
                       _RangeAction(
-                        label: 'Tempo di un tratto',
+                        label: 'cambia intervallo',
                         onTap: () {
                           ref.read(profileVisibleProvider.notifier).show();
                           ref
@@ -1347,8 +1347,9 @@ class _RangeAction extends StatelessWidget {
   }
 }
 
-/// Riga del tempo di percorrenza su un **tratto scelto** (§P1.C2): tempo +
-/// distanza + D+/D- della sola sotto-tratta, con la × per tornare al totale.
+/// Riga del tempo di percorrenza su un **tratto scelto** (§P1.C2): stima tempo
+/// su una riga, distanza + D+/D- sotto; a destra "chiudi" (stesso stile di
+/// "cambia intervallo") centrato in verticale.
 class _HikingRangeRow extends StatelessWidget {
   const _HikingRangeRow({required this.est, required this.onClear});
 
@@ -1359,26 +1360,42 @@ class _HikingRangeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(CupertinoIcons.clock, size: 14, color: palette.secondaryLabel),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            'Tratto: circa ${Format.duration(est.time)} · '
-            '${Format.distance(est.distanceMeters)} · '
-            '↗${est.gainMeters.round()} ↘${est.lossMeters.round()} m',
-            style: AppText.captionSmall,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(CupertinoIcons.clock,
+                      size: 14, color: palette.secondaryLabel),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      'Stima tempo di percorrenza: ${Format.duration(est.time)}',
+                      style: AppText.captionSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 18),
+                child: Text(
+                  '${Format.distance(est.distanceMeters)} · '
+                  '↗${est.gainMeters.round()} ↘${est.lossMeters.round()} m',
+                  style: AppText.captionSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 4),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onClear,
-          child: Icon(CupertinoIcons.clear_circled,
-              size: 16, color: palette.tertiaryIcon),
-        ),
+        _RangeAction(label: 'chiudi', onTap: onClear),
       ],
     );
   }

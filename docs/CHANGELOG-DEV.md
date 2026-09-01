@@ -15,7 +15,7 @@ coinvolti e quali bug/cause-radice sono stati risolti lungo il percorso. Organiz
 
 L'utente non gradiva la selezione a tap del tratto per il tempo di percorrenza. Nuova UX:
 
-- **Ingresso** — il tasto testuale **"Tempo di un tratto"** è ora **accanto alla riga del
+- **Ingresso** — il tasto testuale **"cambia intervallo"** è ora **accanto alla riga del
   tempo totale** (`_HikingTimeRow`), non più sotto il grafico. Premendolo:
   `profileVisibleProvider.show()` + `profileRangeProvider.notifier.beginFull(lastIndex)` →
   il grafico si apre con gli estremi **già a inizio (0) e fine (ultimo indice)**.
@@ -35,8 +35,8 @@ L'utente non gradiva la selezione a tap del tratto per il tempo di percorrenza. 
   = fine). `ref.listen(profileRangeProvider, …)` → si muovono in tempo reale a ogni
   `moveHandle`.
 - **Card** — il testo sotto il grafico ora è solo "Trascina i due punti per scegliere il
-  tratto"; rimosso il `_RangeAction` sotto il grafico (l'uscita è la × su
-  `_HikingRangeRow`). `_profileHintText` semplificato.
+  tratto"; rimosso il `_RangeAction` sotto il grafico (l'uscita è il tasto **"chiudi"** (stesso stile) su `_HikingRangeRow`, ora su
+  **due righe**: "Stima tempo di percorrenza: <tempo>" / "<dist> · ↗X ↘Y m"). `_profileHintText` semplificato.
 - Test: `test/features/profile_range_test.dart` (6 casi: `beginFull`, `moveHandle`
   clamp/non-scavalco/no-op). `flutter analyze` pulito, **276 test**.
 - Su simulatore: verificati ingresso, comparsa maniglie a inizio/fine, comparsa dei 2

@@ -25,11 +25,11 @@ distinzione è resa dall'icona accanto a ogni voce (`kReleaseNotes` in
 - ⏱️ **Tempo di percorrenza di un tratto scelto.** La card della traccia
   mostra un unico tempo stimato per l'intero percorso (partenza → arrivo);
   tolto lo spezzone automatico "salita / discesa" sui percorsi ad anello. Il
-  tasto **"Tempo di un tratto"**, accanto al tempo totale, apre il profilo
+  tasto **"cambia intervallo"**, accanto al tempo totale, apre il profilo
   altimetrico con **due punti trascinabili** (all'inizio e alla fine): li
   sposti sul grafico e i due punti compaiono e si muovono **anche sulla
   mappa** (verde = inizio, ambra = fine). Sotto vedi tempo, distanza e
-  dislivelli di quel solo tratto. Una × torna al totale.
+  dislivelli di quel solo tratto (su due righe). Un tasto **"chiudi"** torna al totale.
 - 🗺️ **Difficoltà del sentiero visibile sulla linea del tracciato.** Quando
   **selezioni** un tracciato, la sua linea si **colora tratto per tratto in
   base al grado CAI** — verde T, verde acqua E, arancio EE, rosso EEA (le

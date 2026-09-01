@@ -148,7 +148,7 @@ indice A e indice B", con A=0 o B=ultimo come casi particolari).
   `estimateForTrack` → `estimateRange` (254 verdi). Dettaglio: voce **30 ago 2026** in
   `docs/CHANGELOG-DEV.md`.
 - [x] **C2 — UI selezione intervallo** — *rifatta il 1 set 2026 (l'utente non gradiva il
-  meccanismo a tap):* il tasto **"Tempo di un tratto"** è **accanto alla riga del tempo
+  meccanismo a tap):* il tasto **"cambia intervallo"** è **accanto alla riga del tempo
   totale**; premendolo si apre il grafico ed entra in modalità tratto con gli estremi
   **già a inizio/fine** (`ProfileRange.beginFull`). Sul grafico le **due maniglie si
   trascinano** (`ElevationProfileChart.onHandleDrag`, `ProfileRange.moveHandle` — afferra
@@ -158,7 +158,7 @@ indice A e indice B", con A=0 o B=ultimo come casi particolari).
   in tempo reale col trascinamento. `ProfileRangeSel {a, b}` ora ha `a`/`b` sempre
   valorizzati; transitorio, azzerato al cambio traccia / chiusura grafico. Il painter
   disegna un pomello in cima a ogni maniglia + fascia ombreggiata fuori dall'intervallo.
-  Uscita: la × su `_HikingRangeRow`. Test: `test/features/profile_range_test.dart`
+  Il risultato (`_HikingRangeRow`) è su **due righe** ("Stima tempo di percorrenza: …" / distanza · D±); uscita col tasto **"chiudi"** (stesso stile di "cambia intervallo"), a destra centrato in verticale. Test: `test/features/profile_range_test.dart`
   (`beginFull`, `moveHandle` clamp/non-scavalco).
 - [x] **C2 — risultato** — `_HikingRangeRow`: "Tratto: circa <tempo> · <dist> · ↗X ↘Y m"
   con la × per tornare al totale. Query transitoria, **non** persistita. La riga del tempo
