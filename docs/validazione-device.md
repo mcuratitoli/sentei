@@ -91,10 +91,16 @@
   su un iPhone fisico verificare che la quota compaia quando l'accuratezza verticale è
   ≤ 25 m, il trattino + spiegazione altrimenti; accuratezza orizzontale che si aggiorna;
   copia coordinate; posizione della card rispetto a scale bar / logo Mapbox / bottoni.
-- [ ] **Difficoltà CAI sullo stile della linea** (P1.B, 31 ago 2026, `docs/CHANGELOG-DEV.md`)
-  — mai vista da vicino (i tap sintetici non fanno zoom): tarare i valori di `caiScaleDash`
-  a vari livelli di zoom, leggibilità dei "punti" EE, se serve la resa EEA a crocette vere
-  (sprite/`SymbolLayer`) invece del dash-punto di ripiego.
+- [ ] **Tratteggio della linea per difficoltà CAI** (P1.B, 31 ago → 1 set 2026,
+  `docs/CHANGELOG-DEV.md`) — **da testare sul telefono fisico al prossimo rilascio.** Reso
+  rifatto il 1 set: tracce salvate come `LineLayer` su sorgente GeoJSON (il
+  `PolylineAnnotationManager` rendeva il `line-dasharray` sgranato), niente casing bianco.
+  Verificato **solo sul simulatore** (traccia "Alagna: Otro, Bivacco Ravelli"): tratteggio
+  netto, E/EE/EEA distinguibili, segue le curve, dash ravvicinati (E `[3,1.2]`, EE
+  `[1.5,1]`, EEA `[3,1,1,1]`). Su device: lunghezza/spessore dei trattini ai vari zoom
+  (specie zoom-out), leggibilità del pattern EE vs E, contrasto colore-traccia su terreno
+  reale, resa sui tornanti stretti; valutare se la resa EEA vuole le crocette vere
+  (rimandata). Card traccia: un badge per **ogni** grado presente + `EEA:F` gestito.
 - [ ] **Tempo di un tratto scelto sul profilo** (P1.C2, 30 ago 2026) — i tap sintetici sul
   simulatore cadono sempre al centro del grafico (press AX, non a coordinate): l'intervallo
   reale — due punti distinti, tempo/distanza/D+/D- del tratto — va provato su device.
